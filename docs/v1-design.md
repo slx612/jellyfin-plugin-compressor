@@ -1,7 +1,7 @@
 # Diseño de Jellyfin Compressor v1
 
 Fecha: 2026-09-22. Destino confirmado: Jellyfin 10.11.6.
-Estado: diseño listo para revisión, previo a implementación.
+Estado: diseño aprobado por el usuario el 2026-09-22; implementación pendiente.
 
 ## Objetivo y distribución
 

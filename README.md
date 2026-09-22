@@ -17,6 +17,8 @@ Estado: preparación de la v1. Todavía no hay una versión instalable propia.
   muevan o se borre el original de cuarentena.
 
 El [diseño de la v1](docs/v1-design.md) concreta el comportamiento previsto.
+El [plan de implementación](docs/superpowers/plans/2026-09-22-jellyfin-compressor-v1.md)
+divide la entrega en cambios verificables.
 
 ## Base técnica prevista
 
