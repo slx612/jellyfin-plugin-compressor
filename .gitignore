@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+artifacts/
+.vs/
+.env
+*.user
+*.suo
+*.log
+TestResults/
+*.mp4
+*.mkv
+*.sqlite*
