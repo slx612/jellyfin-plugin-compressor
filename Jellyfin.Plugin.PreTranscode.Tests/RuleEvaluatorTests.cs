@@ -1,0 +1,311 @@
+using System.Collections.Generic;
+using Jellyfin.Plugin.PreTranscode.Configuration;
+using Jellyfin.Plugin.PreTranscode.Media;
+using Jellyfin.Plugin.PreTranscode.Rules;
+
+namespace Jellyfin.Plugin.PreTranscode.Tests;
+
+public class RuleEvaluatorTests
+{
+    private static MediaProbeInfo Info(
+        string videoCodec = "h264", int width = 1920, int height = 1080,
+        string audioCodec = "aac", int channels = 2, string container = "mp4",
+        bool hdr = false, int videoBitrateKbps = 5000)
+    {
+        return new MediaProbeInfo
+        {
+            VideoCodec = videoCodec, Width = width, Height = height,
+            AudioCodec = audioCodec, AudioChannels = channels, Container = container,
+            IsHdr = hdr, VideoBitrateKbps = videoBitrateKbps
+        };
+    }
+
+    private static RuleCondition Cond(ConditionType t, ComparisonOperator op, string value = "")
+    {
+        return new RuleCondition { Type = t, Operator = op, Value = value };
+    }
+
+    [Theory]
+    [InlineData("hevc", ComparisonOperator.Equals, "hevc", true)]
+    [InlineData("hevc", ComparisonOperator.Equals, "h264", false)]
+    [InlineData("hevc", ComparisonOperator.NotEquals, "h264", true)]
+    [InlineData("hevc", ComparisonOperator.In, "h264,hevc,av1", true)]
+    [InlineData("hevc", ComparisonOperator.NotIn, "h264,av1", true)]
+    [InlineData("HEVC", ComparisonOperator.Equals, "hevc", true)] // case-insensitive
+    public void StringCondition_Works(string actual, ComparisonOperator op, string value, bool expected)
+    {
+        var info = Info(videoCodec: actual);
+        Assert.Equal(expected, RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoCodec, op, value), info));
+    }
+
+    [Theory]
+    [InlineData(ComparisonOperator.Equals)]
+    [InlineData(ComparisonOperator.NotEquals)]
+    [InlineData(ComparisonOperator.In)]
+    [InlineData(ComparisonOperator.NotIn)]
+    public void StringCondition_EmptyValue_NeverMatches(ComparisonOperator op)
+    {
+        // A half-configured condition (operator chosen, value not yet typed) must not act as a filter.
+        // Before the guard, NotEquals/NotIn against an empty value matched every file and queued the
+        // whole library.
+        var info = Info(videoCodec: "hevc");
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoCodec, op, string.Empty), info));
+    }
+
+    [Theory]
+    [InlineData(2160, ComparisonOperator.GreaterThan, "1080", true)]
+    [InlineData(720, ComparisonOperator.GreaterThan, "1080", false)]
+    [InlineData(1080, ComparisonOperator.GreaterThanOrEqual, "1080", true)]
+    [InlineData(720, ComparisonOperator.LessThan, "1080", true)]
+    public void NumericCondition_Works(int height, ComparisonOperator op, string value, bool expected)
+    {
+        var info = Info(height: height);
+        Assert.Equal(expected, RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoHeight, op, value), info));
+    }
+
+    [Theory]
+    [InlineData(ComparisonOperator.LessThan, "3000")]
+    [InlineData(ComparisonOperator.LessThanOrEqual, "3000")]
+    [InlineData(ComparisonOperator.GreaterThan, "3000")]
+    [InlineData(ComparisonOperator.Equals, "0")]
+    [InlineData(ComparisonOperator.NotEquals, "3000")]
+    [InlineData(ComparisonOperator.NotIn, "128,256")]
+    public void NumericCondition_UnknownValue_NeverMatchesThreshold(ComparisonOperator op, string value)
+    {
+        // Matroska reports no per-stream video bitrate, so VideoBitrateKbps is 0 (unknown). An unknown
+        // value must not satisfy any threshold comparison — otherwise "LessThan 3000" would match every
+        // mkv. Only NotExists can test for the absence.
+        var info = Info(videoBitrateKbps: 0);
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoBitrateKbps, op, value), info));
+    }
+
+    [Fact]
+    public void NumericCondition_UnknownValue_NotExistsMatches()
+    {
+        var info = Info(videoBitrateKbps: 0);
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoBitrateKbps, ComparisonOperator.NotExists), info));
+    }
+
+    [Theory]
+    [InlineData(ComparisonOperator.NotIn, "")]
+    [InlineData(ComparisonOperator.NotIn, "abc")]
+    [InlineData(ComparisonOperator.In, "")]
+    [InlineData(ComparisonOperator.In, "abc")]
+    public void NumericCondition_InOrNotIn_EmptyOrUnparseableValue_NeverMatches(ComparisonOperator op, string value)
+    {
+        // A half-configured In/NotIn (operator chosen, no valid numbers typed) must not act as a filter.
+        // Before the guard a numeric NotIn against an empty/unparseable value matched every file that had
+        // the field, queueing the whole library. VideoHeight is present (1080) here — the field is known,
+        // only the condition's value is missing — so this is distinct from the unknown-field guard above.
+        var info = Info(height: 1080);
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoHeight, op, value), info));
+    }
+
+    [Fact]
+    public void StringCondition_UnknownActual_ValueOperatorsNeverMatch()
+    {
+        // A file whose field is absent (e.g. no audio/video codec probed) must not satisfy a value
+        // comparison; only Exists/NotExists can test its presence. Before the guard "VideoCodec NotEquals
+        // h264" matched a file whose codec came back empty, queueing it.
+        var info = Info(videoCodec: string.Empty);
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoCodec, ComparisonOperator.NotEquals, "h264"), info));
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoCodec, ComparisonOperator.NotIn, "h264,hevc"), info));
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoCodec, ComparisonOperator.NotExists), info));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void BooleanCondition_EmptyValue_NeverMatches(bool hdr)
+    {
+        // A half-configured boolean condition (operator chosen, value not typed) must not act as a filter.
+        var info = Info(hdr: hdr);
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.IsHdr, ComparisonOperator.Equals, string.Empty), info));
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.IsHdr, ComparisonOperator.NotEquals, string.Empty), info));
+    }
+
+    [Fact]
+    public void BooleanCondition_HdrExists()
+    {
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.IsHdr, ComparisonOperator.Exists), Info(hdr: true)));
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.IsHdr, ComparisonOperator.Exists), Info(hdr: false)));
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.IsHdr, ComparisonOperator.NotExists), Info(hdr: false)));
+    }
+
+    [Fact]
+    public void RuleCombine_AllRequiresEveryCondition()
+    {
+        var rule = new TriggerRule
+        {
+            Enabled = true, Combine = ConditionCombine.All,
+            Conditions = new List<RuleCondition>
+            {
+                Cond(ConditionType.VideoCodec, ComparisonOperator.Equals, "hevc"),
+                Cond(ConditionType.VideoHeight, ComparisonOperator.GreaterThan, "1080")
+            }
+        };
+        Assert.True(RuleEvaluator.EvaluateRule(rule, Info(videoCodec: "hevc", height: 2160)));
+        Assert.False(RuleEvaluator.EvaluateRule(rule, Info(videoCodec: "hevc", height: 720)));
+    }
+
+    [Fact]
+    public void RuleCombine_AnyRequiresOneCondition()
+    {
+        var rule = new TriggerRule
+        {
+            Enabled = true, Combine = ConditionCombine.Any,
+            Conditions = new List<RuleCondition>
+            {
+                Cond(ConditionType.VideoCodec, ComparisonOperator.Equals, "hevc"),
+                Cond(ConditionType.AudioChannels, ComparisonOperator.GreaterThan, "2")
+            }
+        };
+        Assert.True(RuleEvaluator.EvaluateRule(rule, Info(videoCodec: "h264", channels: 6)));
+        Assert.False(RuleEvaluator.EvaluateRule(rule, Info(videoCodec: "h264", channels: 2)));
+    }
+
+    [Fact]
+    public void ShouldProcess_IgnoresDisabledRules_OrsAcrossRules()
+    {
+        var disabled = new TriggerRule { Enabled = false, Combine = ConditionCombine.All, Conditions = new List<RuleCondition> { Cond(ConditionType.VideoCodec, ComparisonOperator.Equals, "h264") } };
+        var enabled = new TriggerRule { Enabled = true, Combine = ConditionCombine.All, Conditions = new List<RuleCondition> { Cond(ConditionType.VideoHeight, ComparisonOperator.GreaterThan, "1080") } };
+        var rules = new[] { disabled, enabled };
+
+        Assert.True(RuleEvaluator.ShouldProcess(rules, Info(videoCodec: "h264", height: 2160)));
+        Assert.False(RuleEvaluator.ShouldProcess(rules, Info(videoCodec: "h264", height: 720)));
+    }
+
+    [Theory]
+    [InlineData(1500, ComparisonOperator.LessThan, "30", true)]    // 25 min < 30
+    [InlineData(2400, ComparisonOperator.LessThan, "30", false)]   // 40 min not < 30
+    [InlineData(7800, ComparisonOperator.GreaterThan, "120", true)] // 130 min > 120
+    [InlineData(3600, ComparisonOperator.GreaterThan, "120", false)] // 60 min not > 120
+    [InlineData(1800, ComparisonOperator.Equals, "30", true)]      // exactly 30 min
+    public void DurationCondition_ComparesInMinutes(double durationSeconds, ComparisonOperator op, string value, bool expected)
+    {
+        var info = new MediaProbeInfo { DurationSeconds = durationSeconds };
+        Assert.Equal(expected, RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoDurationMinutes, op, value), info));
+    }
+
+    [Fact]
+    public void DurationCondition_UnknownDuration_NeverMatchesThreshold()
+    {
+        // An unreadable/zero duration must not satisfy any threshold — mirrors the other numeric guards.
+        var info = new MediaProbeInfo { DurationSeconds = 0 };
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoDurationMinutes, ComparisonOperator.LessThan, "30"), info));
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.VideoDurationMinutes, ComparisonOperator.NotExists), info));
+    }
+
+    [Fact]
+    public void DurationAndFileSize_CombineForLengthAwareTargeting()
+    {
+        // The scenario from the feature request: short clips over 350 MB should be targeted, so the file
+        // size threshold can be scaled by length instead of a single blanket size.
+        var rule = new TriggerRule
+        {
+            Enabled = true, Combine = ConditionCombine.All,
+            Conditions = new List<RuleCondition>
+            {
+                Cond(ConditionType.VideoDurationMinutes, ComparisonOperator.LessThan, "30"),
+                Cond(ConditionType.FileSizeMb, ComparisonOperator.GreaterThan, "350")
+            }
+        };
+        var shortAndBig = new MediaProbeInfo { DurationSeconds = 1200, FileSizeBytes = 400L * 1024 * 1024 };   // 20 min, 400 MB
+        var shortAndSmall = new MediaProbeInfo { DurationSeconds = 1200, FileSizeBytes = 200L * 1024 * 1024 }; // 20 min, 200 MB
+        var longAndBig = new MediaProbeInfo { DurationSeconds = 7200, FileSizeBytes = 400L * 1024 * 1024 };    // 120 min, 400 MB
+        Assert.True(RuleEvaluator.EvaluateRule(rule, shortAndBig));
+        Assert.False(RuleEvaluator.EvaluateRule(rule, shortAndSmall));
+        Assert.False(RuleEvaluator.EvaluateRule(rule, longAndBig));
+    }
+
+    // ffprobe names a container after its demuxer, so an mkv reports "matroska,webm" and an mp4 reports
+    // "mov,mp4,m4a,3gp,3g2,mj2" — while the UI tells the admin to type "mkv". Comparing those literally
+    // meant Equals matched nothing, and the negating operators turned that into the opposite failure:
+    // "not mp4" was true for every mp4, so a rule written to catch what is not yet mp4 queued everything.
+    [Fact]
+    public void ContainerCondition_UnderstandsWhatFfprobeActuallyReports()
+    {
+        var mkv = Info(container: "matroska,webm");
+        var mp4 = Info(container: "mov,mp4,m4a,3gp,3g2,mj2");
+
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.Container, ComparisonOperator.Equals, "mkv"), mkv));
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.Container, ComparisonOperator.Equals, "matroska"), mkv));
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.Container, ComparisonOperator.Equals, "mp4"), mp4));
+
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.Container, ComparisonOperator.NotEquals, "mp4"), mp4));
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.Container, ComparisonOperator.NotEquals, "mp4"), mkv));
+
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.Container, ComparisonOperator.In, "mkv,avi"), mkv));
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.Container, ComparisonOperator.NotIn, "mkv,avi"), mkv));
+    }
+
+    // An unfinished condition is still not a filter.
+    [Fact]
+    public void ContainerCondition_WithNoValue_MatchesNothing()
+    {
+        var mkv = Info(container: "matroska,webm");
+
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.Container, ComparisonOperator.Equals), mkv));
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.Container, ComparisonOperator.NotEquals), mkv));
+    }
+
+    // The scalar audio fields are copied from the FIRST stream, so every audio condition only ever saw
+    // track one. On a remux whose commentary is muxed ahead of the main track — routine — both of these
+    // answered about the 2-channel commentary and the file was never queued.
+    [Fact]
+    public void AudioConditions_AnswerAboutTheFileNotTheFirstTrack()
+    {
+        var info = Info(audioCodec: "aac", channels: 2);
+        info.AudioStreams = new List<AudioStreamInfo>
+        {
+            new AudioStreamInfo { Codec = "aac", Channels = 2 },
+            new AudioStreamInfo { Codec = "truehd", Channels = 8 }
+        };
+
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.AudioCodec, ComparisonOperator.Equals, "truehd"), info));
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.AudioChannels, ComparisonOperator.GreaterThan, "2"), info));
+    }
+
+    // A negating operator asks about the file too: "no track is truehd", not "some track isn't".
+    [Fact]
+    public void NegatedAudioConditions_MeanNoTrackIsLikeThis()
+    {
+        var info = Info();
+        info.AudioStreams = new List<AudioStreamInfo>
+        {
+            new AudioStreamInfo { Codec = "aac", Channels = 2 },
+            new AudioStreamInfo { Codec = "truehd", Channels = 8 }
+        };
+
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.AudioCodec, ComparisonOperator.NotEquals, "truehd"), info));
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.AudioCodec, ComparisonOperator.NotEquals, "dts"), info));
+    }
+
+    // A silent file must not satisfy "no track is aac" by having no tracks at all — All() over an empty
+    // sequence is vacuously true, which is exactly the trap the scalar fallback avoids.
+    [Fact]
+    public void FileWithNoAudio_StillMatchesNothing()
+    {
+        var silent = Info(audioCodec: string.Empty, channels: 0);
+
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.AudioCodec, ComparisonOperator.NotEquals, "aac"), silent));
+        Assert.False(RuleEvaluator.EvaluateCondition(Cond(ConditionType.AudioChannels, ComparisonOperator.LessThan, "6"), silent));
+        Assert.True(RuleEvaluator.EvaluateCondition(Cond(ConditionType.AudioCodec, ComparisonOperator.NotExists), silent));
+    }
+
+    // The explain log has to show every track too, or "actual: 2 => FAIL" on a file that also carries a
+    // 5.1 track is simply a lie.
+    [Fact]
+    public void ExplainLog_ShowsEveryAudioTrack()
+    {
+        var info = Info();
+        info.AudioStreams = new List<AudioStreamInfo>
+        {
+            new AudioStreamInfo { Codec = "aac", Channels = 2 },
+            new AudioStreamInfo { Codec = "truehd", Channels = 8 }
+        };
+
+        Assert.Equal("aac, truehd", RuleEvaluator.ActualValue(ConditionType.AudioCodec, info));
+        Assert.Equal("2, 8", RuleEvaluator.ActualValue(ConditionType.AudioChannels, info));
+    }
+}
