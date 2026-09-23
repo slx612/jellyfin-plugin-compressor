@@ -97,3 +97,7 @@ servicio comprueban orden de eliminación, archivos ajenos, bloqueo por actualiz
 pendiente, reducción del límite sin nuevas compresiones y limpieza después de
 verificar la restauración. **La ampliación aún no se ha ejecutado dentro de un
 servidor Jellyfin ni en el NAS.**
+
+La política de control de aplicaciones de este Windows impide cargar la DLL nueva
+en el proceso de pruebas local, aunque su compilación y el empaquetado finalizan
+correctamente. La ejecución de la batería ampliada se comprueba en la CI de Linux.

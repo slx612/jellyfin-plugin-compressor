@@ -37,7 +37,10 @@ public sealed class CompressionCoordinator
     public bool MayPublish(TranscodeJob job)
     {
         var config = Config;
-        return CompressionPolicy.CanRun(job, config) && !config.QueuePaused && ProcessingWindow.IsOpen(config, DateTime.Now)
+        return CompressionPolicy.CanRun(job, config) && job.Snapshot is { } snapshot
+            && !string.IsNullOrWhiteSpace(config.QuarantineDirectory)
+            && FolderPolicy.SameFolder(config.QuarantineDirectory, snapshot.QuarantineRoot)
+            && !config.QueuePaused && ProcessingWindow.IsOpen(config, DateTime.Now)
             && FolderPolicy.Evaluate(job.SourcePath, config, Roots()).Allowed && !IsPlaying(job.SourcePath, job.ItemId)
             && library.GetItemById(Guid.Parse(job.ItemId)) is Movie item && string.Equals(item.Path, job.SourcePath, FolderPolicy.Comparison);
     }

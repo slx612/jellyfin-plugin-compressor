@@ -162,7 +162,7 @@ public sealed class CompressorQuotaTests : IDisposable
         await File.WriteAllTextAsync(request.SourcePath, "changed after restoration");
         await service.RefreshPendingAsync((_, _) => Task.CompletedTask, default);
         Assert.True(File.Exists(published.OriginalPath));
-        Assert.Contains("verificación", Assert.Single(service.List()).RetentionStatus);
+        Assert.Contains("aplazada", Assert.Single(service.List()).RetentionStatus);
     }
 
     [Fact]
@@ -185,6 +185,33 @@ public sealed class CompressorQuotaTests : IDisposable
         await service.RefreshPendingAsync((_, _) => Task.CompletedTask, default);
         Assert.False(File.Exists(firstResult.OriginalPath));
         Assert.False(File.Exists(legacy));
+    }
+
+    [Fact]
+    public async Task TemporarilyUnreadableRestoredMovieDefersOnlyItsCleanup()
+    {
+        var first = await Request(22, refreshPending: true);
+        var second = await Request(23, refreshPending: true);
+        var firstResult = await service.PublishAsync(first, default);
+        var secondResult = await service.PublishAsync(second, default);
+        await service.RestoreAsync(first.Id, default);
+        await service.RestoreAsync(second.Id, default);
+        using (var locked = new FileStream(first.SourcePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            await service.RefreshPendingAsync((_, _) => Task.CompletedTask, default);
+            Assert.True(File.Exists(firstResult.OriginalPath));
+            Assert.False(File.Exists(secondResult.OriginalPath));
+            Assert.Contains("aplazada", service.List().Single(r => r.Request.Id == first.Id).RetentionStatus);
+        }
+        await service.RefreshPendingAsync((_, _) => Task.CompletedTask, default);
+        Assert.False(File.Exists(firstResult.OriginalPath));
+    }
+
+    [Fact]
+    public void FolderComparisonAcceptsEquivalentPathsButRejectsChangedDestination()
+    {
+        Assert.True(FolderPolicy.SameFolder(originals, originals + Path.DirectorySeparatorChar));
+        Assert.False(FolderPolicy.SameFolder(originals, movies));
     }
 
     [Fact]

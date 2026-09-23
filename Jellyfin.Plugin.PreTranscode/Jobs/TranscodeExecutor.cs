@@ -117,6 +117,12 @@ internal sealed class TranscodeExecutor
             }
             else if (await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false) != job.VerifiedOutputIdentity)
                 throw new IOException("El temporal verificado cambió.");
+            if (!FolderPolicy.SameFolder(CompressionCoordinator.Config.QuarantineDirectory, snapshot.QuarantineRoot))
+            {
+                TryDelete(temp);
+                Finish(job, JobStatus.Skipped, "La carpeta de originales cambió; vuelve a analizar la película.");
+                return;
+            }
             if (!coordinator.MayPublish(job)) { Hold(job, "Comprimida y verificada; esperando para sustituir."); return; }
             Detail(job, "Guardando el original y sustituyendo");
             monitor.ReportFileSystemChangeBeginning(job.SourcePath);

@@ -88,7 +88,8 @@ la carpeta seleccionada; reducirlo también inicia una limpieza automática. Por
 seguridad se incluyen todos los archivos al calcular el tamaño, pero solo se
 borran originales de transacciones conocidas y verificadas. Cambiar la ruta de la
 carpeta no mueve automáticamente los originales que ya estaban en la anterior;
-estos conservan su vencimiento.
+estos conservan su vencimiento. Si cambias el destino durante una codificación,
+el trabajo se omite antes de sustituir el archivo; vuelve a analizar la película.
 
 Durante la retención, **Restaurar original** recupera el archivo si la película no
 se está reproduciendo y ningún contenido ajeno ocupa su lugar. Tras verificar el

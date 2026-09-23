@@ -104,9 +104,6 @@ public sealed class ReplacementService
         }
         return total;
     }
-    private static bool SameFolder(string left, string right) => string.Equals(
-        Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
-        Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)), FolderPolicy.Comparison);
     private async Task<int> EnforceQuotaLockedAsync(string root, long maxBytes, long incomingBytes, CancellationToken token)
     {
         if (maxBytes == 0) return 0;
@@ -116,7 +113,7 @@ public sealed class ReplacementService
         var used = UsedBytes(root);
         if (used <= target) return 0;
         var selected = new List<ReplacementRecord>();
-        foreach (var record in List().Where(r => SameFolder(r.Request.QuarantineRoot, root)
+        foreach (var record in List().Where(r => FolderPolicy.SameFolder(r.Request.QuarantineRoot, root)
                      && r.Phase is ReplacementPhase.Completed or ReplacementPhase.Purging)
                  .OrderBy(r => r.CompletedUtc).ThenBy(r => r.Request.Id, StringComparer.Ordinal))
         {
@@ -281,30 +278,30 @@ public sealed class ReplacementService
     {
         var compressedBackup = record.OriginalPath + ".compressed";
         if (!File.Exists(record.OriginalPath) && !File.Exists(compressedBackup)) return;
-        if (!File.Exists(record.Request.SourcePath)
-            || await ContentRegistry.IdentifyAsync(record.Request.SourcePath, token).ConfigureAwait(false) != record.Request.Source)
-        {
-            record.RetentionStatus = "Limpieza de restauración aplazada: falta verificar el original restaurado en la biblioteca.";
-            Save(record);
-            return;
-        }
+        string? deferred = null;
         try
         {
-            if ((File.Exists(record.OriginalPath)
+            if (!File.Exists(record.Request.SourcePath)
+                || await ContentRegistry.IdentifyAsync(record.Request.SourcePath, token).ConfigureAwait(false) != record.Request.Source)
+                deferred = "Limpieza de restauración aplazada: falta verificar el original restaurado en la biblioteca.";
+            else if ((File.Exists(record.OriginalPath)
                     && await ContentRegistry.IdentifyAsync(record.OriginalPath, token).ConfigureAwait(false) != record.Request.Source)
                 || (File.Exists(compressedBackup)
                     && await ContentRegistry.IdentifyAsync(compressedBackup, token).ConfigureAwait(false) != record.Request.Output))
+                deferred = "Limpieza de restauración aplazada: una copia de cuarentena no coincide con el registro.";
+            else
             {
-                record.RetentionStatus = "Limpieza de restauración aplazada: una copia de cuarentena no coincide con el registro.";
-                Save(record);
-                return;
+                if (File.Exists(record.OriginalPath)) File.Delete(record.OriginalPath);
+                if (File.Exists(compressedBackup)) File.Delete(compressedBackup);
             }
-            if (File.Exists(record.OriginalPath)) File.Delete(record.OriginalPath);
-            if (File.Exists(compressedBackup)) File.Delete(compressedBackup);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
-            record.RetentionStatus = "Limpieza de restauración aplazada: " + ex.Message;
+            deferred = "Limpieza de restauración aplazada: " + ex.Message;
+        }
+        if (deferred is not null)
+        {
+            record.RetentionStatus = deferred;
             Save(record);
             return;
         }

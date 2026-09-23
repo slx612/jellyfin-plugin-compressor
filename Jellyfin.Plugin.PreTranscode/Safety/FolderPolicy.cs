@@ -12,6 +12,10 @@ public static class FolderPolicy
 {
     public static StringComparison Comparison => OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
+    public static bool SameFolder(string left, string right) => string.Equals(
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)), Comparison);
+
     public static bool Contains(string root, string path)
     {
         var parent = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
