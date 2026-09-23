@@ -160,4 +160,36 @@ public sealed class CompressorSafetyTests : IDisposable
     }
 
     public void Dispose() => Directory.Delete(root, true);
+
+    [Fact]
+    public async Task JellyfinRefreshIntentSurvivesRestartAndBlocksExpiryUntilAcknowledged()
+    {
+        var (service, registry, request) = await Prepare();
+        request = request with { ItemId = Guid.NewGuid().ToString("N"), ItemDateCreated = new DateTime(2019, 1, 1) };
+        await service.PublishAsync(request, default);
+        Assert.True(Assert.Single(service.List()).LibraryRefreshPending);
+        Assert.Equal(0, await service.PurgeExpiredAsync(DateTimeOffset.UtcNow.AddDays(8), default));
+        var restarted = new ReplacementService(Folder("Transactions"), registry);
+        await Assert.ThrowsAsync<IOException>(() => restarted.RefreshPendingAsync((_, _) => throw new IOException("Jellyfin temporarily unavailable"), default));
+        Assert.True(Assert.Single(restarted.List()).LibraryRefreshPending);
+        var calls = 0;
+        await restarted.RefreshPendingAsync((record, _) => { Assert.Equal(request.ItemId, record.Request.ItemId); calls++; return Task.CompletedTask; }, default);
+        Assert.Equal(1, calls);
+        Assert.False(Assert.Single(restarted.List()).LibraryRefreshPending);
+        Assert.Equal(1, await restarted.PurgeExpiredAsync(DateTimeOffset.UtcNow.AddDays(8), default));
+    }
+
+    [Fact]
+    public void TemporaryCleanupKeepsActiveJobsAndUnknownFiles()
+    {
+        var temp = Folder("Temp");
+        var activeId = Guid.NewGuid().ToString("N");
+        var finishedId = Guid.NewGuid().ToString("N");
+        var active = Path.Combine(temp, activeId + ".mkv");
+        var finished = Path.Combine(temp, finishedId + ".mkv");
+        var unknown = Path.Combine(temp, "unrelated.mkv");
+        File.WriteAllText(active, "active"); File.WriteAllText(finished, "finished"); File.WriteAllText(unknown, "unknown");
+        TemporaryFiles.Clean(temp, new[] { new Jellyfin.Plugin.PreTranscode.Jobs.TranscodeJob { Id = activeId } });
+        Assert.True(File.Exists(active)); Assert.False(File.Exists(finished)); Assert.True(File.Exists(unknown));
+    }
 }

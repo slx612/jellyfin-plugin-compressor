@@ -42,6 +42,7 @@ public class PreTranscodeController : ControllerBase
             if (config.Profiles.Count != 1) throw new InvalidOperationException("La v1 usa un único perfil.");
             CompressionPolicy.EffectiveProfile(config.Profiles[0], "validation.mkv");
             config.MaxConcurrentJobs = 1;
+            config.QueuePaused = queue.IsPaused;
             config.FileStabilitySeconds = Math.Max(60, config.FileStabilitySeconds);
             Plugin.Instance!.UpdateConfiguration(config);
             return Ok(config);
@@ -124,7 +125,8 @@ public class PreTranscodeController : ControllerBase
         try
         {
             await replacement.RestoreAsync(id, token, () => !coordinator.IsPlaying(path, item.Id.ToString("N"))).ConfigureAwait(false);
-            await updater.RefreshSameItemAsync(item.Id.ToString("N"), path, dateCreated, CancellationToken.None).ConfigureAwait(false);
+            await replacement.RefreshPendingAsync((r, ct) => updater.RefreshSameItemAsync(r.Request.ItemId!, r.Request.SourcePath,
+                r.Request.ItemDateCreated ?? dateCreated, ct), CancellationToken.None).ConfigureAwait(false);
             return Ok();
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException) { return BadRequest(new { Message = ex.Message }); }

@@ -249,7 +249,9 @@ internal sealed partial class MediaProber : IMediaProber
                 ? string.Join("+", disposition.EnumerateObject().Where(d => d.Value.GetInt32() != 0).Select(d => d.Name).OrderBy(n => n, StringComparer.Ordinal)) : "";
             dispositions.Add(flags.Length == 0 ? "0" : flags);
             if (type == "video") { info.VideoStreamCount++; info.HasAttachedPicture |= IsAttachedPic(stream); }
-            if (type == "data") info.HasDataStream = true;
+            // MP4 stores QuickTime chapters as a text data track. FFmpeg recreates it from chapters.
+            if (type == "data" && !(GetString(stream, "codec_name") == "bin_data" && GetString(stream, "codec_tag_string") == "text"
+                && root.TryGetProperty("chapters", out var chapterArray) && chapterArray.GetArrayLength() > 0)) info.HasDataStream = true;
             if (type is "audio" or "subtitle" or "attachment")
             {
                 var language = GetLanguage(stream);

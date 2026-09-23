@@ -10,7 +10,8 @@ namespace Jellyfin.Plugin.PreTranscode.Safety;
 
 public enum ReplacementPhase { Prepared, BackupVerified, Publishing, Completed, Purging, Purged, Restoring, Restored, Aborted }
 public sealed record ReplacementRequest(string Id, string SourcePath, string VerifiedOutputPath, string LibraryRoot,
-    string QuarantineRoot, int RetentionDays, string ProfileKey, ContentIdentity Source, ContentIdentity Output);
+    string QuarantineRoot, int RetentionDays, string ProfileKey, ContentIdentity Source, ContentIdentity Output,
+    string? ItemId = null, DateTime? ItemDateCreated = null);
 public sealed record ReplacementResult(string Id, string FinalPath, string OriginalPath);
 public sealed class ReplacementRecord
 {
@@ -22,6 +23,8 @@ public sealed class ReplacementRecord
     public ReplacementPhase Phase { get; set; }
     public DateTimeOffset? CompletedUtc { get; set; }
     public DateTimeOffset? ExpiresUtc { get; set; }
+    public bool LibraryRefreshPending { get; set; }
+    public string RetentionStatus { get; set; } = "";
 }
 
 // One lock owns publication, recovery, expiry and restore: these operations must never overlap.
@@ -94,6 +97,7 @@ public sealed class ReplacementService
         record.CompletedUtc ??= DateTimeOffset.UtcNow;
         record.ExpiresUtc ??= record.CompletedUtc.Value.AddDays(r.RetentionDays);
         record.Phase = ReplacementPhase.Completed;
+        record.LibraryRefreshPending = r.ItemId is not null;
         Save(record);
     }
     public async Task<ReplacementResult> PublishAsync(ReplacementRequest request, CancellationToken token, Func<bool>? mayPublish = null)
@@ -157,7 +161,7 @@ public sealed class ReplacementService
                 else if (r.Phase == ReplacementPhase.Restoring)
                 {
                     var current = await ContentRegistry.IdentifyAsync(q.SourcePath, token).ConfigureAwait(false);
-                    if (current == q.Source) { r.Phase = ReplacementPhase.Restored; Save(r); registry.UpdateLocation(q.Source.Sha256, q.SourcePath); }
+                    if (current == q.Source) { r.Phase = ReplacementPhase.Restored; r.LibraryRefreshPending = q.ItemId is not null; Save(r); registry.UpdateLocation(q.Source.Sha256, q.SourcePath); }
                     else if (current == q.Output) { r.Phase = ReplacementPhase.Completed; Save(r); if (File.Exists(r.StagedPath)) File.Delete(r.StagedPath); }
                     else throw new IOException("Restauración interrumpida con contenido desconocido.");
                 }
@@ -175,6 +179,20 @@ public sealed class ReplacementService
         }
         return false;
     }
+    public async Task RefreshPendingAsync(Func<ReplacementRecord, CancellationToken, Task> refresh, CancellationToken token)
+    {
+        await gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            foreach (var record in List().Where(r => r.LibraryRefreshPending && r.Phase is ReplacementPhase.Completed or ReplacementPhase.Restored))
+            {
+                await refresh(record, token).ConfigureAwait(false);
+                record.LibraryRefreshPending = false;
+                Save(record);
+            }
+        }
+        finally { gate.Release(); }
+    }
     public async Task<int> PurgeExpiredAsync(DateTimeOffset now, CancellationToken token)
     {
         await gate.WaitAsync(token).ConfigureAwait(false);
@@ -183,7 +201,12 @@ public sealed class ReplacementService
             var count = 0;
             foreach (var r in List().Where(r => r.Phase is ReplacementPhase.Completed or ReplacementPhase.Purging && r.ExpiresUtc <= now))
             {
-                if (!File.Exists(r.OriginalPath) || !await OutputExists(r, token).ConfigureAwait(false)) continue;
+                if (r.LibraryRefreshPending || !File.Exists(r.OriginalPath) || !await OutputExists(r, token).ConfigureAwait(false))
+                {
+                    r.RetentionStatus = "Limpieza aplazada: actualización de Jellyfin pendiente o no se puede verificar la pareja original/comprimido.";
+                    Save(r);
+                    continue;
+                }
                 await Require(r.OriginalPath, r.Request.Source, token).ConfigureAwait(false);
                 r.Phase = ReplacementPhase.Purging;
                 Save(r);
@@ -220,6 +243,7 @@ public sealed class ReplacementService
             registry.UpdateLocation(q.Source.Sha256, q.SourcePath);
             registry.UpdateLocation(q.Output.Sha256, compressedBackup);
             r.Phase = ReplacementPhase.Restored;
+            r.LibraryRefreshPending = q.ItemId is not null;
             Save(r);
         }
         finally { gate.Release(); }

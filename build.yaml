@@ -1,25 +1,13 @@
 ---
-name: "Pre-Transcode"
-guid: "8da245f6-7244-449b-9f32-46043f34b5f0"
-version: "0.10.0.0"
-targetAbi: "10.11.0.0"
+name: "Jellyfin Compressor"
+guid: "274af2b7-724c-41e9-82e7-56c3e80139c1"
+version: "0.1.0.0"
+targetAbi: "10.11.6.0"
 framework: "net9.0"
-overview: "Pre-transcode media to an admin-defined compatibility baseline."
-description: >
-  Proactively converts library media in the background &mdash; once, ahead of time &mdash;
-  into a format the admin defines as their compatibility baseline. Eliminates repeated
-  live CPU transcoding for the same files on every playback. Every encoding parameter is
-  admin-configurable; nothing is hardcoded. A Jellyfin-native alternative to Tdarr/Unmanic.
+overview: "Compress movies with recoverable originals."
+description: "Private preview. Preserves full paths and keeps a durable record to avoid recompression."
 category: "General"
-# owner: set this to your GitHub username/org before publishing to a plugin repository.
-owner: "mugurc"
+owner: "slx612"
 artifacts:
-- "Jellyfin.Plugin.PreTranscode.dll"
-changelog: >
-  0.6.1.0 - Two requested features. Profiles gain a "Keep original if the transcode is not smaller" option:
-  after an encode is verified, if the new file is not smaller than the source it is discarded and your
-  original is kept untouched &mdash; useful when re-encoding to a more efficient codec that can still produce
-  a bigger file on some content, with no manual per-file size comparison across the library. The source is
-  then remembered as handled, so the automatic sweep does not re-encode it on every run. Also adds a new
-  VideoDurationMinutes trigger-rule condition, so a file-size threshold can be scaled by video length instead
-  of a single blanket size &mdash; e.g. duration under 30 min AND size over 350 MB.
+  - "Jellyfin.Plugin.Compressor.dll"
+changelog: "Initial private preview; automatic compression disabled by default."

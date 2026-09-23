@@ -1,0 +1,29 @@
+name: Build and test
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: "9.0.x"
+      - name: Install FFmpeg for integration tests
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Test against Jellyfin 10.11.6
+        run: dotnet test -c Release --logger "trx;LogFileName=tests.trx"
+      - name: Package preview
+        shell: pwsh
+        run: ./build-plugin.ps1
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: jellyfin-compressor-preview
+          path: |
+            artifacts/*.zip
+            artifacts/*.sha256

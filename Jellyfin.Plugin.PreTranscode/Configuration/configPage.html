@@ -49,7 +49,7 @@
 <section class="jc-card"><h2>Cola e historial</h2><p id="jcQueueState"></p>
 <button type="button" id="jcPause">Pausar</button><button type="button" id="jcResume">Continuar</button><button type="button" id="jcRefresh">Actualizar</button><button type="button" id="jcClear">Limpiar historial terminado</button>
 <small>Limpiar el historial no permite volver a comprimir una película ya procesada.</small><div id="jcJobs" class="jc-scroll"></div></section>
-<section class="jc-card"><h2>Originales recuperables</h2><p>Puedes restaurar durante la retención. Solo se elimina un original vencido si su copia comprimida sigue disponible y coincide con el registro.</p>
+<section class="jc-card"><h2>Originales recuperables</h2><p>Puedes restaurar durante la retención. Tras restaurar, las dos copias de seguridad se conservan sin borrado automático; puedes retirarlas manualmente después de comprobar la película. Solo se elimina un original vencido si su copia comprimida sigue disponible y coincide con el registro.</p>
 <button type="button" id="jcPurge">Limpiar originales vencidos</button><div id="jcOriginals" class="jc-scroll"></div></section>
 <script>
 (function () {
@@ -109,10 +109,10 @@
                 if(status==='Failed'||status==='Cancelled') actions.append(button('Reintentar',function(){return api('Jobs/'+j.Id+'/Retry','POST').then(refresh);}));
                 return [j.DisplayName,j.ErrorMessage || j.StatusDetail || status,Math.round(j.Progress)+' %',actions];
             }));
-            table('jcOriginals',['Película','Estado','Vencimiento','Acciones'],values[1].slice().reverse().slice(0,100).map(function(r) {
+            table('jcOriginals',['Película','Estado','Vencimiento','Acciones'],values[1].slice().sort(function(a,b){return String(b.CompletedUtc||'').localeCompare(String(a.CompletedUtc||''));}).map(function(r) {
                 var phase=enumName(r.Phase,['Prepared','BackupVerified','Publishing','Completed','Purging','Purged','Restoring','Restored','Aborted']),actions=document.createElement('span');
                 if(phase==='Completed') actions.append(button('Restaurar original',function(){return api('Originals/'+r.Request.Id+'/Restore','POST').then(function(){message('Original restaurado.');return refresh();});}));
-                return [r.Request.SourcePath,phase,r.ExpiresUtc ? new Date(r.ExpiresUtc).toLocaleString() : 'Sin vencimiento',actions];
+                return [r.Request.SourcePath,r.RetentionStatus || (r.LibraryRefreshPending ? 'Actualización de Jellyfin pendiente' : phase),r.ExpiresUtc ? new Date(r.ExpiresUtc).toLocaleString() : 'Sin vencimiento',actions];
             }));
         }).finally(function(){loading=false;});
     }

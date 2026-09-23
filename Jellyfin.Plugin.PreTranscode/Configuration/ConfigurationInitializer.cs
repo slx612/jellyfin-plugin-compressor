@@ -10,7 +10,7 @@ namespace Jellyfin.Plugin.PreTranscode.Configuration;
 /// profiles and rules that older builds accumulated (those seeded defaults in the configuration
 /// constructor, which <see cref="System.Xml.Serialization.XmlSerializer"/> then <em>appended to</em>
 /// rather than replaced on every load), and it seeds first-run defaults exactly once. Pure and
-/// idempotent — running it repeatedly on the same config makes no further change.
+/// idempotent â€” running it repeatedly on the same config makes no further change.
 /// </summary>
 internal static class ConfigurationInitializer
 {
@@ -46,7 +46,7 @@ internal static class ConfigurationInitializer
 
         // 2. Seed first-run defaults exactly once. Only fills genuinely-empty collections, so defaults an
         //    admin deleted are never resurrected. Existing (pre-flag) configs already have data here, so
-        //    this seeds nothing for them — it just records that seeding is done.
+        //    this seeds nothing for them â€” it just records that seeding is done.
         if (!config.DefaultsSeeded)
         {
             config.DefaultsSeeded = true;
@@ -72,7 +72,7 @@ internal static class ConfigurationInitializer
             config.Profiles.Add(new EncodingProfile
             {
                 Id = Guid.NewGuid().ToString("N"),
-                Name = "HEVC � conservar resoluci�n y pistas",
+                Name = "HEVC — conservar resolución y pistas",
                 VideoCodec = "hevc", VideoEncoder = "libx265", AudioCodec = "copy",
                 Container = "matroska", OutputMode = OutputHandlingMode.ReplaceInPlace,
                 SkipIfAlreadyCompliant = false, DiscardOutputIfLarger = true

@@ -261,13 +261,7 @@ internal sealed class QueueProcessor : IHostedService, IQueueController, IDispos
         {
             _queue.IsPaused = false;
 
-            // Resuming while the window is shut is an explicit "run now"; it lasts until the window's
-            // next edge. Without it the Resume button would look broken for most of the day.
-            if (!_windowOpen)
-            {
-                _scheduleOverride = true;
-            }
-
+            // Resume honours the saved schedule. Change the schedule explicitly to run outside it.
             ApplyHold();
         }
 

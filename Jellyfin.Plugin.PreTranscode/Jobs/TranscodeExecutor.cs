@@ -45,12 +45,16 @@ internal sealed class TranscodeExecutor
         try
         {
             await replacement.RecoverAsync(token).ConfigureAwait(false);
+            await RefreshPendingAsync(token).ConfigureAwait(false);
             await replacement.PurgeExpiredAsync(DateTimeOffset.UtcNow, token).ConfigureAwait(false);
+            TemporaryFiles.Clean(tempDirectory, queue.GetJobs());
             MaintenanceError = ""; coordinator.MaintenanceError = "";
-            nextMaintenance = DateTime.UtcNow.AddMinutes(30);
+            nextMaintenance = DateTime.UtcNow.AddMinutes(1);
         }
         catch (Exception ex) { MaintenanceError = ex.Message; coordinator.MaintenanceError = ex.Message; throw; }
     }
+    private Task RefreshPendingAsync(CancellationToken token) => replacement.RefreshPendingAsync((r, ct) =>
+        updater.RefreshSameItemAsync(r.Request.ItemId!, r.Request.SourcePath, r.Request.ItemDateCreated!.Value, ct), token);
     public async Task ExecuteAsync(TranscodeJob job, CancellationToken token, Action<Process>? onProcessStarted = null)
     {
         string? temp = null;
@@ -116,9 +120,9 @@ internal sealed class TranscodeExecutor
             try
             {
                 var request = new ReplacementRequest(Guid.NewGuid().ToString("N"), job.SourcePath, temp, snapshot.LibraryRoot,
-                    snapshot.QuarantineRoot, snapshot.RetentionDays, snapshot.ProfileKey, snapshot.Source, job.VerifiedOutputIdentity!);
+                    snapshot.QuarantineRoot, snapshot.RetentionDays, snapshot.ProfileKey, snapshot.Source, job.VerifiedOutputIdentity!, job.ItemId, snapshot.ItemDateCreated);
                 await replacement.PublishAsync(request, token, () => coordinator.MayPublish(job)).ConfigureAwait(false);
-                await updater.RefreshSameItemAsync(job.ItemId, job.SourcePath, snapshot.ItemDateCreated, CancellationToken.None).ConfigureAwait(false);
+                await RefreshPendingAsync(CancellationToken.None).ConfigureAwait(false);
             }
             finally { monitor.ReportFileSystemChangeComplete(job.SourcePath, false); }
             job.OutputPath = job.SourcePath;
