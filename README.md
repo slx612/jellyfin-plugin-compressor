@@ -73,7 +73,8 @@ El panel tiene cuatro pestañas: **Resumen** para analizar y lanzar trabajos man
 **Carpetas** para recorrer bibliotecas y marcar inclusiones o exclusiones, **Ajustes**
 para automatización, originales y calidad, y **Actividad** para cola y restauración.
 Los cambios en carpetas y ajustes se aplican al pulsar **Guardar cambios**. Las
-acciones de Resumen usan la última configuración guardada.
+acciones de Resumen se desactivan mientras haya cambios pendientes, para evitar
+analizar o encolar películas con una selección de carpetas anterior.
 
 El catálogo descarga el ZIP publicado en [Releases](https://github.com/slx612/jellyfin-plugin-compressor/releases).
 Su `checksum` es el MD5 que Jellyfin utiliza para comprobar la descarga; la

@@ -70,6 +70,8 @@
 #CompressorPage .jc-browser-toolbar {padding:1rem;border-bottom:1px solid var(--jc-line);background:var(--jc-surface)}
 #CompressorPage .jc-breadcrumbs {display:flex;align-items:center;flex-wrap:wrap;gap:.2rem;margin-bottom:.75rem;font-size:.87rem}
 #CompressorPage .jc-current-actions {margin:0 0 .75rem}
+#CompressorPage .jc-current-actions .jc-button[aria-pressed="true"] {border-color:var(--jc-accent);color:var(--jc-accent)}
+#CompressorPage .jc-current-actions .jc-button[aria-pressed="true"]:last-child {border-color:#e99a9a;color:#e99a9a}
 #CompressorPage .jc-crumb {border:0;background:none;color:var(--jc-accent);padding:.2rem;cursor:pointer}
 #CompressorPage .jc-crumb:last-child {color:inherit;font-weight:700}
 #CompressorPage .jc-crumb-separator {opacity:.55}
@@ -134,8 +136,8 @@
   </div>
   <div class="jc-card" style="margin-top:1.15rem">
     <div class="jc-card-head"><div><h2>Analiza tu biblioteca</h2><p>Comprueba qué películas se pueden comprimir antes de crear trabajos.</p></div><span class="material-icons" aria-hidden="true">manage_search</span></div>
-    <div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze"><span class="material-icons" aria-hidden="true">search</span> Analizar</button><button class="jc-button jc-primary" type="button" id="jcCompress"><span class="material-icons" aria-hidden="true">play_arrow</span> Comprimir carpetas seleccionadas</button></div>
-    <p class="jc-subtle" style="margin:1rem 0 0">Estas acciones utilizan la configuración guardada. Analizar no crea trabajos; Comprimir vuelve a comprobar cada archivo antes de añadirlo a la cola.</p>
+    <div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze" disabled><span class="material-icons" aria-hidden="true">search</span> Analizar</button><button class="jc-button jc-primary" type="button" id="jcCompress" disabled><span class="material-icons" aria-hidden="true">play_arrow</span> Comprimir carpetas seleccionadas</button></div>
+    <p class="jc-subtle" style="margin:1rem 0 0">Estas acciones utilizan la configuración guardada y se desactivan si hay cambios pendientes. Analizar no crea trabajos; Comprimir vuelve a comprobar cada archivo antes de añadirlo a la cola.</p>
   </div>
   <div class="jc-callout"><span class="material-icons" aria-hidden="true">info</span><p><strong>Empieza con una carpeta pequeña.</strong> La compresión automática está apagada de fábrica. Las películas ya procesadas no se vuelven a comprimir y puedes recuperar el original durante el plazo configurado.</p></div>
   <div class="jc-card" style="margin-top:1.15rem"><div class="jc-card-head"><div><h2>Resultado del último análisis</h2><p id="jcCandidatesSummary">Todavía no se ha analizado ninguna película en esta sesión.</p></div></div><div id="jcCandidates" class="jc-scroll"></div></div>
@@ -147,7 +149,7 @@
     <div class="jc-browser-pane"><div class="jc-browser-toolbar"><div id="jcBreadcrumbs" class="jc-breadcrumbs" aria-label="Ruta actual"></div><div id="jcCurrentActions" class="jc-actions jc-current-actions"></div><label class="jc-field" style="margin:0"><span class="jc-subtle">Buscar en esta carpeta</span><input id="jcFolderSearch" type="search" placeholder="Filtrar carpetas visibles"></label></div><div id="jcFolders" class="jc-browser-list" aria-live="polite"><div class="jc-empty">Cargando bibliotecas…</div></div></div>
     <div class="jc-browser-pane"><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">check_circle</span> Incluidas</span><span id="jcIncludeCount" class="jc-badge">0</span></h3><div id="jcIncludes"></div></div><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">block</span> Excluidas</span><span id="jcExcludeCount" class="jc-badge">0</span></h3><div id="jcExcludes"></div></div></div>
   </div>
-  <p class="jc-subtle" style="margin-top:.8rem">El explorador muestra únicamente las bibliotecas de películas disponibles para Jellyfin. Abre una carpeta para ver sus subcarpetas; usa ✓ para incluirla o ⊘ para excluirla.</p>
+  <p class="jc-subtle" style="margin-top:.8rem">El explorador muestra las carpetas de tus bibliotecas; solo se procesan películas. Abre una carpeta para ver sus subcarpetas; usa ✓ para incluirla o ⊘ para excluirla.</p>
 </section>
 
 <section id="jcSettings" class="jc-panel" role="tabpanel" aria-labelledby="jcTabSettings" hidden>
@@ -184,6 +186,7 @@
 (function () {
     'use strict';
     var page = document.querySelector('#CompressorPage'), config, timer, loading = false, active = false;
+    var dirtyState = false, revision = 0, saving = false, scanning = false;
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0;
     function el(id) { return page.querySelector('#' + id); }
     function message(text, error) { el('jcMessage').textContent = text; el('jcMessage').style.borderColor = error ? '#e99a9a' : 'var(--jc-accent)'; }
@@ -209,7 +212,12 @@
         rows.forEach(function(values) { var r = body.insertRow(); values.forEach(function(v) { var c = r.insertCell(); if (v instanceof Node) c.append(v); else c.textContent = v == null ? '' : String(v); }); });
         box.append(t);
     }
-    function dirty(value) { el('jcSave').disabled = !value; el('jcSaveState').textContent = value ? 'Cambios sin guardar' : 'Configuración guardada'; }
+    function updateControls() {
+        el('jcSave').disabled = !dirtyState || saving || !config;
+        el('jcSaveState').textContent = saving ? 'Guardando cambios…' : dirtyState ? 'Cambios sin guardar' : 'Configuración guardada';
+        el('jcAnalyze').disabled = el('jcCompress').disabled = dirtyState || saving || scanning || !config;
+    }
+    function dirty(value) { if (value) revision++; dirtyState = value; updateControls(); }
     function renderRules() {
         [['included', 'jcIncludes', 'jcIncludeCount'], ['excluded', 'jcExcludes', 'jcExcludeCount']].forEach(function(group) {
             var box = el(group[1]); box.replaceChildren(); el(group[2]).textContent = String(rules[group[0]].length);
@@ -224,10 +232,15 @@
         el('jcFolderCount').textContent = String(rules.included.length);
     }
     function setRule(kind, path) {
+        var restoreFocus = el('jcCurrentActions').contains(document.activeElement) || el('jcFolders').contains(document.activeElement);
         var other = kind === 'included' ? 'excluded' : 'included';
         if (rules[kind].includes(path)) rules[kind] = rules[kind].filter(function(p) { return p !== path; });
         else { rules[other] = rules[other].filter(function(p) { return p !== path; }); rules[kind].push(path); }
         renderRules(); renderExplorer(); dirty(true);
+        if (restoreFocus) {
+            var controls = page.querySelectorAll('button[data-rule-kind]');
+            Array.from(controls).find(function(b) { return b.dataset.ruleKind === kind && b.dataset.path === path; })?.focus();
+        }
     }
     function renderExplorer() {
         var crumbs = el('jcBreadcrumbs'); crumbs.replaceChildren();
@@ -240,8 +253,10 @@
         if (folderTrail.length) {
             var here = folderTrail[folderTrail.length - 1];
             [['included', 'Incluir esta carpeta'], ['excluded', 'Excluir esta carpeta']].forEach(function(choice) {
-                var control = button(choice[1], function() { setRule(choice[0], here.Path); });
-                control.setAttribute('aria-pressed', rules[choice[0]].includes(here.Path) ? 'true' : 'false');
+                var selected = rules[choice[0]].includes(here.Path);
+                var control = button(selected ? (choice[0] === 'included' ? 'Incluida · Quitar' : 'Excluida · Quitar') : choice[1], function() { setRule(choice[0], here.Path); });
+                control.setAttribute('aria-pressed', selected ? 'true' : 'false');
+                control.dataset.ruleKind = choice[0]; control.dataset.path = here.Path;
                 current.append(control);
             });
         }
@@ -258,7 +273,10 @@
             actions.className = 'jc-folder-actions';
             [['included', 'check', 'Incluir '], ['excluded', 'block', 'Excluir ']].forEach(function(choice) {
                 var control = document.createElement('button'); control.type = 'button'; control.className = 'jc-icon-button' + (choice[0] === 'excluded' ? ' jc-exclude' : '');
-                control.setAttribute('aria-label', choice[2] + f.Name); control.setAttribute('aria-pressed', rules[choice[0]].includes(f.Path) ? 'true' : 'false'); control.title = choice[2] + f.Path; control.append(icon(choice[1]));
+                var selected = rules[choice[0]].includes(f.Path);
+                control.setAttribute('aria-label', selected ? 'Quitar ' + (choice[0] === 'included' ? 'inclusión de ' : 'exclusión de ') + f.Name : choice[2] + f.Name);
+                control.setAttribute('aria-pressed', selected ? 'true' : 'false'); control.title = control.getAttribute('aria-label') + ' · ' + f.Path; control.append(icon(choice[1]));
+                control.dataset.ruleKind = choice[0]; control.dataset.path = f.Path;
                 control.onclick = function() { setRule(choice[0], f.Path); }; actions.append(control);
             });
             row.append(open, actions); box.append(row);
@@ -268,7 +286,11 @@
         var request = ++folderRequest;
         return api('Folders' + (path ? '?path=' + encodeURIComponent(path) : '')).then(function(folders) {
             if (request !== folderRequest) return;
-            folderEntries = folders; folderTrail = trail || []; el('jcFolderSearch').value = ''; renderExplorer();
+            folderEntries = path ? folders : folders.map(function(f) {
+                var leaf = f.Path.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+                return {Path: f.Path, Name: f.Name === f.Path ? (leaf || f.Path) : f.Name};
+            });
+            folderTrail = trail || []; el('jcFolderSearch').value = ''; renderExplorer();
         });
     }
     function updateWindow() { el('jcStart').disabled = el('jcStop').disabled = !el('jcWindow').checked; }
@@ -321,22 +343,32 @@
     });
     el('jcFolderSearch').oninput = renderExplorer;
     el('jcWindow').onchange = updateWindow;
-    ['jcAuto', 'jcWindow', 'jcStart', 'jcStop', 'jcOriginalsPath', 'jcDays', 'jcMaxGB', 'jcSavings', 'jcEncoder', 'jcQuality'].forEach(function(id) { el(id).addEventListener('change', function() { dirty(true); }); });
+    ['jcAuto', 'jcWindow', 'jcEncoder'].forEach(function(id) { el(id).addEventListener('change', function() { dirty(true); }); });
+    ['jcStart', 'jcStop', 'jcOriginalsPath', 'jcDays', 'jcMaxGB', 'jcSavings', 'jcQuality'].forEach(function(id) { el(id).addEventListener('input', function() { dirty(true); }); });
     el('jcForm').onsubmit = function(e) { e.preventDefault();
         if (!el('jcForm').checkValidity()) { setTab(2); el('jcForm').reportValidity(); return; }
         action(function() {
         if (!config) throw new Error('La configuración todavía no está cargada.');
+        if (saving) return;
+        var submittedRevision = revision;
         var c = JSON.parse(JSON.stringify(config)); c.Enabled = true; c.AutomaticCompressionEnabled = el('jcAuto').checked;
         c.ProcessingWindowEnabled = el('jcWindow').checked; c.ProcessingWindowStartMinutes = minutes(el('jcStart').value); c.ProcessingWindowStopMinutes = minutes(el('jcStop').value);
         c.IncludedFolders = rules.included.slice(); c.ExcludedFolders = rules.excluded.slice(); c.QuarantineDirectory = el('jcOriginalsPath').value.trim(); c.RetentionDays = Number(el('jcDays').value); c.QuarantineMaxBytes = Number(el('jcMaxGB').value) * 1073741824; c.MinSavingsPercent = Number(el('jcSavings').value);
         c.Profiles[0].VideoEncoder = el('jcEncoder').value; c.Profiles[0].Crf = Number(el('jcQuality').value);
-        return api('Configuration', 'POST', c).then(function(saved) { config = saved; rules.included = (saved.IncludedFolders || []).slice(); rules.excluded = (saved.ExcludedFolders || []).slice(); renderRules(); renderExplorer(); el('jcAutoState').textContent = saved.AutomaticCompressionEnabled ? 'Activada' : 'Apagada'; dirty(false); message('Configuración guardada. Automatización ' + (saved.AutomaticCompressionEnabled ? 'activada.' : 'desactivada.')); });
+        saving = true; updateControls();
+        return api('Configuration', 'POST', c).then(function(saved) {
+            config = saved;
+            if (revision === submittedRevision) { rules.included = (saved.IncludedFolders || []).slice(); rules.excluded = (saved.ExcludedFolders || []).slice(); renderRules(); renderExplorer(); dirty(false); }
+            el('jcAutoState').textContent = saved.AutomaticCompressionEnabled ? 'Activada' : 'Apagada';
+            message(revision === submittedRevision ? 'Configuración guardada. Automatización ' + (saved.AutomaticCompressionEnabled ? 'activada.' : 'desactivada.') : 'Se guardaron los cambios anteriores. Quedan cambios nuevos sin guardar.');
+        }).finally(function() { saving = false; updateControls(); });
         }); };
-    function scan(route) { el('jcAnalyze').disabled = true; el('jcCompress').disabled = true; message('Revisando películas y sus huellas. Puede tardar con archivos grandes…'); action(function() { return api(route, 'POST').then(candidates).then(refresh); }).finally(function() { el('jcAnalyze').disabled = false; el('jcCompress').disabled = false; }); }
+    function scan(route) { if (dirtyState || saving || scanning || !config) return; scanning = true; updateControls(); message('Revisando películas y sus huellas. Puede tardar con archivos grandes…'); action(function() { return api(route, 'POST').then(candidates).then(refresh); }).finally(function() { scanning = false; updateControls(); }); }
     el('jcAnalyze').onclick = function() { scan('Analyze'); }; el('jcCompress').onclick = function() { scan('Compress'); };
     [['jcPause', 'Pause'], ['jcResume', 'Resume'], ['jcPurge', 'Originals/Purge']].forEach(function(pair) { el(pair[0]).onclick = function() { action(function() { return api(pair[1], 'POST').then(refresh); }); }; });
     el('jcClear').onclick = function() { action(function() { return api('History', 'DELETE').then(refresh); }); };
     el('jcRefresh').onclick = function() { action(refresh); };
+    setTab(0); updateControls();
     page.addEventListener('viewshow', function() { active = true; action(function() { return api('Capabilities').then(function(c) {
         var allowed = ['libx265', 'hevc_nvenc', 'hevc_qsv', 'hevc_amf'], names = [];
         (c.VideoCodecs || []).forEach(function(codec) { (codec.Encoders || []).forEach(function(e) { if (allowed.includes(e.Name) && !names.includes(e.Name)) names.push(e.Name); }); });
