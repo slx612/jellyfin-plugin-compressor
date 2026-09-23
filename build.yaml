@@ -1,13 +1,13 @@
 ---
 name: "Jellyfin Compressor"
 guid: "274af2b7-724c-41e9-82e7-56c3e80139c1"
-version: "0.1.1.0"
+version: "0.1.2.0"
 targetAbi: "10.11.6.0"
 framework: "net9.0"
 overview: "Compress movies with recoverable originals."
-description: "Private preview. Preserves full paths and keeps a durable record to avoid recompression."
+description: "Experimental preview. Preserves full paths and keeps a durable record to avoid recompression."
 category: "General"
 owner: "slx612"
 artifacts:
   - "Jellyfin.Plugin.Compressor.dll"
-changelog: "Configurable original-folder size limit and cleanup after verified restoration; automatic compression remains disabled by default."
+changelog: "Redesigned dashboard, visual folder browser and grouped settings; automatic compression remains disabled by default."

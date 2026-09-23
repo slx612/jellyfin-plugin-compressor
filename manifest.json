@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.1.2.0",
+        "changelog": "Experimental preview: redesigned dashboard, visual folder browser and grouped settings. Automatic compression remains disabled by default.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.2-alpha.3/jellyfin-compressor-0.1.2.0.zip",
+        "checksum": "8f76f4ca1890f42e900899ac6223da1f",
+        "timestamp": "2026-09-23T22:42:41Z"
+      },
+      {
         "version": "0.1.1.0",
         "changelog": "Experimental preview: configurable original-folder size limit, age-based retention and verified cleanup after restoration.",
         "targetAbi": "10.11.6.0",

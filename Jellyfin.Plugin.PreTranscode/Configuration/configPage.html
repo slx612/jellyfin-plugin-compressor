@@ -1,63 +1,196 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="utf-8"><title>Jellyfin Compressor</title></head><body>
+<html lang="es">
+<head><meta charset="utf-8"><title>Jellyfin Compressor</title></head>
+<body>
 <div id="CompressorPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
-<div data-role="content"><div class="content-primary" style="max-width:1100px">
+<div data-role="content"><div class="content-primary jc-shell">
 <style>
-#CompressorPage .jc-card {padding:1.3em;margin:1em 0;border:1px solid #8885;border-radius:8px}
-#CompressorPage .jc-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.2em}
-#CompressorPage label {display:block;margin:.8em 0 .4em}
-#CompressorPage input:not([type=checkbox]),#CompressorPage select,#CompressorPage textarea {box-sizing:border-box;width:100%;padding:.7em;background:transparent;color:inherit;border:1px solid #8888;border-radius:4px}
-#CompressorPage option {background:#242424;color:#fff}
-#CompressorPage textarea {min-height:6em;resize:vertical}
-#CompressorPage button {margin:.3em .5em .3em 0;padding:.65em 1em;cursor:pointer}
-#CompressorPage table {width:100%;border-collapse:collapse;text-align:left;font-size:.92em}
-#CompressorPage td,#CompressorPage th {padding:.7em;border-bottom:1px solid #8884;overflow-wrap:anywhere;max-width:420px}
-#CompressorPage small {display:block;opacity:.75;line-height:1.5}
+#CompressorPage {--jc-accent:var(--primary-accent-color,#00a4dc);--jc-line:rgba(128,128,128,.28);--jc-surface:rgba(128,128,128,.09);--jc-surface-strong:rgba(128,128,128,.15);font-family:Roboto,"Helvetica Neue",Arial,sans-serif}
+#CompressorPage .jc-shell {max-width:1120px;padding-bottom:5rem}
+#CompressorPage * {box-sizing:border-box}
+#CompressorPage .jc-hero {display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem;padding:1.5rem 0 1.1rem}
+#CompressorPage h1,#CompressorPage h2,#CompressorPage h3,#CompressorPage p {margin-top:0}
+#CompressorPage h1 {font-size:2rem;line-height:1.2;margin-bottom:.45rem}
+#CompressorPage h2 {font-size:1.35rem;margin-bottom:.4rem}
+#CompressorPage h3 {font-size:1.05rem;margin-bottom:.4rem}
+#CompressorPage p,#CompressorPage .jc-help {line-height:1.55}
+#CompressorPage .jc-eyebrow {display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem;color:var(--jc-accent);font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+#CompressorPage .jc-badge {display:inline-flex;align-items:center;gap:.35rem;padding:.32rem .65rem;border:1px solid var(--jc-line);border-radius:100px;background:var(--jc-surface);color:inherit;font-size:.74rem;font-weight:700;letter-spacing:0;text-transform:none}
+#CompressorPage .jc-hero p {max-width:680px;margin-bottom:0;opacity:.78}
+#CompressorPage .jc-hero-icon {display:grid;place-items:center;flex:none;width:64px;height:64px;border-radius:18px;color:var(--jc-accent);background:var(--jc-surface-strong)}
+#CompressorPage .jc-hero-icon .material-icons {font-size:34px}
+#CompressorPage .jc-tabs {display:flex;gap:.25rem;overflow-x:auto;border-bottom:1px solid var(--jc-line);margin-bottom:1.5rem}
+#CompressorPage .jc-tab {display:inline-flex;align-items:center;gap:.45rem;flex:none;padding:.9rem 1rem;border:0;border-bottom:3px solid transparent;background:none;color:inherit;opacity:.72;font:inherit;font-weight:600;cursor:pointer}
+#CompressorPage .jc-tab[aria-selected="true"] {color:var(--jc-accent);border-bottom-color:var(--jc-accent);opacity:1}
+#CompressorPage .jc-tab:hover {background:var(--jc-surface);opacity:1}
+#CompressorPage .jc-tab .material-icons {font-size:1.15rem}
+#CompressorPage .jc-panel[hidden] {display:none}
+#CompressorPage .jc-card {padding:1.4rem;margin:0 0 1.15rem;border:1px solid var(--jc-line);border-radius:14px;background:var(--jc-surface)}
+#CompressorPage .jc-card-head {display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-bottom:1.1rem}
+#CompressorPage .jc-card-head p {margin-bottom:0;opacity:.73}
+#CompressorPage .jc-card-head .material-icons {color:var(--jc-accent)}
+#CompressorPage .jc-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem}
+#CompressorPage .jc-stats {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem}
+#CompressorPage .jc-stat {padding:1.15rem;border:1px solid var(--jc-line);border-radius:12px;background:var(--jc-surface)}
+#CompressorPage .jc-stat .material-icons {display:block;color:var(--jc-accent);margin-bottom:.5rem}
+#CompressorPage .jc-stat strong {display:block;font-size:1.55rem;line-height:1.2}
+#CompressorPage .jc-stat span:last-child {display:block;margin-top:.2rem;font-size:.88rem;opacity:.72}
+#CompressorPage .jc-callout {display:flex;gap:.85rem;padding:1rem 1.1rem;border-left:3px solid var(--jc-accent);border-radius:8px;background:var(--jc-surface);line-height:1.5}
+#CompressorPage .jc-callout .material-icons {flex:none;color:var(--jc-accent)}
+#CompressorPage .jc-callout p {margin:0}
+#CompressorPage .jc-callout strong {display:block}
+#CompressorPage .jc-actions {display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
+#CompressorPage button {font:inherit;cursor:pointer}
+#CompressorPage .jc-button {display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:38px;padding:.55rem .85rem;border:1px solid var(--jc-line);border-radius:8px;background:var(--jc-surface-strong);color:inherit;font-weight:600}
+#CompressorPage .jc-button:hover {background:rgba(128,128,128,.25)}
+#CompressorPage .jc-button.jc-primary {border-color:var(--jc-accent);background:var(--jc-accent);color:#fff}
+#CompressorPage .jc-button.jc-primary:hover {filter:brightness(1.1)}
+#CompressorPage .jc-button.jc-danger {color:#e99a9a}
+#CompressorPage .jc-button:disabled {cursor:not-allowed;opacity:.5}
+#CompressorPage .jc-button .material-icons {font-size:1.1rem}
+#CompressorPage .jc-subtle {font-size:.88rem;opacity:.7}
+#CompressorPage .jc-field {display:block;margin:.8rem 0}
+#CompressorPage .jc-field > span:first-child {display:block;margin-bottom:.38rem;font-weight:600}
+#CompressorPage input:not([type=checkbox]),#CompressorPage select {width:100%;min-height:40px;padding:.55rem .7rem;border:1px solid var(--jc-line);border-radius:7px;background:var(--jc-surface);color:inherit;font:inherit}
+#CompressorPage input:disabled {opacity:.55}
+#CompressorPage input:focus-visible,#CompressorPage select:focus-visible,#CompressorPage button:focus-visible {outline:2px solid var(--jc-accent);outline-offset:2px}
+#CompressorPage select option {background:#252525;color:#fff}
+#CompressorPage .jc-toggle {display:flex;align-items:center;justify-content:space-between;gap:1.1rem;padding:1rem 0;cursor:pointer}
+#CompressorPage .jc-toggle + .jc-toggle {border-top:1px solid var(--jc-line)}
+#CompressorPage .jc-toggle-copy strong,#CompressorPage .jc-toggle-copy small {display:block}
+#CompressorPage .jc-toggle-copy small {margin-top:.25rem;opacity:.68;line-height:1.45}
+#CompressorPage .jc-toggle input {position:absolute;width:1px;height:1px;opacity:0}
+#CompressorPage .jc-switch {position:relative;flex:none;width:44px;height:26px;border-radius:20px;background:#8888;transition:background .15s}
+#CompressorPage .jc-switch:after {content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px #0005;transition:transform .15s}
+#CompressorPage .jc-toggle input:checked + .jc-switch {background:var(--jc-accent)}
+#CompressorPage .jc-toggle input:checked + .jc-switch:after {transform:translateX(18px)}
+#CompressorPage .jc-toggle input:focus-visible + .jc-switch {outline:2px solid var(--jc-accent);outline-offset:3px}
+#CompressorPage .jc-browser {display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:1rem}
+#CompressorPage .jc-browser-pane {min-width:0;border:1px solid var(--jc-line);border-radius:12px;overflow:hidden}
+#CompressorPage .jc-browser-toolbar {padding:1rem;border-bottom:1px solid var(--jc-line);background:var(--jc-surface)}
+#CompressorPage .jc-breadcrumbs {display:flex;align-items:center;flex-wrap:wrap;gap:.2rem;margin-bottom:.75rem;font-size:.87rem}
+#CompressorPage .jc-current-actions {margin:0 0 .75rem}
+#CompressorPage .jc-current-actions .jc-button[aria-pressed="true"] {border-color:var(--jc-accent);color:var(--jc-accent)}
+#CompressorPage .jc-current-actions .jc-button[aria-pressed="true"]:last-child {border-color:#e99a9a;color:#e99a9a}
+#CompressorPage .jc-crumb {border:0;background:none;color:var(--jc-accent);padding:.2rem;cursor:pointer}
+#CompressorPage .jc-crumb:last-child {color:inherit;font-weight:700}
+#CompressorPage .jc-crumb-separator {opacity:.55}
+#CompressorPage .jc-browser-list {max-height:430px;overflow-y:auto}
+#CompressorPage .jc-folder {display:flex;align-items:center;gap:.7rem;padding:.8rem 1rem;border-bottom:1px solid var(--jc-line)}
+#CompressorPage .jc-folder:last-child {border-bottom:0}
+#CompressorPage .jc-folder-icon {color:var(--jc-accent);flex:none}
+#CompressorPage .jc-folder-main {min-width:0;flex:1;border:0;background:none;color:inherit;text-align:left;padding:0;cursor:pointer}
+#CompressorPage .jc-folder-name {display:block;font-weight:600;overflow-wrap:anywhere}
+#CompressorPage .jc-folder-path {display:block;margin-top:.2rem;font-size:.75rem;opacity:.62;overflow-wrap:anywhere}
+#CompressorPage .jc-folder-actions {display:flex;gap:.35rem;flex:none}
+#CompressorPage .jc-icon-button {display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--jc-line);border-radius:7px;background:var(--jc-surface);color:inherit;cursor:pointer}
+#CompressorPage .jc-icon-button .material-icons {font-size:1.1rem}
+#CompressorPage .jc-icon-button:hover,#CompressorPage .jc-icon-button[aria-pressed="true"] {color:var(--jc-accent);border-color:var(--jc-accent)}
+#CompressorPage .jc-icon-button.jc-exclude[aria-pressed="true"] {color:#e99a9a;border-color:#e99a9a}
+#CompressorPage .jc-rule-group {padding:1rem}
+#CompressorPage .jc-rule-group + .jc-rule-group {border-top:1px solid var(--jc-line)}
+#CompressorPage .jc-rule-title {display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:0 0 .7rem;font-size:.9rem;font-weight:700}
+#CompressorPage .jc-rule-title .material-icons {font-size:1.05rem;color:var(--jc-accent)}
+#CompressorPage .jc-rule {display:flex;align-items:center;gap:.45rem;padding:.55rem .6rem;margin:.4rem 0;border:1px solid var(--jc-line);border-radius:7px;background:var(--jc-surface)}
+#CompressorPage .jc-rule span {flex:1;min-width:0;overflow-wrap:anywhere;font-size:.79rem}
+#CompressorPage .jc-rule button {flex:none;border:0;background:none;color:inherit;opacity:.68;cursor:pointer}
+#CompressorPage .jc-rule button:hover {opacity:1;color:#e99a9a}
+#CompressorPage .jc-rule button .material-icons {font-size:1.05rem}
+#CompressorPage .jc-empty {padding:1.25rem;color:inherit;opacity:.65;text-align:center;line-height:1.5}
 #CompressorPage .jc-scroll {overflow:auto}
-#CompressorPage #jcMessage {padding:1em;border-left:4px solid #00a4dc;white-space:pre-wrap;min-height:1.2em}
-#CompressorPage .jc-muted {opacity:.72}
+#CompressorPage table {width:100%;border-collapse:collapse;text-align:left;font-size:.87rem}
+#CompressorPage th,#CompressorPage td {padding:.72rem .6rem;border-bottom:1px solid var(--jc-line);vertical-align:top;overflow-wrap:anywhere;min-width:105px}
+#CompressorPage th {opacity:.7;font-weight:700}
+#CompressorPage td:first-child {min-width:210px}
+#CompressorPage td .jc-button {font-size:.78rem;min-height:32px;padding:.3rem .55rem}
+#CompressorPage #jcMessage {margin:0 0 1.1rem;padding:.8rem 1rem;border-left:3px solid var(--jc-accent);border-radius:6px;background:var(--jc-surface);white-space:pre-wrap}
+#CompressorPage .jc-savebar {position:sticky;bottom:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-top:1.2rem;padding:.75rem 1rem;border:1px solid var(--jc-line);border-radius:12px;background:#262626;color:#fff;box-shadow:0 -6px 24px #0004}
+#CompressorPage .jc-savebar span {font-size:.87rem}
+@media (max-width:850px) {#CompressorPage .jc-browser {grid-template-columns:1fr}#CompressorPage .jc-browser-list {max-height:350px}}
+@media (max-width:620px) {#CompressorPage .jc-hero-icon {display:none}#CompressorPage .jc-stats {grid-template-columns:1fr}#CompressorPage .jc-folder {flex-wrap:wrap}#CompressorPage .jc-folder-actions {margin-left:2rem}#CompressorPage .jc-card {padding:1rem}#CompressorPage .jc-tabs {justify-content:space-between}#CompressorPage .jc-tab {padding:.75rem .45rem}#CompressorPage .jc-tab .material-icons {display:none}#CompressorPage .jc-savebar {border-radius:0}}
 </style>
-<h1>Jellyfin Compressor <small>v1 preliminar · Jellyfin 10.11.6</small></h1>
-<p>Reduce el tamaño de tus películas y conserva su nombre, ficha y fecha de incorporación.</p>
+
+<header class="jc-hero">
+  <div>
+    <div class="jc-eyebrow"><span class="material-icons" aria-hidden="true">movie_filter</span> Complemento para Jellyfin <span class="jc-badge">Experimental</span></div>
+    <h1>Jellyfin Compressor</h1>
+    <p>Comprime tus películas conservando su nombre, ficha y progreso. Tú decides qué carpetas entran y cuánto tiempo guardar los originales.</p>
+  </div>
+  <div class="jc-hero-icon" aria-hidden="true"><span class="material-icons">compress</span></div>
+</header>
 <div id="jcMessage" role="status" aria-live="polite">Cargando configuración…</div>
-<form id="jcForm">
-<section class="jc-card"><h2>Cuándo comprimir</h2>
-<label><input type="checkbox" id="jcAuto"> Activar compresión automática</label>
-<small>Desactivada de fábrica. Al activarla, los nuevos archivos y los análisis programados pueden llenar la cola. Se procesa una película cada vez.</small>
-<label><input type="checkbox" id="jcWindow"> Usar un horario para comprimir</label>
-<div class="jc-grid"><div><label for="jcStart">Desde (hora del servidor)</label><input type="time" id="jcStart" value="22:00"></div>
-<div><label for="jcStop">Hasta</label><input type="time" id="jcStop" value="07:00"></div></div>
+
+<form id="jcForm" novalidate>
+<nav class="jc-tabs" role="tablist" aria-label="Secciones de Jellyfin Compressor">
+  <button class="jc-tab" type="button" id="jcTabOverview" role="tab" aria-selected="true" aria-controls="jcOverview"><span class="material-icons" aria-hidden="true">dashboard</span> Resumen</button>
+  <button class="jc-tab" type="button" id="jcTabFolders" role="tab" aria-selected="false" aria-controls="jcFolderPanel"><span class="material-icons" aria-hidden="true">folder_open</span> Carpetas</button>
+  <button class="jc-tab" type="button" id="jcTabSettings" role="tab" aria-selected="false" aria-controls="jcSettings"><span class="material-icons" aria-hidden="true">tune</span> Ajustes</button>
+  <button class="jc-tab" type="button" id="jcTabActivity" role="tab" aria-selected="false" aria-controls="jcActivity"><span class="material-icons" aria-hidden="true">history</span> Actividad</button>
+</nav>
+
+<section id="jcOverview" class="jc-panel" role="tabpanel" aria-labelledby="jcTabOverview">
+  <div class="jc-stats" aria-label="Estado del complemento">
+    <div class="jc-stat"><span class="material-icons" aria-hidden="true">autorenew</span><strong id="jcAutoState">Apagada</strong><span>Compresión automática</span></div>
+    <div class="jc-stat"><span class="material-icons" aria-hidden="true">folder_special</span><strong id="jcFolderCount">0</strong><span>Carpetas incluidas</span></div>
+    <div class="jc-stat"><span class="material-icons" aria-hidden="true">playlist_play</span><strong id="jcJobsCount">0</strong><span>Trabajos pendientes o en curso</span></div>
+  </div>
+  <div class="jc-card" style="margin-top:1.15rem">
+    <div class="jc-card-head"><div><h2>Analiza tu biblioteca</h2><p>Comprueba qué películas se pueden comprimir antes de crear trabajos.</p></div><span class="material-icons" aria-hidden="true">manage_search</span></div>
+    <div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze" disabled><span class="material-icons" aria-hidden="true">search</span> Analizar</button><button class="jc-button jc-primary" type="button" id="jcCompress" disabled><span class="material-icons" aria-hidden="true">play_arrow</span> Comprimir carpetas seleccionadas</button></div>
+    <p class="jc-subtle" style="margin:1rem 0 0">Estas acciones utilizan la configuración guardada y se desactivan si hay cambios pendientes. Analizar no crea trabajos; Comprimir vuelve a comprobar cada archivo antes de añadirlo a la cola.</p>
+  </div>
+  <div class="jc-callout"><span class="material-icons" aria-hidden="true">info</span><p><strong>Empieza con una carpeta pequeña.</strong> La compresión automática está apagada de fábrica. Las películas ya procesadas no se vuelven a comprimir y puedes recuperar el original durante el plazo configurado.</p></div>
+  <div class="jc-card" style="margin-top:1.15rem"><div class="jc-card-head"><div><h2>Resultado del último análisis</h2><p id="jcCandidatesSummary">Todavía no se ha analizado ninguna película en esta sesión.</p></div></div><div id="jcCandidates" class="jc-scroll"></div></div>
 </section>
-<section class="jc-card"><h2>Qué carpetas</h2><p>Solo se comprimen películas de las carpetas incluidas. Una exclusión siempre tiene prioridad.</p>
-<button type="button" id="jcRoots">Ver bibliotecas</button><span id="jcFolderPath"></span><div id="jcFolders"></div>
-<div class="jc-grid"><div><label for="jcIncludes">Incluir (una ruta por línea)</label><textarea id="jcIncludes" placeholder="Ninguna carpeta seleccionada"></textarea></div>
-<div><label for="jcExcludes">Excluir (una ruta por línea)</label><textarea id="jcExcludes"></textarea></div></div>
+
+<section id="jcFolderPanel" class="jc-panel" role="tabpanel" aria-labelledby="jcTabFolders" hidden>
+  <div class="jc-card-head"><div><h2>Carpetas que se comprimen</h2><p>Elige una biblioteca o carpeta para incluirla. Excluye después las subcarpetas que quieras proteger: la exclusión siempre tiene prioridad.</p></div></div>
+  <div class="jc-browser">
+    <div class="jc-browser-pane"><div class="jc-browser-toolbar"><div id="jcBreadcrumbs" class="jc-breadcrumbs" aria-label="Ruta actual"></div><div id="jcCurrentActions" class="jc-actions jc-current-actions"></div><label class="jc-field" style="margin:0"><span class="jc-subtle">Buscar en esta carpeta</span><input id="jcFolderSearch" type="search" placeholder="Filtrar carpetas visibles"></label></div><div id="jcFolders" class="jc-browser-list" aria-live="polite"><div class="jc-empty">Cargando bibliotecas…</div></div></div>
+    <div class="jc-browser-pane"><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">check_circle</span> Incluidas</span><span id="jcIncludeCount" class="jc-badge">0</span></h3><div id="jcIncludes" tabindex="-1"></div></div><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">block</span> Excluidas</span><span id="jcExcludeCount" class="jc-badge">0</span></h3><div id="jcExcludes" tabindex="-1"></div></div></div>
+  </div>
+  <p class="jc-subtle" style="margin-top:.8rem">El explorador muestra las carpetas de tus bibliotecas; solo se procesan películas. Abre una carpeta para ver sus subcarpetas; usa ✓ para incluirla o ⊘ para excluirla.</p>
 </section>
-<section class="jc-card"><h2>Guardar los originales</h2><label for="jcOriginalsPath">Carpeta de originales en el servidor</label><input id="jcOriginalsPath" required placeholder="Ruta absoluta fuera de las bibliotecas">
-<small>El original se guarda y verifica antes de sustituir la película. El usuario con el que se ejecuta Jellyfin debe poder escribir aquí.</small>
-<div class="jc-grid"><div><label for="jcDays">Eliminar originales después de (días)</label><input type="number" id="jcDays" required min="1" max="3650" placeholder="Por ejemplo, 7"></div>
-<div><label for="jcMaxGB">Límite de la carpeta de originales (GB)</label><input type="number" id="jcMaxGB" required min="0" max="1048576" step="1" value="0"></div>
-<div><label for="jcSavings">Ahorro mínimo (%)</label><input type="number" id="jcSavings" required min="1" max="95" value="15"></div></div>
-<small>0 GB deja la carpeta sin límite. Al llenarse se eliminan primero los originales verificados más antiguos; nunca archivos ajenos. Si no puede liberar espacio, la película nueva no se sustituye. El plazo en días empieza al completar cada sustitución y también se aplica con la compresión automática apagada.</small></section>
-<section class="jc-card"><h2>Compresión</h2><div class="jc-grid"><div><label for="jcEncoder">Codificador HEVC</label><select id="jcEncoder"><option value="libx265">CPU · libx265</option></select></div>
-<div><label for="jcQuality">Calidad (16–32; menor número, más calidad y tamaño)</label><input id="jcQuality" type="number" min="16" max="32" required value="23"></div></div>
-<small id="jcFfmpeg">Leyendo FFmpeg del servidor…</small><p class="jc-muted">Se mantienen resolución, profundidad de color, audio, subtítulos y capítulos. HDR, Dolby Vision y estructuras no compatibles se omiten. MKV, MP4 y M4V mantienen su extensión.</p></section>
-<button is="emby-button" type="submit" class="raised button-submit">Guardar configuración</button>
+
+<section id="jcSettings" class="jc-panel" role="tabpanel" aria-labelledby="jcTabSettings" hidden>
+  <div class="jc-card"><div class="jc-card-head"><div><h2>Automatización</h2><p>Controla cuándo se añaden y procesan películas.</p></div><span class="material-icons" aria-hidden="true">schedule</span></div>
+    <label class="jc-toggle"><span class="jc-toggle-copy"><strong>Compresión automática</strong><small>Desactivada de fábrica. Al activarla, los nuevos archivos y los análisis programados pueden llenar la cola; se procesa una película cada vez.</small></span><input type="checkbox" id="jcAuto"><span class="jc-switch" aria-hidden="true"></span></label>
+    <label class="jc-toggle"><span class="jc-toggle-copy"><strong>Restringir a un horario</strong><small>Los trabajos esperan fuera del horario. Las horas corresponden al reloj del servidor.</small></span><input type="checkbox" id="jcWindow"><span class="jc-switch" aria-hidden="true"></span></label>
+    <div class="jc-grid"><label class="jc-field"><span>Desde</span><input type="time" id="jcStart" value="22:00"></label><label class="jc-field"><span>Hasta</span><input type="time" id="jcStop" value="07:00"></label></div>
+  </div>
+  <div class="jc-card"><div class="jc-card-head"><div><h2>Originales recuperables</h2><p>Jellyfin guarda y verifica el original antes de sustituir la película.</p></div><span class="material-icons" aria-hidden="true">inventory_2</span></div>
+    <label class="jc-field"><span>Carpeta de originales en el servidor</span><input id="jcOriginalsPath" required placeholder="Ruta absoluta fuera de las bibliotecas"></label>
+    <p class="jc-subtle">El usuario con el que se ejecuta Jellyfin debe poder escribir en esta carpeta.</p>
+    <div class="jc-grid"><label class="jc-field"><span>Eliminar después de (días)</span><input type="number" id="jcDays" required min="1" max="3650" placeholder="Por ejemplo, 7"></label><label class="jc-field"><span>Límite de la carpeta (GB)</span><input type="number" id="jcMaxGB" required min="0" max="1048576" step="1" value="0"></label><label class="jc-field"><span>Ahorro mínimo (%)</span><input type="number" id="jcSavings" required min="1" max="95" value="15"></label></div>
+    <div class="jc-callout" style="margin-top:.8rem"><span class="material-icons" aria-hidden="true">shield</span><p>0 GB significa sin límite. Cuando se alcanza el límite se eliminan primero los originales verificados más antiguos. Si no se puede liberar espacio, la película nueva no se sustituye. El plazo en días también se aplica con la compresión automática apagada.</p></div>
+  </div>
+  <div class="jc-card"><div class="jc-card-head"><div><h2>Calidad de compresión</h2><p>HEVC conserva audio, subtítulos, capítulos y extensión del archivo.</p></div><span class="material-icons" aria-hidden="true">high_quality</span></div>
+    <div class="jc-grid"><label class="jc-field"><span>Codificador HEVC</span><select id="jcEncoder"><option value="libx265">CPU · libx265</option></select></label><label class="jc-field"><span>Calidad (16–32)</span><input id="jcQuality" type="number" min="16" max="32" required value="23"><span class="jc-subtle">Menor número: más calidad y mayor tamaño.</span></label></div>
+    <p id="jcFfmpeg" class="jc-subtle">Leyendo FFmpeg del servidor…</p><p class="jc-subtle" style="margin-bottom:0">Se omiten HDR, Dolby Vision y estructuras no compatibles.</p>
+  </div>
+</section>
+
+<section id="jcActivity" class="jc-panel" role="tabpanel" aria-labelledby="jcTabActivity" hidden>
+  <div class="jc-card"><div class="jc-card-head"><div><h2>Cola e historial</h2><p id="jcQueueState">Cargando estado…</p></div><span class="material-icons" aria-hidden="true">format_list_bulleted</span></div>
+    <div class="jc-actions"><button class="jc-button" type="button" id="jcPause"><span class="material-icons" aria-hidden="true">pause</span> Pausar</button><button class="jc-button" type="button" id="jcResume"><span class="material-icons" aria-hidden="true">play_arrow</span> Continuar</button><button class="jc-button" type="button" id="jcRefresh"><span class="material-icons" aria-hidden="true">refresh</span> Actualizar</button><button class="jc-button jc-danger" type="button" id="jcClear">Limpiar historial terminado</button></div>
+    <p class="jc-subtle" style="margin:1rem 0">Limpiar el historial no permite volver a comprimir una película ya procesada.</p><div id="jcJobs" class="jc-scroll"></div>
+  </div>
+  <div class="jc-card"><div class="jc-card-head"><div><h2>Originales recuperables <span id="jcOriginalsCount" class="jc-badge">0</span></h2><p>Restaura una película durante su plazo de retención. Tras verificarla en Jellyfin se eliminan las copias de cuarentena.</p></div><span class="material-icons" aria-hidden="true">restore</span></div>
+    <button class="jc-button" type="button" id="jcPurge">Limpiar originales vencidos</button><p class="jc-subtle" style="margin:1rem 0">Un original vencido solo se elimina si la copia comprimida sigue disponible y coincide con el registro.</p><div id="jcOriginals" class="jc-scroll"></div>
+  </div>
+</section>
+
+<div class="jc-savebar"><span id="jcSaveState">Configuración cargando…</span><button class="jc-button jc-primary" id="jcSave" type="submit" disabled><span class="material-icons" aria-hidden="true">save</span> Guardar cambios</button></div>
 </form>
-<section class="jc-card"><h2>Películas</h2><button type="button" id="jcAnalyze" class="raised">Analizar</button><button type="button" id="jcCompress" class="raised button-submit">Comprimir carpetas seleccionadas</button>
-<small>Estas acciones usan la configuración guardada. Analizar no añade trabajos. Comprimir revisa de nuevo cada archivo antes de encolarlo.</small>
-<div id="jcCandidates" class="jc-scroll"></div></section>
-<section class="jc-card"><h2>Cola e historial</h2><p id="jcQueueState"></p>
-<button type="button" id="jcPause">Pausar</button><button type="button" id="jcResume">Continuar</button><button type="button" id="jcRefresh">Actualizar</button><button type="button" id="jcClear">Limpiar historial terminado</button>
-<small>Limpiar el historial no permite volver a comprimir una película ya procesada.</small><div id="jcJobs" class="jc-scroll"></div></section>
-<section class="jc-card"><h2>Originales recuperables</h2><p>Puedes restaurar durante la retención. Tras verificar la restauración en Jellyfin, se eliminan las copias de cuarentena. Un original vencido solo se elimina si su copia comprimida sigue disponible y coincide con el registro.</p>
-<button type="button" id="jcPurge">Limpiar originales vencidos</button><div id="jcOriginals" class="jc-scroll"></div></section>
 <script>
 (function () {
     'use strict';
     var page = document.querySelector('#CompressorPage'), config, timer, loading = false, active = false;
+    var dirtyState = false, revision = 0, saving = false, scanning = false;
+    var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0;
     function el(id) { return page.querySelector('#' + id); }
-    function message(text, error) { el('jcMessage').textContent = text; el('jcMessage').style.borderColor = error ? '#f08080' : '#00a4dc'; }
+    function message(text, error) { el('jcMessage').textContent = text; el('jcMessage').style.borderColor = error ? '#e99a9a' : 'var(--jc-accent)'; }
+    function icon(name) { var node = document.createElement('span'); node.className = 'material-icons'; node.setAttribute('aria-hidden', 'true'); node.textContent = name; return node; }
     function api(path, method, body) {
         var options = {type: method || 'GET', url: ApiClient.getUrl('JellyfinCompressor/' + path)};
         if (!method || method === 'GET' || path === 'Analyze' || path === 'Compress' || path === 'Configuration') options.dataType = 'json';
@@ -66,78 +199,190 @@
     }
     function errorText(e) { return e && e.responseJSON && (e.responseJSON.Message || e.responseJSON.message) || e && e.message || 'La operación falló. Revisa la configuración y el registro de Jellyfin.'; }
     function action(fn) { return Promise.resolve().then(fn).catch(function(e) { message(errorText(e), true); }); }
-    function lines(id) { return el(id).value.split(/\r?\n/).map(function(s) {return s.trim();}).filter(Boolean); }
     function time(minutes) { return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0'); }
     function minutes(value) { var p = value.split(':'); return Number(p[0]) * 60 + Number(p[1]); }
-    function bytes(value) { return (value / (1024 * 1024 * 1024)).toFixed(2) + ' GB'; }
-    function button(label, fn) { var b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.onclick = function() {action(fn);}; return b; }
+    function bytes(value) { return (value / 1073741824).toFixed(2) + ' GB'; }
+    function button(label, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = 'jc-button'; b.textContent = label; b.onclick = function() { action(fn); }; return b; }
     function table(target, heads, rows) {
         var box = el(target); box.replaceChildren();
-        if (!rows.length) { box.textContent = 'No hay registros.'; return; }
+        if (!rows.length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = 'No hay registros.'; box.append(empty); return; }
         var t = document.createElement('table'), head = t.createTHead().insertRow();
-        heads.forEach(function(h) {var th = document.createElement('th'); th.textContent=h; head.append(th);});
+        heads.forEach(function(h) { var th = document.createElement('th'); th.textContent = h; head.append(th); });
         var body = t.createTBody();
-        rows.forEach(function(values) {var r=body.insertRow(); values.forEach(function(v) {var c=r.insertCell(); if (v instanceof Node) c.append(v); else c.textContent = v == null ? '' : String(v);});});
+        rows.forEach(function(values) { var r = body.insertRow(); values.forEach(function(v) { var c = r.insertCell(); if (v instanceof Node) c.append(v); else c.textContent = v == null ? '' : String(v); }); });
         box.append(t);
     }
-    function addFolder(id, path) { var list=lines(id); if (!list.includes(path)) list.push(path); el(id).value=list.join('\n'); }
-    function browse(path) {
-        return api('Folders' + (path ? '?path=' + encodeURIComponent(path) : '')).then(function(folders) {
-            el('jcFolderPath').textContent=path || ''; el('jcFolders').replaceChildren();
-            folders.forEach(function(f) {var row=document.createElement('div'); row.append(button(f.Name, function(){return browse(f.Path);}), button('Incluir',function(){addFolder('jcIncludes',f.Path);}), button('Excluir',function(){addFolder('jcExcludes',f.Path);})); el('jcFolders').append(row);});
+    function updateControls() {
+        el('jcSave').disabled = !dirtyState || saving || !config;
+        el('jcSaveState').textContent = !config ? 'Cargando configuración…' : saving ? 'Guardando cambios…' : dirtyState ? 'Cambios sin guardar' : 'Configuración guardada';
+        el('jcAnalyze').disabled = el('jcCompress').disabled = dirtyState || saving || scanning || !config;
+    }
+    function dirty(value) { if (value) revision++; dirtyState = value; updateControls(); }
+    function renderRules() {
+        [['included', 'jcIncludes', 'jcIncludeCount'], ['excluded', 'jcExcludes', 'jcExcludeCount']].forEach(function(group) {
+            var box = el(group[1]); box.replaceChildren(); el(group[2]).textContent = String(rules[group[0]].length);
+            if (!rules[group[0]].length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = group[0] === 'included' ? 'Ninguna carpeta incluida' : 'Ninguna carpeta excluida'; box.append(empty); }
+            rules[group[0]].forEach(function(path) {
+                var row = document.createElement('div'), name = document.createElement('span'), remove = document.createElement('button');
+                row.className = 'jc-rule'; name.textContent = path; remove.type = 'button'; remove.setAttribute('aria-label', 'Quitar ' + path); remove.append(icon('close'));
+                remove.onclick = function() {
+                    var index = rules[group[0]].indexOf(path);
+                    rules[group[0]] = rules[group[0]].filter(function(p) { return p !== path; }); renderRules(); renderExplorer(); dirty(true);
+                    var remaining = box.querySelectorAll('.jc-rule button');
+                    (remaining[Math.min(index, remaining.length - 1)] || box).focus();
+                };
+                row.append(name, remove); box.append(row);
+            });
+        });
+        el('jcFolderCount').textContent = String(rules.included.length);
+    }
+    function setRule(kind, path) {
+        var restoreFocus = el('jcCurrentActions').contains(document.activeElement) || el('jcFolders').contains(document.activeElement);
+        var other = kind === 'included' ? 'excluded' : 'included';
+        if (rules[kind].includes(path)) rules[kind] = rules[kind].filter(function(p) { return p !== path; });
+        else { rules[other] = rules[other].filter(function(p) { return p !== path; }); rules[kind].push(path); }
+        renderRules(); renderExplorer(); dirty(true);
+        if (restoreFocus) {
+            var controls = page.querySelectorAll('button[data-rule-kind]');
+            Array.from(controls).find(function(b) { return b.dataset.ruleKind === kind && b.dataset.path === path; })?.focus();
+        }
+    }
+    function renderExplorer() {
+        var crumbs = el('jcBreadcrumbs'); crumbs.replaceChildren();
+        [{Name: 'Bibliotecas', Path: ''}].concat(folderTrail).forEach(function(part, index) {
+            if (index) { var sep = document.createElement('span'); sep.className = 'jc-crumb-separator'; sep.textContent = '›'; crumbs.append(sep); }
+            var crumb = document.createElement('button'); crumb.type = 'button'; crumb.className = 'jc-crumb'; crumb.textContent = part.Name;
+            crumb.onclick = function() { action(function() { return browse(part.Path, folderTrail.slice(0, index)); }); }; crumbs.append(crumb);
+        });
+        var current = el('jcCurrentActions'); current.replaceChildren();
+        if (folderTrail.length) {
+            var here = folderTrail[folderTrail.length - 1];
+            [['included', 'Incluir esta carpeta'], ['excluded', 'Excluir esta carpeta']].forEach(function(choice) {
+                var selected = rules[choice[0]].includes(here.Path);
+                var control = button(selected ? (choice[0] === 'included' ? 'Incluida · Quitar' : 'Excluida · Quitar') : choice[1], function() { setRule(choice[0], here.Path); });
+                control.setAttribute('aria-pressed', selected ? 'true' : 'false');
+                control.dataset.ruleKind = choice[0]; control.dataset.path = here.Path;
+                current.append(control);
+            });
+        }
+        var box = el('jcFolders'); box.replaceChildren();
+        var term = el('jcFolderSearch').value.trim().toLocaleLowerCase();
+        var visible = folderEntries.filter(function(f) { return f.Name.toLocaleLowerCase().includes(term); });
+        if (!visible.length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = term ? 'No hay carpetas con ese nombre.' : folderTrail.length ? 'No hay subcarpetas en esta carpeta.' : 'No se encontraron bibliotecas.'; box.append(empty); }
+        visible.forEach(function(f) {
+            var row = document.createElement('div'), open = document.createElement('button'), name = document.createElement('span'), path = document.createElement('span'), actions = document.createElement('div');
+            row.className = 'jc-folder'; row.append(icon('folder'));
+            open.type = 'button'; open.className = 'jc-folder-main'; open.setAttribute('aria-label', 'Abrir ' + f.Name);
+            name.className = 'jc-folder-name'; name.textContent = f.Name; path.className = 'jc-folder-path'; path.textContent = f.Path; open.append(name, path);
+            open.onclick = function() { action(function() { return browse(f.Path, folderTrail.concat([{Name: f.Name, Path: f.Path}])); }); };
+            actions.className = 'jc-folder-actions';
+            [['included', 'check', 'Incluir '], ['excluded', 'block', 'Excluir ']].forEach(function(choice) {
+                var control = document.createElement('button'); control.type = 'button'; control.className = 'jc-icon-button' + (choice[0] === 'excluded' ? ' jc-exclude' : '');
+                var selected = rules[choice[0]].includes(f.Path);
+                control.setAttribute('aria-label', selected ? 'Quitar ' + (choice[0] === 'included' ? 'inclusión de ' : 'exclusión de ') + f.Name : choice[2] + f.Name);
+                control.setAttribute('aria-pressed', selected ? 'true' : 'false'); control.title = control.getAttribute('aria-label') + ' · ' + f.Path; control.append(icon(choice[1]));
+                control.dataset.ruleKind = choice[0]; control.dataset.path = f.Path;
+                control.onclick = function() { setRule(choice[0], f.Path); }; actions.append(control);
+            });
+            row.append(open, actions); box.append(row);
         });
     }
+    function browse(path, trail) {
+        var request = ++folderRequest;
+        return api('Folders' + (path ? '?path=' + encodeURIComponent(path) : '')).then(function(folders) {
+            if (request !== folderRequest) return;
+            folderEntries = path ? folders : folders.map(function(f) {
+                var leaf = f.Path.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+                return {Path: f.Path, Name: f.Name === f.Path ? (leaf || f.Path) : f.Name};
+            });
+            folderTrail = trail || []; el('jcFolderSearch').value = ''; renderExplorer();
+        });
+    }
+    function updateWindow() { el('jcStart').disabled = el('jcStop').disabled = !el('jcWindow').checked; }
     function load() {
         return api('Configuration').then(function(c) {
-            config=c; el('jcAuto').checked=c.AutomaticCompressionEnabled; el('jcWindow').checked=c.ProcessingWindowEnabled;
-            el('jcStart').value=time(c.ProcessingWindowStartMinutes); el('jcStop').value=time(c.ProcessingWindowStopMinutes);
-            el('jcIncludes').value=(c.IncludedFolders||[]).join('\n'); el('jcExcludes').value=(c.ExcludedFolders||[]).join('\n');
-            el('jcOriginalsPath').value=c.QuarantineDirectory||''; el('jcDays').value=c.RetentionDays||''; el('jcMaxGB').value=(c.QuarantineMaxBytes||0)/1073741824; el('jcSavings').value=c.MinSavingsPercent;
-            if(c.Profiles.length) {el('jcQuality').value=c.Profiles[0].Crf; el('jcEncoder').value=c.Profiles[0].VideoEncoder;}
+            config = c; el('jcAuto').checked = !!c.AutomaticCompressionEnabled; el('jcWindow').checked = !!c.ProcessingWindowEnabled;
+            el('jcStart').value = time(c.ProcessingWindowStartMinutes); el('jcStop').value = time(c.ProcessingWindowStopMinutes); updateWindow();
+            rules.included = (c.IncludedFolders || []).slice(); rules.excluded = (c.ExcludedFolders || []).slice(); renderRules(); renderExplorer();
+            el('jcOriginalsPath').value = c.QuarantineDirectory || ''; el('jcDays').value = c.RetentionDays || ''; el('jcMaxGB').value = (c.QuarantineMaxBytes || 0) / 1073741824; el('jcSavings').value = c.MinSavingsPercent;
+            if (c.Profiles && c.Profiles.length) { el('jcQuality').value = c.Profiles[0].Crf; el('jcEncoder').value = c.Profiles[0].VideoEncoder; }
+            el('jcAutoState').textContent = c.AutomaticCompressionEnabled ? 'Activada' : 'Apagada'; dirty(false);
             message(c.AutomaticCompressionEnabled ? 'Compresión automática activada.' : 'Compresión automática desactivada. Puedes analizar y comprimir manualmente.');
         });
     }
-    function candidates(list) {table('jcCandidates',['Película','Estado','Tamaño'],list.slice(0,500).map(function(c){return [c.Name,c.Reason,bytes(c.Size)];})); message(list.length+' películas revisadas. '+list.filter(function(c){return c.Eligible;}).length+' listas para comprimir. Se muestran hasta 500.');}
-    function enumName(value,names) {return typeof value === 'number' ? names[value] : value;}
-    function refresh() {
-        if(loading || !active) return Promise.resolve(); loading=true;
-        return Promise.all([api('Status'),api('Originals')]).then(function(values) {
-            var state=values[0]; el('jcQueueState').textContent=(state.Paused?'Cola pausada. ':'Cola activa. ')+(state.Schedule && !state.Schedule.Open?'Fuera de horario. ':'')+(state.Error||'');
-            var jobs=state.Jobs.slice().sort(function(a,b){return b.CreatedUtc.localeCompare(a.CreatedUtc);}).slice(0,100);
-            table('jcJobs',['Película','Estado','Progreso','Acciones'],jobs.map(function(j) {
-                var status=enumName(j.Status,['Pending','Processing','Completed','Failed','Cancelled','Skipped']), actions=document.createElement('span');
-                if(status==='Pending'||status==='Processing') actions.append(button('Cancelar',function(){return api('Jobs/'+j.Id+'/Cancel','POST').then(refresh);}));
-                if(status==='Failed'||status==='Cancelled') actions.append(button('Reintentar',function(){return api('Jobs/'+j.Id+'/Retry','POST').then(refresh);}));
-                return [j.DisplayName,j.ErrorMessage || j.StatusDetail || status,Math.round(j.Progress)+' %',actions];
-            }));
-            table('jcOriginals',['Película','Estado','Vencimiento','Acciones'],values[1].slice().sort(function(a,b){return String(b.CompletedUtc||'').localeCompare(String(a.CompletedUtc||''));}).map(function(r) {
-                var phase=enumName(r.Phase,['Prepared','BackupVerified','Publishing','Completed','Purging','Purged','Restoring','Restored','Aborted']),actions=document.createElement('span');
-                if(phase==='Completed') actions.append(button('Restaurar original',function(){return api('Originals/'+r.Request.Id+'/Restore','POST').then(function(){message('Original restaurado.');return refresh();});}));
-                return [r.Request.SourcePath,r.RetentionStatus || (r.LibraryRefreshPending ? 'Actualización de Jellyfin pendiente' : phase),r.ExpiresUtc ? new Date(r.ExpiresUtc).toLocaleString() : 'Sin vencimiento',actions];
-            }));
-        }).finally(function(){loading=false;});
+    function candidates(list) {
+        table('jcCandidates', ['Película', 'Estado', 'Tamaño'], list.slice(0, 500).map(function(c) { return [c.Name, c.Reason, bytes(c.Size)]; }));
+        var ready = list.filter(function(c) { return c.Eligible; }).length;
+        el('jcCandidatesSummary').textContent = list.length + ' películas revisadas · ' + ready + ' listas para comprimir. Se muestran hasta 500.';
+        message(list.length + ' películas revisadas. ' + ready + ' listas para comprimir.');
     }
-    el('jcForm').onsubmit=function(e) {e.preventDefault(); action(function(){
-        if(!config) throw new Error('La configuración todavía no está cargada.');
-        var c=JSON.parse(JSON.stringify(config)); c.Enabled=true; c.AutomaticCompressionEnabled=el('jcAuto').checked;
-        c.ProcessingWindowEnabled=el('jcWindow').checked; c.ProcessingWindowStartMinutes=minutes(el('jcStart').value); c.ProcessingWindowStopMinutes=minutes(el('jcStop').value);
-        c.IncludedFolders=lines('jcIncludes'); c.ExcludedFolders=lines('jcExcludes'); c.QuarantineDirectory=el('jcOriginalsPath').value.trim(); c.RetentionDays=Number(el('jcDays').value); c.QuarantineMaxBytes=Number(el('jcMaxGB').value)*1073741824; c.MinSavingsPercent=Number(el('jcSavings').value);
-        c.Profiles[0].VideoEncoder=el('jcEncoder').value; c.Profiles[0].Crf=Number(el('jcQuality').value);
-        return api('Configuration','POST',c).then(function(saved){config=saved;message('Configuración guardada. Automatización '+(saved.AutomaticCompressionEnabled?'activada.':'desactivada.'));});
-    });};
-    el('jcRoots').onclick=function(){action(function(){return browse();});};
-    function scan(route) {el('jcAnalyze').disabled=true;el('jcCompress').disabled=true;message('Revisando películas y sus huellas. Puede tardar con archivos grandes…');action(function(){return api(route,'POST').then(candidates).then(refresh);}).finally(function(){el('jcAnalyze').disabled=false;el('jcCompress').disabled=false;});}
-    el('jcAnalyze').onclick=function(){scan('Analyze');}; el('jcCompress').onclick=function(){scan('Compress');};
-    [['jcPause','Pause'],['jcResume','Resume'],['jcPurge','Originals/Purge']].forEach(function(pair){el(pair[0]).onclick=function(){action(function(){return api(pair[1],'POST').then(refresh);});};});
-    el('jcClear').onclick=function(){action(function(){return api('History','DELETE').then(refresh);});};
-    el('jcRefresh').onclick=function(){action(refresh);};
-    page.addEventListener('viewshow',function(){active=true;action(function(){return api('Capabilities').then(function(c){
-        var allowed=['libx265','hevc_nvenc','hevc_qsv','hevc_amf'], names=[];
-        (c.VideoCodecs||[]).forEach(function(codec){(codec.Encoders||[]).forEach(function(e){if(allowed.includes(e.Name)&&!names.includes(e.Name))names.push(e.Name);});});
-        el('jcEncoder').replaceChildren(); names.forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n==='libx265'?'CPU · libx265':n;el('jcEncoder').append(o);});
-        el('jcFfmpeg').textContent=(c.FfmpegVersion||'FFmpeg detectado')+'. Los codificadores GPU requieren hardware y controladores compatibles.';
-    }).then(load).then(function(){return Promise.all([browse(),refresh()]);});}); clearInterval(timer); timer=setInterval(function(){action(refresh);},5000);});
-    page.addEventListener('viewbeforehide',function(){active=false;clearInterval(timer);});
+    function enumName(value, names) { return typeof value === 'number' ? names[value] : value; }
+    function refresh() {
+        if (loading || !active) return Promise.resolve(); loading = true;
+        return Promise.all([api('Status'), api('Originals')]).then(function(values) {
+            var state = values[0], originals = values[1], allJobs = state.Jobs || [];
+            el('jcQueueState').textContent = (state.Paused ? 'Cola pausada. ' : 'Cola activa. ') + (state.Schedule && !state.Schedule.Open ? 'Fuera de horario. ' : '') + (state.Error || '');
+            el('jcJobsCount').textContent = String(allJobs.filter(function(j) { var s = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']); return s === 'Pending' || s === 'Processing'; }).length);
+            el('jcOriginalsCount').textContent = String(originals.length);
+            var jobs = allJobs.slice().sort(function(a, b) { return b.CreatedUtc.localeCompare(a.CreatedUtc); }).slice(0, 100);
+            table('jcJobs', ['Película', 'Estado', 'Progreso', 'Acciones'], jobs.map(function(j) {
+                var status = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']), actions = document.createElement('span');
+                if (status === 'Pending' || status === 'Processing') actions.append(button('Cancelar', function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').then(refresh); }));
+                if (status === 'Failed' || status === 'Cancelled') actions.append(button('Reintentar', function() { return api('Jobs/' + j.Id + '/Retry', 'POST').then(refresh); }));
+                return [j.DisplayName, j.ErrorMessage || j.StatusDetail || status, Math.round(j.Progress) + ' %', actions];
+            }));
+            table('jcOriginals', ['Película', 'Estado', 'Vencimiento', 'Acciones'], originals.slice().sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); }).map(function(r) {
+                var phase = enumName(r.Phase, ['Prepared', 'BackupVerified', 'Publishing', 'Completed', 'Purging', 'Purged', 'Restoring', 'Restored', 'Aborted']), actions = document.createElement('span');
+                if (phase === 'Completed') actions.append(button('Restaurar original', function() { return api('Originals/' + r.Request.Id + '/Restore', 'POST').then(function() { message('Original restaurado.'); return refresh(); }); }));
+                return [r.Request.SourcePath, r.RetentionStatus || (r.LibraryRefreshPending ? 'Actualización de Jellyfin pendiente' : phase), r.ExpiresUtc ? new Date(r.ExpiresUtc).toLocaleString() : 'Sin vencimiento', actions];
+            }));
+        }).finally(function() { loading = false; });
+    }
+    function setTab(index) {
+        var tabs = ['Overview', 'Folders', 'Settings', 'Activity'], panels = ['jcOverview', 'jcFolderPanel', 'jcSettings', 'jcActivity'];
+        tabs.forEach(function(name, i) { var tab = el('jcTab' + name); tab.setAttribute('aria-selected', i === index ? 'true' : 'false'); tab.tabIndex = i === index ? 0 : -1; el(panels[i]).hidden = i !== index; });
+    }
+    ['Overview', 'Folders', 'Settings', 'Activity'].forEach(function(name, index) {
+        var tab = el('jcTab' + name); tab.onclick = function() { setTab(index); };
+        tab.onkeydown = function(e) { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault(); var next = (index + (e.key === 'ArrowRight' ? 1 : 3)) % 4; setTab(next); el('jcTab' + ['Overview', 'Folders', 'Settings', 'Activity'][next]).focus(); };
+    });
+    el('jcFolderSearch').oninput = renderExplorer;
+    el('jcWindow').onchange = updateWindow;
+    ['jcAuto', 'jcWindow', 'jcEncoder'].forEach(function(id) { el(id).addEventListener('change', function() { dirty(true); }); });
+    ['jcStart', 'jcStop', 'jcOriginalsPath', 'jcDays', 'jcMaxGB', 'jcSavings', 'jcQuality'].forEach(function(id) { el(id).addEventListener('input', function() { dirty(true); }); });
+    el('jcForm').onsubmit = function(e) { e.preventDefault();
+        if (!el('jcForm').checkValidity()) { setTab(2); el('jcForm').reportValidity(); return; }
+        action(function() {
+        if (!config) throw new Error('La configuración todavía no está cargada.');
+        if (saving) return;
+        var submittedRevision = revision;
+        var c = JSON.parse(JSON.stringify(config)); c.Enabled = true; c.AutomaticCompressionEnabled = el('jcAuto').checked;
+        c.ProcessingWindowEnabled = el('jcWindow').checked; c.ProcessingWindowStartMinutes = minutes(el('jcStart').value); c.ProcessingWindowStopMinutes = minutes(el('jcStop').value);
+        c.IncludedFolders = rules.included.slice(); c.ExcludedFolders = rules.excluded.slice(); c.QuarantineDirectory = el('jcOriginalsPath').value.trim(); c.RetentionDays = Number(el('jcDays').value); c.QuarantineMaxBytes = Number(el('jcMaxGB').value) * 1073741824; c.MinSavingsPercent = Number(el('jcSavings').value);
+        c.Profiles[0].VideoEncoder = el('jcEncoder').value; c.Profiles[0].Crf = Number(el('jcQuality').value);
+        saving = true; updateControls();
+        return api('Configuration', 'POST', c).then(function(saved) {
+            config = saved;
+            if (revision === submittedRevision) { rules.included = (saved.IncludedFolders || []).slice(); rules.excluded = (saved.ExcludedFolders || []).slice(); renderRules(); renderExplorer(); dirty(false); }
+            el('jcAutoState').textContent = saved.AutomaticCompressionEnabled ? 'Activada' : 'Apagada';
+            message(revision === submittedRevision ? 'Configuración guardada. Automatización ' + (saved.AutomaticCompressionEnabled ? 'activada.' : 'desactivada.') : 'Se guardaron los cambios anteriores. Quedan cambios nuevos sin guardar.');
+        }).finally(function() { saving = false; updateControls(); });
+        }); };
+    function scan(route) { if (dirtyState || saving || scanning || !config) return; scanning = true; updateControls(); message('Revisando películas y sus huellas. Puede tardar con archivos grandes…'); action(function() { return api(route, 'POST').then(candidates).then(refresh); }).finally(function() { scanning = false; updateControls(); }); }
+    el('jcAnalyze').onclick = function() { scan('Analyze'); }; el('jcCompress').onclick = function() { scan('Compress'); };
+    [['jcPause', 'Pause'], ['jcResume', 'Resume'], ['jcPurge', 'Originals/Purge']].forEach(function(pair) { el(pair[0]).onclick = function() { action(function() { return api(pair[1], 'POST').then(refresh); }); }; });
+    el('jcClear').onclick = function() { action(function() { return api('History', 'DELETE').then(refresh); }); };
+    el('jcRefresh').onclick = function() { action(refresh); };
+    setTab(0); updateControls();
+    page.addEventListener('viewshow', function() { active = true; action(function() { return api('Capabilities').then(function(c) {
+        var allowed = ['libx265', 'hevc_nvenc', 'hevc_qsv', 'hevc_amf'], names = [];
+        (c.VideoCodecs || []).forEach(function(codec) { (codec.Encoders || []).forEach(function(e) { if (allowed.includes(e.Name) && !names.includes(e.Name)) names.push(e.Name); }); });
+        el('jcEncoder').replaceChildren(); names.forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n === 'libx265' ? 'CPU · libx265' : n; el('jcEncoder').append(o); });
+        el('jcFfmpeg').textContent = (c.FfmpegVersion || 'FFmpeg detectado') + '. Los codificadores GPU requieren hardware y controladores compatibles.';
+    }).then(load).then(function() { return Promise.all([browse('', []), refresh()]); }); }); clearInterval(timer); timer = setInterval(function() { action(refresh); }, 5000); });
+    page.addEventListener('viewbeforehide', function() { active = false; clearInterval(timer); });
 }());
 </script>
-</div></div></div></body></html>
+</div></div></div>
+</body>
+</html>
