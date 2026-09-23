@@ -3,7 +3,8 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**v0.1.1 preliminar y privada.** La versión anterior se probó en un servidor Jellyfin 10.11.6 aislado con
+**EXPERIMENTAL — v0.1.1 para Jellyfin 10.11.6.** La versión anterior se probó
+en un servidor Jellyfin 10.11.6 aislado con
 vídeos sintéticos y dos usuarios: compresión, escaneo, reinicio y restauración
 conservan los estados de la biblioteca. La ampliación de cuota de v0.1.1 aún no se ha
 probado dentro del servidor. Quedan pendientes el recorrido visual del panel y las
@@ -58,24 +59,28 @@ No debe borrarse para limpiar el historial. Si se pierde, la marca del contenedo
 ofrece una protección adicional. No se promete reconocer todas las modificaciones
 que otras aplicaciones hagan sobre los archivos.
 
-## Instalación de la versión privada
+## Instalación desde Jellyfin
 
-1. Descarga el ZIP y su SHA-256 desde [Releases](https://github.com/slx612/jellyfin-plugin-compressor/releases)
-   usando tu cuenta autorizada de GitHub.
-2. Detén Jellyfin y crea `Compressor_0.1.1.0` dentro de su directorio `plugins`.
-3. Extrae allí `Jellyfin.Plugin.Compressor.dll`, `meta.json` y los archivos de licencia.
-4. Arranca Jellyfin y abre **Panel de control → Jellyfin Compressor**.
-5. Elige carpetas, destino de originales, retención y codificador. Guarda la
-   configuración y comienza con una carpeta de prueba pequeña.
+1. En **Panel de control → Complementos → Repositorios**, pulsa **+** y añade
+   `https://raw.githubusercontent.com/slx612/jellyfin-plugin-compressor/main/manifest.json`
+   con el nombre `Jellyfin Compressor (Experimental)`.
+2. Abre el **Catálogo** de complementos, instala **Jellyfin Compressor** y reinicia Jellyfin.
+3. Abre su configuración. Elige carpetas, destino de originales, retención y
+   codificador. Comienza con una carpeta de películas prescindibles.
+
+El catálogo descarga el ZIP publicado en [Releases](https://github.com/slx612/jellyfin-plugin-compressor/releases).
+Su `checksum` es el MD5 que Jellyfin utiliza para comprobar la descarga; la
+versión publicada ofrece también un archivo SHA-256 para verificación independiente. El catálogo
+solo anuncia versiones compatibles con Jellyfin 10.11.6.
 
 En Docker/Synology se utilizan las rutas **visibles dentro del servidor Jellyfin**,
 no las del equipo donde está abierto el navegador. Jellyfin necesita lectura y
 escritura en la biblioteca, su directorio de datos y la carpeta de originales.
 Los enlaces simbólicos y junctions se rechazan en v1.
 
-El repositorio privado no es un catálogo público de complementos. No pongas un
-token de GitHub en una URL de repositorio Jellyfin. Esta entrega usa instalación
-manual del paquete autenticado.
+Esta es una versión experimental. La compresión automática viene desactivada y
+ninguna carpeta está seleccionada de fábrica. El código y el ZIP son públicos;
+no hace falta ni debe usarse un token de GitHub en Jellyfin.
 
 ## Configuración y recuperación
 

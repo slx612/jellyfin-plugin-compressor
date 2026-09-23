@@ -46,7 +46,7 @@ Moq ya usados por la base. Sin nuevo servicio ni base de datos externa.
 
 ## Organización y decisiones de implementación
 
-Trabajar en `C:/Users/sergi/Documents/jellyfin-plugin-compressor`, repositorio nuevo,
+Trabajar en un repositorio nuevo e independiente para el complemento Jellyfin,
 independiente del directorio inicial. Crear `codex/v1` en este repositorio. No hace
 falta un worktree del compresor anterior: traería el historial equivocado.
 
