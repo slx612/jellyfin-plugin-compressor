@@ -50,6 +50,13 @@ Por ello falta comprobar con servidor y cliente:
    en el sistema de archivos del servidor de destino; pruebas de cortes reales.
 5. Codificadores de GPU en el hardware del servidor (solo libx265 probado aquí).
 
+La [prueba reproducible de identidad y estados](identity-regression-test.md) ya
+está preparada para el punto 2: tres películas sintéticas, dos usuarios, escaneo,
+reinicio y restauración. Se han validado la sintaxis de los scripts, los tres
+contenedores y un control del comparador que detecta 11 alteraciones independientes
+de los campos y listas protegidos. **Eso no sustituye la ejecución en Jellyfin**,
+que sigue pendiente de poder arrancar el servidor aislado.
+
 Los diarios y operaciones atómicas cubren interrupciones del proceso comprobadas
 mediante estados persistidos. No equivalen a una certificación de durabilidad ante
 cortes eléctricos, averías de disco o escrituras simultáneas de otros programas.

@@ -11,3 +11,4 @@ TestResults/
 *.mkv
 *.sqlite*
 *.m4v
+__pycache__/
