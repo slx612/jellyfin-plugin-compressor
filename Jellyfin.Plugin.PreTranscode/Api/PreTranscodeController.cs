@@ -8,6 +8,8 @@ using Jellyfin.Plugin.PreTranscode.Ffmpeg;
 using Jellyfin.Plugin.PreTranscode.Jobs;
 using Jellyfin.Plugin.PreTranscode.Library;
 using Jellyfin.Plugin.PreTranscode.Safety;
+using Jellyfin.Data.Enums;
+using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -43,7 +45,7 @@ public class PreTranscodeController : ControllerBase
             CompressionPolicy.EffectiveProfile(config.Profiles[0], "validation.mkv");
             config.MaxConcurrentJobs = 1;
             config.QueuePaused = queue.IsPaused;
-            config.FileStabilitySeconds = Math.Max(60, config.FileStabilitySeconds);
+            config.FileStabilitySeconds = Math.Clamp(config.FileStabilitySeconds, 60, 86400);
             Plugin.Instance!.UpdateConfiguration(config);
             return Ok(config);
         }
@@ -62,6 +64,30 @@ public class PreTranscodeController : ControllerBase
                 .OrderBy(p => p).Select(p => new { Path = p, Name = Path.GetFileName(p) }).ToArray());
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) { return BadRequest(new { Message = ex.Message }); }
+    }
+    [HttpGet("OriginalFolders")]
+    public IActionResult OriginalFolders([FromQuery] string? path = null)
+    {
+        try
+        {
+            var roots = coordinator.Roots();
+            var folders = QuarantineFolderBrowser.List(path, roots);
+            return Ok(new { Path = path, Parent = string.IsNullOrEmpty(path) ? null : Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(path)),
+                Selectable = path is not null && QuarantineFolderBrowser.CanSelect(path, roots), Folders = folders });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        { return BadRequest(new { Message = ex.Message }); }
+    }
+    [HttpGet("Movies")]
+    public IActionResult Movies([FromQuery] string? query)
+    {
+        var tokens = ItemSearch.Tokenize(query);
+        if (query is null || query.Trim().Length < 2 || query.Length > 100 || tokens.Length == 0)
+            return BadRequest(new { Message = "Escribe al menos dos caracteres para buscar una película." });
+        var items = library.GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, IsVirtualItem = false, Recursive = true });
+        return Ok(items.Where(item => !string.IsNullOrEmpty(item.Path) && ItemSearch.Matches(item.Name, item.Path, tokens))
+            .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase).Take(30)
+            .Select(item => new { Id = item.Id, item.Name, item.Path }).ToArray());
     }
     [HttpGet("Capabilities")]
     public async Task<IActionResult> Capabilities(CancellationToken token)

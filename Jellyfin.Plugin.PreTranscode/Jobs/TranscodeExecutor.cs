@@ -97,7 +97,7 @@ internal sealed class TranscodeExecutor
                 if (exit != 0) { job.LogExcerpt = tail; throw new IOException("FFmpeg no terminó correctamente (" + exit + ")."); }
                 Detail(job, "Verificando pistas, capítulos y vídeo completo");
                 var output = await prober.ProbeAsync(temp, token).ConfigureAwait(false) ?? throw new IOException("Resultado ilegible.");
-                var invalid = CompressionPolicy.VerificationError(source, output);
+                var invalid = CompressionPolicy.VerificationError(source, output, snapshot.Profile);
                 if (invalid is not null) throw new IOException(invalid);
                 var (decodeExit, decodeTail) = await FfmpegExecutor.RunAsync(FfmpegPaths.ResolveFfmpeg(encoder),
                     new[] { "-nostdin", "-v", "error", "-xerror", "-i", temp, "-map", "0:V", "-map", "0:a?", "-f", "null", "-" }, source.DurationSeconds,

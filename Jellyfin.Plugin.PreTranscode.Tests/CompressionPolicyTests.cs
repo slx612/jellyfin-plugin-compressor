@@ -23,7 +23,7 @@ public class CompressionPolicyTests
     public void SnapshotKeepsContainerAndCannotInheritLossyProfileOptions()
     {
         var profile = new EncodingProfile { VideoEncoder = "libx265", Crf = 24, AudioCodec = "aac", MaxWidth = 640,
-            ResolutionMode = ResolutionMode.CapWidth, ExtraOutputArgs = "-sn", Container = "matroska" };
+            ResolutionMode = ResolutionMode.Unchanged, ExtraOutputArgs = "-sn", Container = "matroska" };
         var effective = CompressionPolicy.EffectiveProfile(profile, "movie.mp4");
         profile.Crf = 40;
         Assert.Equal(24, effective.Crf);
@@ -32,6 +32,65 @@ public class CompressionPolicyTests
         Assert.Equal(ResolutionMode.Unchanged, effective.ResolutionMode);
         Assert.Empty(effective.ExtraOutputArgs);
         Assert.Throws<InvalidOperationException>(() => CompressionPolicy.EffectiveProfile(profile, "movie.avi"));
+        profile.ResolutionMode = ResolutionMode.CapWidth;
+        Assert.Throws<InvalidOperationException>(() => CompressionPolicy.EffectiveProfile(profile, "movie.mp4"));
+    }
+
+    [Fact]
+    public void ResolutionLimitDownscales4kButNeverUpscales720p()
+    {
+        var profile = CompressionPolicy.EffectiveProfile(new EncodingProfile
+        {
+            VideoEncoder = "libx265", Crf = 23, ResolutionMode = ResolutionMode.CapHeight, MaxHeight = 1080
+        }, "movie.mkv");
+        var fourK = new MediaProbeInfo { Width = 3840, Height = 2160, PixelFormat = "yuv420p" };
+        var hd = new MediaProbeInfo { Width = 1280, Height = 720, PixelFormat = "yuv420p" };
+
+        Assert.Equal(1080, profile.MaxHeight);
+        Assert.Equal(1920, profile.MaxWidth);
+        Assert.Contains("scale=w=1920:h=1080:force_original_aspect_ratio=decrease:force_divisible_by=2",
+            CompressionPolicy.BuildArguments(profile, fourK, "in.mkv", "out.mkv"));
+        Assert.DoesNotContain("-vf", CompressionPolicy.BuildArguments(profile, hd, "in.mkv", "out.mkv"));
+    }
+
+    [Fact]
+    public void VerificationAcceptsOnlyTheConfiguredDownscale()
+    {
+        var profile = CompressionPolicy.EffectiveProfile(new EncodingProfile
+        {
+            VideoEncoder = "libx265", Crf = 23, ResolutionMode = ResolutionMode.CapHeight, MaxHeight = 1080
+        }, "movie.mkv");
+        var source = new MediaProbeInfo { Width = 3840, Height = 2160, DurationSeconds = 120, BitDepth = 8 };
+        var output = new MediaProbeInfo { Width = 1920, Height = 1080, DurationSeconds = 120, BitDepth = 8,
+            VideoCodec = "hevc", CompressorMarker = true };
+        Assert.Null(CompressionPolicy.VerificationError(source, output, profile));
+        output.Width = 1280;
+        output.Height = 720;
+        Assert.NotNull(CompressionPolicy.VerificationError(source, output, profile));
+        output.Width = 3840;
+        output.Height = 2160;
+        Assert.NotNull(CompressionPolicy.VerificationError(source, output, profile));
+
+        source.Width = 1280;
+        source.Height = 720;
+        output.Width = 1280;
+        output.Height = 720;
+        Assert.Null(CompressionPolicy.VerificationError(source, output, profile));
+        output.Width = 1920;
+        output.Height = 1080;
+        Assert.NotNull(CompressionPolicy.VerificationError(source, output, profile));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(999)]
+    [InlineData(4320)]
+    public void ResolutionLimitRejectsUnsupportedHeights(int height)
+    {
+        Assert.Throws<InvalidOperationException>(() => CompressionPolicy.EffectiveProfile(new EncodingProfile
+        {
+            VideoEncoder = "libx265", Crf = 23, ResolutionMode = ResolutionMode.CapHeight, MaxHeight = height
+        }, "movie.mkv"));
     }
 
     [Fact]

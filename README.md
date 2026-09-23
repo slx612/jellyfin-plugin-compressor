@@ -3,13 +3,13 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.2 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.3 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
 destino tras instalar y reiniciar: cargaron Resumen, Carpetas y Ajustes, con la
 automatización apagada y ninguna carpeta seleccionada. **No se ha comprimido ni
-restaurado ningún medio real con esta versión**; las operaciones de cuota y
+restaurado ningún medio real con v0.1.3**; las operaciones de cuota y
 retención ampliadas aún no se han probado dentro del servidor.
 
 ## Funcionamiento
@@ -17,8 +17,12 @@ retención ampliadas aún no se han probado dentro del servidor.
 - Automatización **desactivada por defecto** y ninguna carpeta seleccionada.
 - Inclusiones y exclusiones por carpetas; las exclusiones siempre prevalecen.
 - **Analizar** comprueba elegibilidad; **Comprimir** crea trabajos manuales.
+  La búsqueda permite encolar una sola película; se aplican las mismas reglas
+  de carpeta, estabilidad, reproducción y prevención de recompresión.
 - Una película cada vez, pausa y horario opcional según la hora del servidor.
-- HEVC, sin cambiar resolución, profundidad de color, audio, subtítulos ni capítulos.
+- HEVC con resolución original o límite de 2160p, 1080p, 720p o 480p.
+  El límite solo reduce: una película de 720p nunca se amplía a 1080p.
+  Se conservan profundidad de color, audio, subtítulos y capítulos.
   Se omiten HDR, Dolby Vision y estructuras no admitidas por esta v1.
 - MKV, MP4 y M4V conservan **ruta, nombre y extensión completos**. No se convierte
   MP4 a MKV ni se crea una segunda película. Se conservan las fechas del archivo
@@ -70,9 +74,11 @@ que otras aplicaciones hagan sobre los archivos.
 3. Abre su configuración. Elige carpetas, destino de originales, retención y
    codificador. Comienza con una carpeta de películas prescindibles.
 
-El panel tiene cuatro pestañas: **Resumen** para analizar y lanzar trabajos manuales,
+El panel tiene cuatro pestañas: **Resumen** para analizar, buscar y encolar una película,
 **Carpetas** para recorrer bibliotecas y marcar inclusiones o exclusiones, **Ajustes**
 para automatización, originales y calidad, y **Actividad** para cola y restauración.
+La carpeta de originales se puede buscar en el explorador del servidor. Este
+solo permite elegir carpetas fuera de las bibliotecas; la ruta manual sigue disponible.
 Los cambios en carpetas y ajustes se aplican al pulsar **Guardar cambios**. Las
 acciones de Resumen se desactivan mientras haya cambios pendientes, para evitar
 analizar o encolar películas con una selección de carpetas anterior.
@@ -129,7 +135,7 @@ Requiere .NET SDK 9 y FFmpeg/ffprobe en `PATH` para las pruebas de integración.
 
 ```powershell
 dotnet test -c Release
-./build-plugin.ps1 -Version 0.1.2.0
+./build-plugin.ps1 -Version 0.1.3.0
 ```
 
 El ZIP y su SHA-256 quedan en `artifacts/`. Las dependencias de Jellyfin se
