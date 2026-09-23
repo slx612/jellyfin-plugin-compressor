@@ -3,12 +3,13 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.1 para Jellyfin 10.11.6.** La versión anterior se probó
+**EXPERIMENTAL — v0.1.2 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor Jellyfin 10.11.6 aislado con
 vídeos sintéticos y dos usuarios: compresión, escaneo, reinicio y restauración
 conservan los estados de la biblioteca. La ampliación de cuota de v0.1.1 aún no se ha
-probado dentro del servidor. Quedan pendientes el recorrido visual del panel y las
-pruebas en el servidor de destino; no se ha instalado en una biblioteca real.
+probado dentro del servidor. El panel de v0.1.2 se revisó visualmente y se probaron
+sus acciones con respuestas simuladas; quedan pendientes las pruebas de esta versión
+en el servidor de destino. No se ha instalado en una biblioteca real.
 
 ## Funcionamiento
 
@@ -68,6 +69,12 @@ que otras aplicaciones hagan sobre los archivos.
 3. Abre su configuración. Elige carpetas, destino de originales, retención y
    codificador. Comienza con una carpeta de películas prescindibles.
 
+El panel tiene cuatro pestañas: **Resumen** para analizar y lanzar trabajos manuales,
+**Carpetas** para recorrer bibliotecas y marcar inclusiones o exclusiones, **Ajustes**
+para automatización, originales y calidad, y **Actividad** para cola y restauración.
+Los cambios en carpetas y ajustes se aplican al pulsar **Guardar cambios**. Las
+acciones de Resumen usan la última configuración guardada.
+
 El catálogo descarga el ZIP publicado en [Releases](https://github.com/slx612/jellyfin-plugin-compressor/releases).
 Su `checksum` es el MD5 que Jellyfin utiliza para comprobar la descarga; la
 versión publicada ofrece también un archivo SHA-256 para verificación independiente. El catálogo
@@ -120,7 +127,7 @@ Requiere .NET SDK 9 y FFmpeg/ffprobe en `PATH` para las pruebas de integración.
 
 ```powershell
 dotnet test -c Release
-./build-plugin.ps1 -Version 0.1.1.0
+./build-plugin.ps1 -Version 0.1.2.0
 ```
 
 El ZIP y su SHA-256 quedan en `artifacts/`. Las dependencias de Jellyfin se

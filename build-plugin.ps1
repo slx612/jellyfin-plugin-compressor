@@ -1,5 +1,5 @@
-<# Build a private preview package; does not install the plugin or modify any media. #>
-param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.1.0")
+<# Build an experimental package; does not install the plugin or modify any media. #>
+param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.2.0")
 $ErrorActionPreference = "Stop"
 $taskRoot = $PSScriptRoot
 $taskProject = Join-Path $taskRoot "Jellyfin.Plugin.PreTranscode/Jellyfin.Plugin.PreTranscode.csproj"
@@ -12,7 +12,7 @@ Copy-Item -LiteralPath (Join-Path $taskRoot "Jellyfin.Plugin.PreTranscode/bin/Re
 Copy-Item -LiteralPath (Join-Path $taskRoot "LICENSE"), (Join-Path $taskRoot "UPSTREAM.md") -Destination $taskStage
 $taskMeta = [ordered]@{
     category = "General"
-    changelog = "Private preview: configurable original-folder size limit, age-based retention and verified cleanup after restoration. See README for verification limits."
+    changelog = "Experimental preview: redesigned dashboard, visual folder browser and grouped settings. Automatic compression stays off by default. See README for verification limits."
     description = "Compress movies while retaining originals temporarily and preserving Jellyfin item identity."
     guid = "274af2b7-724c-41e9-82e7-56c3e80139c1"
     name = "Jellyfin Compressor"
