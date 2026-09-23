@@ -4,12 +4,13 @@ Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio s
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
 **EXPERIMENTAL — v0.1.2 para Jellyfin 10.11.6.** La versión inicial se probó
-en un servidor Jellyfin 10.11.6 aislado con
-vídeos sintéticos y dos usuarios: compresión, escaneo, reinicio y restauración
-conservan los estados de la biblioteca. La ampliación de cuota de v0.1.1 aún no se ha
-probado dentro del servidor. El panel de v0.1.2 se revisó visualmente y se probaron
-sus acciones con respuestas simuladas; quedan pendientes las pruebas de esta versión
-en el servidor de destino. No se ha instalado en una biblioteca real.
+en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
+reinicio y restauración conservaron los estados de la biblioteca. El panel de
+v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
+destino tras instalar y reiniciar: cargaron Resumen, Carpetas y Ajustes, con la
+automatización apagada y ninguna carpeta seleccionada. **No se ha comprimido ni
+restaurado ningún medio real con esta versión**; las operaciones de cuota y
+retención ampliadas aún no se han probado dentro del servidor.
 
 ## Funcionamiento
 
