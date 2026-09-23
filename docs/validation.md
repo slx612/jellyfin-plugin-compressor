@@ -32,30 +32,56 @@ se comprueban sin duplicados. Compila contra los paquetes oficiales Jellyfin
 pendientes tras reinicios, temporales huérfanos, desacuerdo en el horario y el
 límite que ocultaba originales restaurables tras 100 transacciones.
 
+## Comprobado en un servidor Jellyfin 10.11.6
+
+El 2026-09-23 se ejecutó la [prueba reproducible de identidad y estados](identity-regression-test.md)
+con la DLL del paquete privado `v0.1.0-alpha.1`, sin cambios en el código del complemento.
+SHA-256 de la DLL: `321bd1a9cef01e40969a293143cedfafe0176a28383dcd19cfc00a5be714a56f`.
+
+Entorno: Windows, servidor portable oficial 10.11.6, FFmpeg de Jellyfin 8.1.2,
+libx265, HTTP exclusivo en localhost, datos y biblioteca desechables. Tres películas
+sintéticas de diez minutos (MKV, MP4 y M4V), con fechas de alta distintas y monitor
+en tiempo real activado. Dos usuarios con películas vistas y a medias diferentes:
+posiciones iniciales de 120 y 180 segundos, respectivamente.
+
+Las seis comparaciones conservaron exactamente los datos de ambos usuarios:
+
+| Momento | Resultado |
+| --- | --- |
+| Después de comprimir los tres archivos | Correcto |
+| Después de un escaneo completo | Correcto |
+| Después de detener y arrancar Jellyfin | Correcto |
+| Después de escanear tras el reinicio | Correcto |
+| Después de restaurar los tres originales | Correcto |
+| Después del escaneo final | Correcto |
+
+Campos comparados: identificador de la ficha, ruta, `DateCreated`, clave de datos
+del usuario, visto, posición en ticks, contador y fecha de reproducción, favorito,
+listas y orden de recién añadidas, recién añadidas sin ver y continuar viendo.
+Los tres trabajos finalizaron con reducción real de tamaño y el códec HEVC
+actualizado en Jellyfin. La restauración recuperó el SHA-256 original de cada archivo.
+También se comprobaron instalación y carga de servicios, automatización apagada
+y selección de carpetas vacía de fábrica.
+
+La evidencia resumida sin contraseñas ni rutas personales está en
+[identity-10.11.6.json](validation/identity-10.11.6.json). Las bases de datos,
+instantáneas completas, registros y medios de prueba quedan en `artifacts/`,
+excluidos de Git. El comparador también detectó 11 alteraciones independientes
+introducidas deliberadamente en sus campos y listas protegidos.
+
+La prueba espera a que `/health` indique `Healthy`: el servidor de arranque de
+Jellyfin también responde a `/System/Info/Public` antes de inicializar la API.
+El cierre permite hasta tres minutos para la optimización de SQLite de Jellyfin.
+
 ## Pendiente antes de considerar la v1 estable
 
-No se ha instalado ni ejecutado el complemento dentro de un Jellyfin real durante
-esta entrega. La revisión automática de permisos rechazó el comando para arrancar
-un servidor de prueba aislado, sin indicar una causa concreta. No se intentó
-sortear ese rechazo.
-
-Por ello falta comprobar con servidor y cliente:
-
-1. Instalación, carga de servicios y funcionamiento visual completo del panel.
-2. Antes/después de comprimir: mismo `ItemId`, `DateCreated`, estado visto,
-   posición de reproducción, favoritos y orden de recién añadidas.
-3. Biblioteca con monitor en tiempo real, escaneo concurrente y reinicio entre
-   reemplazo y actualización de información de medios.
-4. Comportamiento de permisos, fechas, espacio insuficiente y copia entre volúmenes
+1. Funcionamiento visual completo del panel y de los clientes de reproducción.
+2. Escaneo concurrente con el reemplazo y reinicio entre la publicación del archivo
+   y la actualización de información de medios. Aquí se escaneó y reinició después
+   de completar los trabajos, con el monitor en tiempo real activado.
+3. Comportamiento de permisos, fechas, espacio insuficiente y copia entre volúmenes
    en el sistema de archivos del servidor de destino; pruebas de cortes reales.
-5. Codificadores de GPU en el hardware del servidor (solo libx265 probado aquí).
-
-La [prueba reproducible de identidad y estados](identity-regression-test.md) ya
-está preparada para el punto 2: tres películas sintéticas, dos usuarios, escaneo,
-reinicio y restauración. Se han validado la sintaxis de los scripts, los tres
-contenedores y un control del comparador que detecta 11 alteraciones independientes
-de los campos y listas protegidos. **Eso no sustituye la ejecución en Jellyfin**,
-que sigue pendiente de poder arrancar el servidor aislado.
+4. Codificadores de GPU en el hardware del servidor (solo libx265 probado aquí).
 
 Los diarios y operaciones atómicas cubren interrupciones del proceso comprobadas
 mediante estados persistidos. No equivalen a una certificación de durabilidad ante

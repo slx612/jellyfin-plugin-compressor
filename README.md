@@ -3,10 +3,10 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**v0.1.0 preliminar y privada.** Hay pruebas automatizadas y compresiones reales con
-vídeos sintéticos. La instalación y el recorrido completo en un servidor Jellyfin
-10.11.6 en funcionamiento todavía necesitan validación; no se ha instalado en una
-biblioteca real.
+**v0.1.0 preliminar y privada.** Probada en un servidor Jellyfin 10.11.6 aislado con
+vídeos sintéticos y dos usuarios: compresión, escaneo, reinicio y restauración
+conservan los estados de la biblioteca. Quedan pendientes el recorrido visual del
+panel y las pruebas en el servidor de destino; no se ha instalado en una biblioteca real.
 
 ## Funcionamiento
 
@@ -29,10 +29,11 @@ biblioteca real.
   que el resultado comprimido sigue disponible. Un conflicto aplaza la eliminación.
 - Si Jellyfin informa de una reproducción activa, se aplaza el reemplazo.
 
-La conservación de «recién añadidas», visto y progreso depende de mantener la misma
-ficha. Ese comportamiento está implementado, pero **aún debe comprobarse de extremo
-a extremo con un servidor y cliente Jellyfin**. No se presenta como validado solo
-por compilar contra sus bibliotecas.
+La conservación de **«recién añadidas», visto y progreso está comprobada en Jellyfin
+10.11.6**, consultando las listas y datos que reciben los clientes. Se mantienen la
+misma ficha, fecha de alta, posición de reproducción y datos de cada usuario tras
+comprimir, escanear, reiniciar y restaurar. Consulta el alcance y la evidencia en
+[validación](docs/validation.md); todavía falta la revisión visual de los clientes.
 
 ## No recomprimir películas
 

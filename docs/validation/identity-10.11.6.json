@@ -1,0 +1,73 @@
+{
+  "Date": "2026-09-23",
+  "JellyfinVersion": "10.11.6",
+  "Platform": "Windows x64",
+  "FfmpegVersion": "8.1.2",
+  "Encoder": "libx265",
+  "PluginRelease": "v0.1.0-alpha.1",
+  "PluginDllSha256": "321bd1a9cef01e40969a293143cedfafe0176a28383dcd19cfc00a5be714a56f",
+  "SameDllAsReleasePackage": true,
+  "RunnerExitCode": 0,
+  "Users": 2,
+  "Movies": 3,
+  "SyntheticDurationSeconds": 600,
+  "InitialResumePositionsSeconds": [
+    120,
+    180
+  ],
+  "RealtimeMonitorEnabled": true,
+  "ProtectedItemFields": [
+    "Id",
+    "Path",
+    "DateCreated"
+  ],
+  "ProtectedUserFields": [
+    "Key",
+    "Played",
+    "PlaybackPositionTicks",
+    "PlayCount",
+    "LastPlayedDate",
+    "IsFavorite"
+  ],
+  "ProtectedLists": [
+    "Latest",
+    "LatestUnplayed",
+    "Resume"
+  ],
+  "AllCheckpointsEqualBaseline": true,
+  "SnapshotSha256": {
+    "baseline": "98eea34519f9f9c4b0d17fa8c3648fec1953aa38b8aa0f4486928d442b35d871",
+    "after-compression": "98eea34519f9f9c4b0d17fa8c3648fec1953aa38b8aa0f4486928d442b35d871",
+    "after-scan": "98eea34519f9f9c4b0d17fa8c3648fec1953aa38b8aa0f4486928d442b35d871",
+    "after-restart": "98eea34519f9f9c4b0d17fa8c3648fec1953aa38b8aa0f4486928d442b35d871",
+    "after-restart-scan": "98eea34519f9f9c4b0d17fa8c3648fec1953aa38b8aa0f4486928d442b35d871",
+    "after-restore": "98eea34519f9f9c4b0d17fa8c3648fec1953aa38b8aa0f4486928d442b35d871",
+    "after-restore-scan": "98eea34519f9f9c4b0d17fa8c3648fec1953aa38b8aa0f4486928d442b35d871"
+  },
+  "Files": [
+    {
+      "Container": "mkv",
+      "OriginalBytes": 15180438,
+      "CompressedBytes": 5524906,
+      "OriginalRestoredExactly": true
+    },
+    {
+      "Container": "mp4",
+      "OriginalBytes": 15166511,
+      "CompressedBytes": 5536605,
+      "OriginalRestoredExactly": true
+    },
+    {
+      "Container": "m4v",
+      "OriginalBytes": 15160220,
+      "CompressedBytes": 5529926,
+      "OriginalRestoredExactly": true
+    }
+  ],
+  "Limitations": [
+    "No visual client/panel check",
+    "No concurrent scan during replacement",
+    "No interruption between publication and refresh",
+    "No NAS or GPU check"
+  ]
+}

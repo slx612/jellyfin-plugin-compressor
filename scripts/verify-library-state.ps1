@@ -35,8 +35,12 @@ function Start-FixtureServer {
                 throw 'Fixture unexpectedly listening outside 127.0.0.1:18096.'
             }
             try {
-                $public = Invoke-RestMethod -Uri 'http://127.0.0.1:18096/System/Info/Public' -TimeoutSec 2
-                if ($public.Version -eq '10.11.6') { return }
+                # The startup app also serves System/Info/Public before the API is ready.
+                $health = Invoke-RestMethod -Uri 'http://127.0.0.1:18096/health' -TimeoutSec 2
+                if ($health -eq 'Healthy') {
+                    $public = Invoke-RestMethod -Uri 'http://127.0.0.1:18096/System/Info/Public' -TimeoutSec 2
+                    if ($public.Version -eq '10.11.6') { return }
+                }
             } catch { }
         }
         Start-Sleep -Seconds 2
@@ -48,7 +52,11 @@ function Stop-FixtureServer {
     if ($script:server -and -not $script:server.HasExited) {
         & py -3 $driver shutdown --fixture $fixturePath
         if ($LASTEXITCODE -ne 0) { throw 'Graceful fixture shutdown failed.' }
-        if (-not $script:server.WaitForExit(30000)) { throw 'Fixture shutdown timed out.' }
+        # Jellyfin optimizes SQLite during shutdown; allow time after a library scan.
+        $shutdownDeadline = (Get-Date).AddSeconds(180)
+        while (-not $script:server.WaitForExit(1000)) {
+            if ((Get-Date) -gt $shutdownDeadline) { throw 'Fixture shutdown timed out.' }
+        }
     }
 }
 
