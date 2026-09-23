@@ -34,8 +34,9 @@ public class ProcessSuspenderIntegrationTests
         };
         foreach (var a in new[]
         {
-            "-y", "-nostdin", "-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30",
-            "-c:v", "libx264", "-preset", "fast", "-t", "600", outPath
+            // Test process scheduling independently of CPU-heavy encoder latency and muxer buffering.
+            "-y", "-nostdin", "-re", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=10",
+            "-c:v", "rawvideo", "-threads", "1", "-flush_packets", "1", "-f", "nut", "-t", "600", outPath
         })
         {
             startInfo.ArgumentList.Add(a);
@@ -67,8 +68,13 @@ public class ProcessSuspenderIntegrationTests
             Assert.True(s2 - s1 < 200_000, $"output kept growing while suspended ({s1} -> {s2})");
 
             ProcessSuspender.Resume(process);
-            await Task.Delay(2000);
-            var s3 = Size(outPath);
+            var s3 = s2;
+            for (var i = 0; i < 60 && s3 - s2 <= 200_000 && !process.HasExited; i++)
+            {
+                await Task.Delay(250);
+                s3 = Size(outPath);
+            }
+            Assert.False(process.HasExited, "ffmpeg exited before the resume check");
             Assert.True(s3 - s2 > 200_000, $"output did not resume growing after resume ({s2} -> {s3})");
         }
         finally
