@@ -49,6 +49,8 @@ public static class FolderPolicy
     {
         if (!Path.IsPathFullyQualified(config.QuarantineDirectory) || config.RetentionDays is < 1 or > 3650)
             throw new InvalidOperationException("Elige una carpeta absoluta para originales y una retención de 1 a 3650 días.");
+        if (config.QuarantineMaxBytes is < 0 or > 1125899906842624L)
+            throw new InvalidOperationException("El límite de originales debe estar entre 0 y 1048576 GB.");
         RejectLinks(config.QuarantineDirectory);
         if (roots.Any(r => Contains(r, config.QuarantineDirectory) || Contains(config.QuarantineDirectory, r)))
             throw new InvalidOperationException("La carpeta de originales debe estar separada de todas las bibliotecas.");

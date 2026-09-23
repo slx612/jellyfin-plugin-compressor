@@ -3,10 +3,11 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**v0.1.0 preliminar y privada.** Probada en un servidor Jellyfin 10.11.6 aislado con
+**v0.1.1 preliminar y privada.** La versión anterior se probó en un servidor Jellyfin 10.11.6 aislado con
 vídeos sintéticos y dos usuarios: compresión, escaneo, reinicio y restauración
-conservan los estados de la biblioteca. Quedan pendientes el recorrido visual del
-panel y las pruebas en el servidor de destino; no se ha instalado en una biblioteca real.
+conservan los estados de la biblioteca. La ampliación de cuota de v0.1.1 aún no se ha
+probado dentro del servidor. Quedan pendientes el recorrido visual del panel y las
+pruebas en el servidor de destino; no se ha instalado en una biblioteca real.
 
 ## Funcionamiento
 
@@ -27,6 +28,11 @@ panel y las pruebas en el servidor de destino; no se ha instalado en una bibliot
 - Cada original tiene su plazo de retención, que comienza al completar la sustitución.
   La limpieza solo elimina originales registrados y vencidos cuando puede verificar
   que el resultado comprimido sigue disponible. Un conflicto aplaza la eliminación.
+- Puede fijarse un límite para la carpeta de originales. Al alcanzarlo se eliminan
+  primero los originales recuperables más antiguos, incluso antes de que venzan,
+  siempre que la película comprimida y su ficha estén verificadas. Si no hay espacio
+  que pueda liberarse sin riesgo, el original de la nueva película permanece en la
+  biblioteca. Los archivos ajenos cuentan para el límite, pero nunca se eliminan.
 - Si Jellyfin informa de una reproducción activa, se aplaza el reemplazo.
 
 La conservación de **«recién añadidas», visto y progreso está comprobada en Jellyfin
@@ -56,7 +62,7 @@ que otras aplicaciones hagan sobre los archivos.
 
 1. Descarga el ZIP y su SHA-256 desde [Releases](https://github.com/slx612/jellyfin-plugin-compressor/releases)
    usando tu cuenta autorizada de GitHub.
-2. Detén Jellyfin y crea `Compressor_0.1.0.0` dentro de su directorio `plugins`.
+2. Detén Jellyfin y crea `Compressor_0.1.1.0` dentro de su directorio `plugins`.
 3. Extrae allí `Jellyfin.Plugin.Compressor.dll`, `meta.json` y los archivos de licencia.
 4. Arranca Jellyfin y abre **Panel de control → Jellyfin Compressor**.
 5. Elige carpetas, destino de originales, retención y codificador. Guarda la
@@ -77,12 +83,19 @@ La retención debe elegirse explícitamente entre 1 y 3650 días. Cambiarla afec
 futuros trabajos: los ya encolados conservan su instantánea. Desactivar nuevas
 compresiones no suspende la limpieza de originales ya vencidos. La limpieza se
 revisa cada minuto, independientemente de la pausa y del horario de compresión.
+El límite de tamaño se expresa en GB (0 = sin límite) y se aplica de inmediato a
+la carpeta seleccionada; reducirlo también inicia una limpieza automática. Por
+seguridad se incluyen todos los archivos al calcular el tamaño, pero solo se
+borran originales de transacciones conocidas y verificadas. Cambiar la ruta de la
+carpeta no mueve automáticamente los originales que ya estaban en la anterior;
+estos conservan su vencimiento.
 
 Durante la retención, **Restaurar original** recupera el archivo si la película no
-se está reproduciendo y ningún contenido ajeno ocupa su lugar. Por precaución,
-tras una restauración ambas copias de cuarentena se conservan **sin caducidad**;
-pueden retirarse manualmente tras comprobar el archivo restaurado. Las
-transacciones abortadas también requieren revisión manual de sus copias.
+se está reproduciendo y ningún contenido ajeno ocupa su lugar. Tras verificar el
+original restaurado y actualizar su ficha en Jellyfin, se elimina su copia de
+cuarentena; también se retira una copia comprimida heredada de versiones previas
+si está presente y coincide con el registro. Un fallo de verificación conserva las
+copias para inspección. Las transacciones abortadas requieren revisión manual.
 
 Los diarios de `jellyfin-compressor/transactions` permiten reconciliar un reinicio
 antes de realizar nuevos trabajos. Incluyen la actualización pendiente de la ficha
@@ -101,7 +114,7 @@ Requiere .NET SDK 9 y FFmpeg/ffprobe en `PATH` para las pruebas de integración.
 
 ```powershell
 dotnet test -c Release
-./build-plugin.ps1 -Version 0.1.0.0
+./build-plugin.ps1 -Version 0.1.1.0
 ```
 
 El ZIP y su SHA-256 quedan en `artifacts/`. Las dependencias de Jellyfin se

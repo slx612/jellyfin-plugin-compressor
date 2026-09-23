@@ -88,3 +88,12 @@ mediante estados persistidos. No equivalen a una certificación de durabilidad a
 cortes eléctricos, averías de disco o escrituras simultáneas de otros programas.
 La versión es un paquete de prueba privado; la automatización permanece apagada
 por defecto y la primera prueba debe hacerse con copias de medios prescindibles.
+
+## Ampliación de cuota de cuarentena
+
+La prueba real de Jellyfin descrita arriba corresponde a la DLL de `v0.1.0-alpha.1`.
+La cuota configurable y la limpieza tras restaurar son posteriores: sus pruebas de
+servicio comprueban orden de eliminación, archivos ajenos, bloqueo por actualización
+pendiente, reducción del límite sin nuevas compresiones y limpieza después de
+verificar la restauración. **La ampliación aún no se ha ejecutado dentro de un
+servidor Jellyfin ni en el NAS.**

@@ -3,6 +3,12 @@
 Fecha: 2026-09-22. Destino confirmado: Jellyfin 10.11.6.
 Estado: diseño aprobado por el usuario el 2026-09-22; versión preliminar implementada; identidad, recién añadidas y estados de reproducción validados en Jellyfin 10.11.6 aislado. Panel visual y sistema de archivos de destino pendientes. Requisito adicional: conservar la identidad y las fechas en Jellyfin.
 
+Ampliación solicitada el 2026-09-23: límite configurable para el tamaño de la
+cuarentena. Se eliminan primero los originales seguros más antiguos cuando hace
+falta espacio, antes de sustituir una película. La retención en días sigue siendo
+obligatoria e independiente. El usuario eligió eliminar las copias de cuarentena
+después de comprobar una restauración.
+
 ## Objetivo y distribución
 
 Un complemento instalable en Jellyfin, sin otro contenedor ni servicio obligatorio.

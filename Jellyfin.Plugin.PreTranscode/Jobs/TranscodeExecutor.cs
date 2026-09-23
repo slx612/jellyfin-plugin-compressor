@@ -47,6 +47,9 @@ internal sealed class TranscodeExecutor
             await replacement.RecoverAsync(token).ConfigureAwait(false);
             await RefreshPendingAsync(token).ConfigureAwait(false);
             await replacement.PurgeExpiredAsync(DateTimeOffset.UtcNow, token).ConfigureAwait(false);
+            var config = CompressionCoordinator.Config;
+            if (config.QuarantineMaxBytes > 0 && !string.IsNullOrEmpty(config.QuarantineDirectory))
+                await replacement.EnforceQuotaAsync(config.QuarantineDirectory, config.QuarantineMaxBytes, token).ConfigureAwait(false);
             TemporaryFiles.Clean(tempDirectory, queue.GetJobs());
             MaintenanceError = ""; coordinator.MaintenanceError = "";
             nextMaintenance = DateTime.UtcNow.AddMinutes(1);
@@ -121,13 +124,14 @@ internal sealed class TranscodeExecutor
             {
                 var request = new ReplacementRequest(Guid.NewGuid().ToString("N"), job.SourcePath, temp, snapshot.LibraryRoot,
                     snapshot.QuarantineRoot, snapshot.RetentionDays, snapshot.ProfileKey, snapshot.Source, job.VerifiedOutputIdentity!, job.ItemId, snapshot.ItemDateCreated);
-                await replacement.PublishAsync(request, token, () => coordinator.MayPublish(job)).ConfigureAwait(false);
+                await replacement.PublishAsync(request, token, () => coordinator.MayPublish(job),
+                    CompressionCoordinator.Config.QuarantineMaxBytes).ConfigureAwait(false);
                 await RefreshPendingAsync(CancellationToken.None).ConfigureAwait(false);
             }
             finally { monitor.ReportFileSystemChangeComplete(job.SourcePath, false); }
             job.OutputPath = job.SourcePath;
             job.OutputSizeBytes = job.VerifiedOutputIdentity!.Length;
-            Finish(job, JobStatus.Completed, "Comprimida; original retenido hasta su vencimiento.");
+            Finish(job, JobStatus.Completed, "Comprimida; original sujeto al plazo y al límite de tamaño configurados.");
             TryDelete(temp);
         }
         catch (OperationCanceledException)

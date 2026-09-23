@@ -84,6 +84,82 @@ public sealed class ReplacementService
         }
         await Require(target, expected, token).ConfigureAwait(false);
     }
+    private static long UsedBytes(string root)
+    {
+        FolderPolicy.RejectLinks(root);
+        if (!Directory.Exists(root)) return 0;
+        long total = 0;
+        var pending = new Stack<string>();
+        pending.Push(root);
+        while (pending.Count > 0)
+        {
+            foreach (var path in Directory.EnumerateFileSystemEntries(pending.Pop()))
+            {
+                var attributes = File.GetAttributes(path);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidOperationException("La carpeta de originales contiene un enlace; no se puede calcular su tamaño con seguridad.");
+                if ((attributes & FileAttributes.Directory) != 0) pending.Push(path);
+                else total = checked(total + new FileInfo(path).Length);
+            }
+        }
+        return total;
+    }
+    private static bool SameFolder(string left, string right) => string.Equals(
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)), FolderPolicy.Comparison);
+    private async Task<int> EnforceQuotaLockedAsync(string root, long maxBytes, long incomingBytes, CancellationToken token)
+    {
+        if (maxBytes == 0) return 0;
+        if (maxBytes < 0 || incomingBytes < 0) throw new ArgumentOutOfRangeException(nameof(maxBytes));
+        if (incomingBytes > maxBytes) throw new InvalidOperationException("El original supera por sí solo el límite de la carpeta de originales.");
+        var target = maxBytes - incomingBytes;
+        var used = UsedBytes(root);
+        if (used <= target) return 0;
+        var selected = new List<ReplacementRecord>();
+        foreach (var record in List().Where(r => SameFolder(r.Request.QuarantineRoot, root)
+                     && r.Phase is ReplacementPhase.Completed or ReplacementPhase.Purging)
+                 .OrderBy(r => r.CompletedUtc).ThenBy(r => r.Request.Id, StringComparer.Ordinal))
+        {
+            var safe = false;
+            if (!record.LibraryRefreshPending && File.Exists(record.OriginalPath))
+            {
+                try
+                {
+                    safe = await OutputExists(record, token).ConfigureAwait(false)
+                        && await ContentRegistry.IdentifyAsync(record.OriginalPath, token).ConfigureAwait(false) == record.Request.Source;
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            }
+            if (!safe)
+            {
+                record.RetentionStatus = "Límite alcanzado: original conservado hasta verificar su contenido, película comprimida y ficha de Jellyfin.";
+                Save(record);
+                continue;
+            }
+            selected.Add(record);
+            used -= record.Request.Source.Length;
+            if (used <= target) break;
+        }
+        if (used > target)
+            throw new InvalidOperationException("Límite alcanzado: no hay suficientes originales verificados para liberar espacio; se conserva la película sin sustituir.");
+        foreach (var record in selected)
+        {
+            record.Phase = ReplacementPhase.Purging;
+            Save(record);
+            File.Delete(record.OriginalPath);
+            record.Phase = ReplacementPhase.Purged;
+            record.RetentionStatus = "Original eliminado al alcanzar el límite de tamaño.";
+            Save(record);
+        }
+        if (UsedBytes(root) > target) throw new IOException("La carpeta de originales cambió durante la limpieza; se aplaza el reemplazo.");
+        return selected.Count;
+    }
+    public async Task<int> EnforceQuotaAsync(string root, long maxBytes, CancellationToken token)
+    {
+        await gate.WaitAsync(token).ConfigureAwait(false);
+        try { return await EnforceQuotaLockedAsync(root, maxBytes, 0, token).ConfigureAwait(false); }
+        finally { gate.Release(); }
+    }
     private static void Dates(ReplacementRecord r, string path)
     {
         File.SetCreationTimeUtc(path, r.CreatedUtc);
@@ -100,7 +176,7 @@ public sealed class ReplacementService
         record.LibraryRefreshPending = r.ItemId is not null;
         Save(record);
     }
-    public async Task<ReplacementResult> PublishAsync(ReplacementRequest request, CancellationToken token, Func<bool>? mayPublish = null)
+    public async Task<ReplacementResult> PublishAsync(ReplacementRequest request, CancellationToken token, Func<bool>? mayPublish = null, long maxQuarantineBytes = 0)
     {
         await gate.WaitAsync(token).ConfigureAwait(false);
         try
@@ -113,6 +189,8 @@ public sealed class ReplacementService
             if (File.Exists(Journal(request.Id))) throw new InvalidOperationException("La transacción ya existe; recuperarla antes de continuar.");
             await Require(request.SourcePath, request.Source, token).ConfigureAwait(false);
             await Require(request.VerifiedOutputPath, request.Output, token).ConfigureAwait(false);
+            if (mayPublish is not null && !mayPublish()) throw new InvalidOperationException("Reemplazo aplazado: reproducción activa o configuración modificada.");
+            await EnforceQuotaLockedAsync(request.QuarantineRoot, maxQuarantineBytes, request.Source.Length, token).ConfigureAwait(false);
             Save(r);
             await CopyVerified(request.SourcePath, r.OriginalPath, request.Source, token).ConfigureAwait(false);
             r.Phase = ReplacementPhase.BackupVerified;
@@ -165,7 +243,11 @@ public sealed class ReplacementService
                     else if (current == q.Output) { r.Phase = ReplacementPhase.Completed; Save(r); if (File.Exists(r.StagedPath)) File.Delete(r.StagedPath); }
                     else throw new IOException("Restauración interrumpida con contenido desconocido.");
                 }
-                else if (r.Phase == ReplacementPhase.Purging && !File.Exists(r.OriginalPath)) { r.Phase = ReplacementPhase.Purged; Save(r); }
+                else if (r.Phase == ReplacementPhase.Purging)
+                {
+                    r.Phase = File.Exists(r.OriginalPath) ? ReplacementPhase.Completed : ReplacementPhase.Purged;
+                    Save(r);
+                }
             }
         }
         finally { gate.Release(); }
@@ -190,8 +272,44 @@ public sealed class ReplacementService
                 record.LibraryRefreshPending = false;
                 Save(record);
             }
+            foreach (var record in List().Where(r => r.Phase == ReplacementPhase.Restored && !r.LibraryRefreshPending))
+                await CleanRestoredAsync(record, token).ConfigureAwait(false);
         }
         finally { gate.Release(); }
+    }
+    private async Task CleanRestoredAsync(ReplacementRecord record, CancellationToken token)
+    {
+        var compressedBackup = record.OriginalPath + ".compressed";
+        if (!File.Exists(record.OriginalPath) && !File.Exists(compressedBackup)) return;
+        if (!File.Exists(record.Request.SourcePath)
+            || await ContentRegistry.IdentifyAsync(record.Request.SourcePath, token).ConfigureAwait(false) != record.Request.Source)
+        {
+            record.RetentionStatus = "Limpieza de restauración aplazada: falta verificar el original restaurado en la biblioteca.";
+            Save(record);
+            return;
+        }
+        try
+        {
+            if ((File.Exists(record.OriginalPath)
+                    && await ContentRegistry.IdentifyAsync(record.OriginalPath, token).ConfigureAwait(false) != record.Request.Source)
+                || (File.Exists(compressedBackup)
+                    && await ContentRegistry.IdentifyAsync(compressedBackup, token).ConfigureAwait(false) != record.Request.Output))
+            {
+                record.RetentionStatus = "Limpieza de restauración aplazada: una copia de cuarentena no coincide con el registro.";
+                Save(record);
+                return;
+            }
+            if (File.Exists(record.OriginalPath)) File.Delete(record.OriginalPath);
+            if (File.Exists(compressedBackup)) File.Delete(compressedBackup);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            record.RetentionStatus = "Limpieza de restauración aplazada: " + ex.Message;
+            Save(record);
+            return;
+        }
+        record.RetentionStatus = "Restauración verificada; copias de cuarentena eliminadas.";
+        Save(record);
     }
     public async Task<int> PurgeExpiredAsync(DateTimeOffset now, CancellationToken token)
     {
@@ -229,9 +347,6 @@ public sealed class ReplacementService
             var q = r.Request;
             await Require(r.OriginalPath, q.Source, token).ConfigureAwait(false);
             await Require(q.SourcePath, q.Output, token).ConfigureAwait(false);
-            var compressedBackup = r.OriginalPath + ".compressed";
-            if (!File.Exists(compressedBackup)) await CopyVerified(q.SourcePath, compressedBackup, q.Output, token).ConfigureAwait(false);
-            else await Require(compressedBackup, q.Output, token).ConfigureAwait(false);
             r.Phase = ReplacementPhase.Restoring;
             Save(r);
             await CopyVerified(r.OriginalPath, r.StagedPath, q.Source, token).ConfigureAwait(false);
@@ -241,10 +356,10 @@ public sealed class ReplacementService
             File.Move(r.StagedPath, q.SourcePath, true);
             Dates(r, q.SourcePath);
             registry.UpdateLocation(q.Source.Sha256, q.SourcePath);
-            registry.UpdateLocation(q.Output.Sha256, compressedBackup);
             r.Phase = ReplacementPhase.Restored;
             r.LibraryRefreshPending = q.ItemId is not null;
             Save(r);
+            if (!r.LibraryRefreshPending) await CleanRestoredAsync(r, token).ConfigureAwait(false);
         }
         finally { gate.Release(); }
     }

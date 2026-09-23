@@ -36,8 +36,9 @@
 <section class="jc-card"><h2>Guardar los originales</h2><label for="jcOriginalsPath">Carpeta de originales en el servidor</label><input id="jcOriginalsPath" required placeholder="Ruta absoluta fuera de las bibliotecas">
 <small>El original se guarda y verifica antes de sustituir la película. El usuario con el que se ejecuta Jellyfin debe poder escribir aquí.</small>
 <div class="jc-grid"><div><label for="jcDays">Eliminar originales después de (días)</label><input type="number" id="jcDays" required min="1" max="3650" placeholder="Por ejemplo, 7"></div>
+<div><label for="jcMaxGB">Límite de la carpeta de originales (GB)</label><input type="number" id="jcMaxGB" required min="0" max="1048576" step="1" value="0"></div>
 <div><label for="jcSavings">Ahorro mínimo (%)</label><input type="number" id="jcSavings" required min="1" max="95" value="15"></div></div>
-<small>El plazo comienza al completar cada sustitución. Desactivar la compresión automática no cancela los vencimientos ya guardados.</small></section>
+<small>0 GB deja la carpeta sin límite. Al llenarse se eliminan primero los originales verificados más antiguos; nunca archivos ajenos. Si no puede liberar espacio, la película nueva no se sustituye. El plazo en días empieza al completar cada sustitución y también se aplica con la compresión automática apagada.</small></section>
 <section class="jc-card"><h2>Compresión</h2><div class="jc-grid"><div><label for="jcEncoder">Codificador HEVC</label><select id="jcEncoder"><option value="libx265">CPU · libx265</option></select></div>
 <div><label for="jcQuality">Calidad (16–32; menor número, más calidad y tamaño)</label><input id="jcQuality" type="number" min="16" max="32" required value="23"></div></div>
 <small id="jcFfmpeg">Leyendo FFmpeg del servidor…</small><p class="jc-muted">Se mantienen resolución, profundidad de color, audio, subtítulos y capítulos. HDR, Dolby Vision y estructuras no compatibles se omiten. MKV, MP4 y M4V mantienen su extensión.</p></section>
@@ -49,7 +50,7 @@
 <section class="jc-card"><h2>Cola e historial</h2><p id="jcQueueState"></p>
 <button type="button" id="jcPause">Pausar</button><button type="button" id="jcResume">Continuar</button><button type="button" id="jcRefresh">Actualizar</button><button type="button" id="jcClear">Limpiar historial terminado</button>
 <small>Limpiar el historial no permite volver a comprimir una película ya procesada.</small><div id="jcJobs" class="jc-scroll"></div></section>
-<section class="jc-card"><h2>Originales recuperables</h2><p>Puedes restaurar durante la retención. Tras restaurar, las dos copias de seguridad se conservan sin borrado automático; puedes retirarlas manualmente después de comprobar la película. Solo se elimina un original vencido si su copia comprimida sigue disponible y coincide con el registro.</p>
+<section class="jc-card"><h2>Originales recuperables</h2><p>Puedes restaurar durante la retención. Tras verificar la restauración en Jellyfin, se eliminan las copias de cuarentena. Un original vencido solo se elimina si su copia comprimida sigue disponible y coincide con el registro.</p>
 <button type="button" id="jcPurge">Limpiar originales vencidos</button><div id="jcOriginals" class="jc-scroll"></div></section>
 <script>
 (function () {
@@ -91,7 +92,7 @@
             config=c; el('jcAuto').checked=c.AutomaticCompressionEnabled; el('jcWindow').checked=c.ProcessingWindowEnabled;
             el('jcStart').value=time(c.ProcessingWindowStartMinutes); el('jcStop').value=time(c.ProcessingWindowStopMinutes);
             el('jcIncludes').value=(c.IncludedFolders||[]).join('\n'); el('jcExcludes').value=(c.ExcludedFolders||[]).join('\n');
-            el('jcOriginalsPath').value=c.QuarantineDirectory||''; el('jcDays').value=c.RetentionDays||''; el('jcSavings').value=c.MinSavingsPercent;
+            el('jcOriginalsPath').value=c.QuarantineDirectory||''; el('jcDays').value=c.RetentionDays||''; el('jcMaxGB').value=(c.QuarantineMaxBytes||0)/1073741824; el('jcSavings').value=c.MinSavingsPercent;
             if(c.Profiles.length) {el('jcQuality').value=c.Profiles[0].Crf; el('jcEncoder').value=c.Profiles[0].VideoEncoder;}
             message(c.AutomaticCompressionEnabled ? 'Compresión automática activada.' : 'Compresión automática desactivada. Puedes analizar y comprimir manualmente.');
         });
@@ -120,7 +121,7 @@
         if(!config) throw new Error('La configuración todavía no está cargada.');
         var c=JSON.parse(JSON.stringify(config)); c.Enabled=true; c.AutomaticCompressionEnabled=el('jcAuto').checked;
         c.ProcessingWindowEnabled=el('jcWindow').checked; c.ProcessingWindowStartMinutes=minutes(el('jcStart').value); c.ProcessingWindowStopMinutes=minutes(el('jcStop').value);
-        c.IncludedFolders=lines('jcIncludes'); c.ExcludedFolders=lines('jcExcludes'); c.QuarantineDirectory=el('jcOriginalsPath').value.trim(); c.RetentionDays=Number(el('jcDays').value); c.MinSavingsPercent=Number(el('jcSavings').value);
+        c.IncludedFolders=lines('jcIncludes'); c.ExcludedFolders=lines('jcExcludes'); c.QuarantineDirectory=el('jcOriginalsPath').value.trim(); c.RetentionDays=Number(el('jcDays').value); c.QuarantineMaxBytes=Number(el('jcMaxGB').value)*1073741824; c.MinSavingsPercent=Number(el('jcSavings').value);
         c.Profiles[0].VideoEncoder=el('jcEncoder').value; c.Profiles[0].Crf=Number(el('jcQuality').value);
         return api('Configuration','POST',c).then(function(saved){config=saved;message('Configuración guardada. Automatización '+(saved.AutomaticCompressionEnabled?'activada.':'desactivada.'));});
     });};

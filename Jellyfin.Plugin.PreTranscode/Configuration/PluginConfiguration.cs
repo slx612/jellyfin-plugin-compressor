@@ -56,6 +56,8 @@ public class PluginConfiguration : BasePluginConfiguration
     public string QuarantineDirectory { get; set; } = string.Empty;
     /// <summary>Required retention period, 1 through 3650 days.</summary>
     public int RetentionDays { get; set; }
+    /// <summary>Maximum bytes occupied by the quarantine directory; zero leaves it unlimited.</summary>
+    public long QuarantineMaxBytes { get; set; }
     /// <summary>Minimum percentage reduction required before replacement.</summary>
     public double MinSavingsPercent { get; set; } = 15;
 
