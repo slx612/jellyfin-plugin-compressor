@@ -1,7 +1,13 @@
 # Diseño de Jellyfin Compressor v1
 
 Fecha: 2026-09-22. Destino confirmado: Jellyfin 10.11.6.
-Estado: diseño aprobado por el usuario el 2026-09-22; implementación pendiente.
+Estado: diseño aprobado por el usuario el 2026-09-22; versión preliminar implementada; identidad, recién añadidas y estados de reproducción validados en Jellyfin 10.11.6 aislado. Panel visual y sistema de archivos de destino pendientes. Requisito adicional: conservar la identidad y las fechas en Jellyfin.
+
+Ampliación solicitada el 2026-09-23: límite configurable para el tamaño de la
+cuarentena. Se eliminan primero los originales seguros más antiguos cuando hace
+falta espacio, antes de sustituir una película. La retención en días sigue siendo
+obligatoria e independiente. El usuario eligió eliminar las copias de cuarentena
+después de comprobar una restauración.
 
 ## Objetivo y distribución
 
@@ -51,9 +57,13 @@ El complemento tendrá nombre, GUID, directorio de estado y metadatos propios.
    biblioteca. Una transacción persistente permite recuperar cada paso.
 8. Registrar original y resultado, finalizar la sustitución y actualizar Jellyfin.
 
-`Película.mkv` conserva su nombre completo al producir MKV. Si se convierte
-`Película.mp4` a MKV, el resultado es `Película.mkv`. Si esa ruta ya pertenece
-a otro archivo, se bloquea el trabajo: no se sobrescribe ni se inventa un nombre.
+Se conserva la ruta completa y la extensión: `Película.mkv` sigue siendo MKV y
+`Película.mp4` sigue siendo MP4. La v1 admite MKV, MP4 y M4V; omite cualquier
+archivo que requiera cambiar de contenedor. El reemplazo es atómico en el volumen
+de la biblioteca, sin un intervalo en el que desaparezca el archivo. Se conservan
+la fecha de modificación y creación del archivo y la fecha de incorporación de
+la ficha. Se actualiza la información de medios en la misma ficha, sin crear otra
+ni escribir sobre los datos de reproducción del usuario.
 No se sustituye una película mientras Jellyfin indique que se está reproduciendo.
 
 ## Originales, vencimiento y recuperación

@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.PreTranscode</RootNamespace>
+    <AssemblyName>Jellyfin.Plugin.Compressor</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Nullable>enable</Nullable>
+    <!-- Required by the [LibraryImport] source generator (used for the Windows suspend/resume P/Invoke).
+         No hand-written unsafe code exists; this only permits the generated marshalling stubs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AnalysisMode>Default</AnalysisMode>
+    <CodeAnalysisRuleSet>../jellyfin.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.6">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="10.11.6">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Required so the plugin can expose an API controller (MVC / ASP.NET Core types).
+         The framework is provided by the Jellyfin server at runtime, not shipped by the plugin. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Configuration\configPage.html" />
+    <EmbeddedResource Include="Configuration\configPage.html" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Jellyfin.Plugin.PreTranscode.Tests" />
+  </ItemGroup>
+
+</Project>

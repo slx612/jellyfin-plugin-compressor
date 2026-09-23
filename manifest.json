@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "274af2b7-724c-41e9-82e7-56c3e80139c1",
+    "name": "Jellyfin Compressor (EXPERIMENTAL)",
+    "overview": "EXPERIMENTAL: compress movies while keeping recoverable originals.",
+    "description": "Experimental Jellyfin 10.11.6 movie compressor. Automatic compression is disabled by default. Test with disposable media before use on a real library.",
+    "owner": "slx612",
+    "category": "General",
+    "versions": [
+      {
+        "version": "0.1.1.0",
+        "changelog": "Experimental preview: configurable original-folder size limit, age-based retention and verified cleanup after restoration.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.1-alpha.2/jellyfin-compressor-0.1.1.0.zip",
+        "checksum": "9ec073e556b1bf243600d99107097473",
+        "timestamp": "2026-09-23T16:53:59Z"
+      }
+    ]
+  }
+]
