@@ -147,7 +147,7 @@
   <div class="jc-card-head"><div><h2>Carpetas que se comprimen</h2><p>Elige una biblioteca o carpeta para incluirla. Excluye después las subcarpetas que quieras proteger: la exclusión siempre tiene prioridad.</p></div></div>
   <div class="jc-browser">
     <div class="jc-browser-pane"><div class="jc-browser-toolbar"><div id="jcBreadcrumbs" class="jc-breadcrumbs" aria-label="Ruta actual"></div><div id="jcCurrentActions" class="jc-actions jc-current-actions"></div><label class="jc-field" style="margin:0"><span class="jc-subtle">Buscar en esta carpeta</span><input id="jcFolderSearch" type="search" placeholder="Filtrar carpetas visibles"></label></div><div id="jcFolders" class="jc-browser-list" aria-live="polite"><div class="jc-empty">Cargando bibliotecas…</div></div></div>
-    <div class="jc-browser-pane"><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">check_circle</span> Incluidas</span><span id="jcIncludeCount" class="jc-badge">0</span></h3><div id="jcIncludes"></div></div><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">block</span> Excluidas</span><span id="jcExcludeCount" class="jc-badge">0</span></h3><div id="jcExcludes"></div></div></div>
+    <div class="jc-browser-pane"><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">check_circle</span> Incluidas</span><span id="jcIncludeCount" class="jc-badge">0</span></h3><div id="jcIncludes" tabindex="-1"></div></div><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">block</span> Excluidas</span><span id="jcExcludeCount" class="jc-badge">0</span></h3><div id="jcExcludes" tabindex="-1"></div></div></div>
   </div>
   <p class="jc-subtle" style="margin-top:.8rem">El explorador muestra las carpetas de tus bibliotecas; solo se procesan películas. Abre una carpeta para ver sus subcarpetas; usa ✓ para incluirla o ⊘ para excluirla.</p>
 </section>
@@ -225,7 +225,12 @@
             rules[group[0]].forEach(function(path) {
                 var row = document.createElement('div'), name = document.createElement('span'), remove = document.createElement('button');
                 row.className = 'jc-rule'; name.textContent = path; remove.type = 'button'; remove.setAttribute('aria-label', 'Quitar ' + path); remove.append(icon('close'));
-                remove.onclick = function() { rules[group[0]] = rules[group[0]].filter(function(p) { return p !== path; }); renderRules(); renderExplorer(); dirty(true); };
+                remove.onclick = function() {
+                    var index = rules[group[0]].indexOf(path);
+                    rules[group[0]] = rules[group[0]].filter(function(p) { return p !== path; }); renderRules(); renderExplorer(); dirty(true);
+                    var remaining = box.querySelectorAll('.jc-rule button');
+                    (remaining[Math.min(index, remaining.length - 1)] || box).focus();
+                };
                 row.append(name, remove); box.append(row);
             });
         });
