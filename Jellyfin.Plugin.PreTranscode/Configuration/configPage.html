@@ -214,7 +214,7 @@
     }
     function updateControls() {
         el('jcSave').disabled = !dirtyState || saving || !config;
-        el('jcSaveState').textContent = saving ? 'Guardando cambios…' : dirtyState ? 'Cambios sin guardar' : 'Configuración guardada';
+        el('jcSaveState').textContent = !config ? 'Cargando configuración…' : saving ? 'Guardando cambios…' : dirtyState ? 'Cambios sin guardar' : 'Configuración guardada';
         el('jcAnalyze').disabled = el('jcCompress').disabled = dirtyState || saving || scanning || !config;
     }
     function dirty(value) { if (value) revision++; dirtyState = value; updateControls(); }
@@ -268,7 +268,7 @@
         var box = el('jcFolders'); box.replaceChildren();
         var term = el('jcFolderSearch').value.trim().toLocaleLowerCase();
         var visible = folderEntries.filter(function(f) { return f.Name.toLocaleLowerCase().includes(term); });
-        if (!visible.length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = term ? 'No hay carpetas con ese nombre.' : 'No hay subcarpetas en esta carpeta.'; box.append(empty); }
+        if (!visible.length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = term ? 'No hay carpetas con ese nombre.' : folderTrail.length ? 'No hay subcarpetas en esta carpeta.' : 'No se encontraron bibliotecas.'; box.append(empty); }
         visible.forEach(function(f) {
             var row = document.createElement('div'), open = document.createElement('button'), name = document.createElement('span'), path = document.createElement('span'), actions = document.createElement('div');
             row.className = 'jc-folder'; row.append(icon('folder'));
