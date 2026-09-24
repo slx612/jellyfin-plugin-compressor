@@ -69,8 +69,6 @@ internal sealed class TranscodeExecutor
             if (!CompressionPolicy.CanRun(job, config)) { Hold(job, "Compresión automática desactivada."); return; }
             var scope = FolderPolicy.Evaluate(job.SourcePath, config, coordinator.Roots());
             if (!scope.Allowed) { Finish(job, JobStatus.Skipped, scope.Reason); return; }
-            if (job.Automatic && !CompressionPolicy.MeetsMinimumMovieSize(new FileInfo(job.SourcePath).Length, config.MinMovieSizeGb))
-            { Finish(job, JobStatus.Skipped, $"No supera el mínimo de {config.MinMovieSizeGb} GB."); return; }
             // Validate saved retention against the current library roots, not a later retention setting.
             var savedConfig = new Configuration.PluginConfiguration { QuarantineDirectory = snapshot.QuarantineRoot,
                 RetentionDays = snapshot.RetentionDays, MinSavingsPercent = snapshot.MinSavingsPercent };
@@ -85,6 +83,8 @@ internal sealed class TranscodeExecutor
                 return;
             }
             if (sourceIdentity != snapshot.Source) throw new IOException("La película cambió desde que se encoló; vuelve a analizarla.");
+            if (job.Automatic && !CompressionPolicy.MeetsMinimumMovieSize(sourceIdentity.Length, config.MinMovieSizeGb))
+            { Finish(job, JobStatus.Skipped, $"No supera el mínimo de {config.MinMovieSizeGb} GB."); return; }
             if (!coordinator.MayPublish(job)) { Hold(job, "Esperando reproducción, horario o permisos de procesamiento."); return; }
             var source = await prober.ProbeAsync(job.SourcePath, token).ConfigureAwait(false) ?? throw new IOException("No se puede leer el vídeo.");
             var eligibility = CompressionPolicy.EligibilityError(source);
