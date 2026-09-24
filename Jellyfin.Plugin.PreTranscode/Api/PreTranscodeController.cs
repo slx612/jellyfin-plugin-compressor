@@ -29,9 +29,11 @@ public class PreTranscodeController : ControllerBase
     private readonly ILibraryMonitor monitor;
     private readonly ReplacedItemUpdater updater;
     private readonly IFfmpegCapabilitiesService capabilities;
+    private readonly ManualOperationRunner manual;
     public PreTranscodeController(CompressionCoordinator coordinator, IJobQueue queue, IQueueController control,
-        ReplacementService replacement, ILibraryManager library, ILibraryMonitor monitor, ReplacedItemUpdater updater, IFfmpegCapabilitiesService capabilities)
-    { this.coordinator = coordinator; this.queue = queue; this.control = control; this.replacement = replacement; this.library = library; this.monitor = monitor; this.updater = updater; this.capabilities = capabilities; }
+        ReplacementService replacement, ILibraryManager library, ILibraryMonitor monitor, ReplacedItemUpdater updater, IFfmpegCapabilitiesService capabilities,
+        ManualOperationRunner manual)
+    { this.coordinator = coordinator; this.queue = queue; this.control = control; this.replacement = replacement; this.library = library; this.monitor = monitor; this.updater = updater; this.capabilities = capabilities; this.manual = manual; }
 
     [HttpGet("Configuration")]
     public ActionResult<PluginConfiguration> GetConfiguration() => Ok(CompressionCoordinator.Config);
@@ -96,25 +98,32 @@ public class PreTranscodeController : ControllerBase
         return Ok(all);
     }
     [HttpPost("Analyze")]
-    public async Task<IActionResult> Analyze(CancellationToken token)
+    public IActionResult Analyze()
     {
-        try { return Ok(await coordinator.ScanAsync(false, false, null, token).ConfigureAwait(false)); }
+        try { return Accepted(manual.Start("Analyze", async (progress, token) =>
+            await coordinator.ScanAsync(false, false, progress, token).ConfigureAwait(false))); }
         catch (InvalidOperationException ex) { return BadRequest(new { Message = ex.Message }); }
     }
     [HttpPost("Compress")]
-    public async Task<IActionResult> Compress(CancellationToken token)
+    public IActionResult Compress()
     {
-        try { return Ok(await coordinator.ScanAsync(true, false, null, token).ConfigureAwait(false)); }
+        try { return Accepted(manual.Start("Compress", async (progress, token) =>
+            await coordinator.ScanAsync(true, false, progress, token).ConfigureAwait(false))); }
         catch (InvalidOperationException ex) { return BadRequest(new { Message = ex.Message }); }
     }
     [HttpPost("Items/{id}/Compress")]
-    public async Task<IActionResult> CompressItem(Guid id, CancellationToken token)
+    public IActionResult CompressItem(Guid id)
     {
         var item = library.GetItemById(id);
         if (item is null) return NotFound();
-        try { return Ok(await coordinator.EnqueueAsync(item, false, token).ConfigureAwait(false)); }
+        try { return Accepted(manual.Start("Movie", async (_, token) =>
+            await coordinator.EnqueueAsync(item, false, token).ConfigureAwait(false))); }
         catch (InvalidOperationException ex) { return BadRequest(new { Message = ex.Message }); }
     }
+    [HttpGet("Manual")]
+    public IActionResult ActiveManual() => Ok(new { Operation = manual.Active() });
+    [HttpGet("Manual/{id}")]
+    public IActionResult Manual(Guid id) => manual.Get(id) is { } operation ? Ok(operation) : NotFound();
     [HttpGet("Status")]
     public IActionResult Status() => Ok(new { Jobs = queue.GetJobs(), Paused = queue.IsPaused, Schedule = control.GetScheduleState(), Error = coordinator.MaintenanceError });
     [HttpPost("Pause")]
@@ -124,12 +133,12 @@ public class PreTranscodeController : ControllerBase
     [HttpPost("Jobs/{id}/Cancel")]
     public IActionResult Cancel(string id) => control.CancelJob(id) ? Ok() : NotFound();
     [HttpPost("Jobs/{id}/Retry")]
-    public async Task<IActionResult> Retry(string id, CancellationToken token)
+    public IActionResult Retry(string id)
     {
         var job = queue.Get(id);
         if (job is null) return NotFound();
         if (job.Status is not (JobStatus.Failed or JobStatus.Cancelled)) return BadRequest(new { Message = "Solo se reintentan errores o cancelaciones." });
-        return await CompressItem(Guid.Parse(job.ItemId), token).ConfigureAwait(false);
+        return CompressItem(Guid.Parse(job.ItemId));
     }
     [HttpDelete("History")]
     public IActionResult ClearHistory() { queue.ClearFinished(); return Ok(); }
