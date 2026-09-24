@@ -424,7 +424,8 @@
                 var status = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']), actions = document.createElement('span');
                 if (status === 'Pending' || status === 'Processing') actions.append(button('Cancelar', function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').then(refresh); }));
                 if (status === 'Failed' || status === 'Cancelled') actions.append(button('Reintentar', function() { return api('Jobs/' + j.Id + '/Retry', 'POST').then(function(operation) { return beginManual(operation, j.DisplayName); }); }));
-                return [j.DisplayName, j.ErrorMessage || j.StatusDetail || status, Math.round(j.Progress) + ' %', actions];
+                var progress = status === 'Processing' && j.StatusDetail === 'Comprimiendo' ? Math.round(j.Progress) + ' %' : '—';
+                return [j.DisplayName, j.ErrorMessage || j.StatusDetail || status, progress, actions];
             }));
             table('jcOriginals', ['Película', 'Estado', 'Vencimiento', 'Acciones'], originals.slice().sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); }).map(function(r) {
                 var phase = enumName(r.Phase, ['Prepared', 'BackupVerified', 'Publishing', 'Completed', 'Purging', 'Purged', 'Restoring', 'Restored', 'Aborted']), actions = document.createElement('span');

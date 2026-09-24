@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -106,9 +107,12 @@ internal sealed class TranscodeExecutor
                 var identity = await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false);
                 if (identity.Length >= snapshot.Source.Length * (1 - snapshot.MinSavingsPercent / 100))
                 {
+                    var savings = 100d * (snapshot.Source.Length - identity.Length) / snapshot.Source.Length;
+                    var actual = savings.ToString("0.#", CultureInfo.InvariantCulture);
+                    var required = snapshot.MinSavingsPercent.ToString("0.#", CultureInfo.InvariantCulture);
                     registry.Save(new(snapshot.Source.Sha256, snapshot.Source.Length, "no-savings", snapshot.ProfileKey, null, job.SourcePath));
                     File.Delete(temp);
-                    Finish(job, JobStatus.Skipped, "Sin ahorro suficiente; se conserva el original.");
+                    Finish(job, JobStatus.Skipped, $"Ahorro {actual} %; mínimo {required} %. Se conserva el original.");
                     return;
                 }
                 job.VerifiedOutputPath = temp;
