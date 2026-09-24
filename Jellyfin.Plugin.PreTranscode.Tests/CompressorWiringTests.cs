@@ -101,7 +101,7 @@ public sealed class CompressorWiringTests : IDisposable
         var outputIdentity = await ContentRegistry.IdentifyAsync(output, default);
         var registry = new ContentRegistry(Path.Combine(root, "identities"));
         var replacement = new ReplacementService(Path.Combine(root, "transactions"), registry);
-        await replacement.PublishAsync(new ReplacementRequest("published", source, output, movieRoot, originals,
+        await replacement.PublishAsync(new ReplacementRequest(Guid.NewGuid().ToString("N"), source, output, movieRoot, originals,
             7, "profile", sourceIdentity, outputIdentity), default);
         plugin.Configuration.AutomaticCompressionEnabled = true;
         plugin.Configuration.IncludedFolders.Add(movieRoot);
