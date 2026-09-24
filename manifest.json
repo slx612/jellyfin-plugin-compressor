@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.1.7.0",
+        "changelog": "Experimental preview: fast analysis of selected folders, preliminary results and an analysis cancel button. Full identity checks still prevent recompression when queueing. Automatic compression remains disabled by default.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.7-alpha.8/jellyfin-compressor-0.1.7.0.zip",
+        "checksum": "97660b4335ab83bd9f425922afc2c07f",
+        "timestamp": "2026-09-24T23:20:31Z"
+      },
+      {
         "version": "0.1.6.0",
         "changelog": "Experimental preview: configurable minimum movie size (10 GB initially) for analysis and batch compression; single-movie manual checks remain available. Automatic compression remains disabled by default.",
         "targetAbi": "10.11.6.0",
