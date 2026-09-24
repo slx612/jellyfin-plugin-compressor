@@ -7,6 +7,7 @@ using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.MediaEncoding;
 using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Serialization;
@@ -85,6 +86,46 @@ public sealed class CompressorWiringTests : IDisposable
         var (manual, manualSnapshot) = await coordinator.InspectAsync(movie, false, default);
         Assert.True(manual.Eligible);
         Assert.NotNull(manualSnapshot);
+    }
+
+    [Fact]
+    public async Task RestartedAutomaticJobRecognizesAlreadyPublishedMovieBelowCurrentThreshold()
+    {
+        var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
+        var originals = Path.Combine(root, "originals");
+        var source = Path.Combine(movieRoot, "movie.mkv");
+        var output = Path.Combine(root, "encoded.mkv");
+        await File.WriteAllBytesAsync(source, new byte[4096]);
+        await File.WriteAllBytesAsync(output, new byte[1024]);
+        var sourceIdentity = await ContentRegistry.IdentifyAsync(source, default);
+        var outputIdentity = await ContentRegistry.IdentifyAsync(output, default);
+        var registry = new ContentRegistry(Path.Combine(root, "identities"));
+        var replacement = new ReplacementService(Path.Combine(root, "transactions"), registry);
+        await replacement.PublishAsync(new ReplacementRequest("published", source, output, movieRoot, originals,
+            7, "profile", sourceIdentity, outputIdentity), default);
+        plugin.Configuration.AutomaticCompressionEnabled = true;
+        plugin.Configuration.IncludedFolders.Add(movieRoot);
+        plugin.Configuration.QuarantineDirectory = originals;
+        plugin.Configuration.RetentionDays = 7;
+
+        var queue = new Mock<IJobQueue>(MockBehavior.Strict);
+        queue.Setup(q => q.Update(It.IsAny<TranscodeJob>()));
+        var library = new Mock<ILibraryManager>();
+        library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Locations = [movieRoot] }]);
+        var probe = new Mock<IMediaProber>(MockBehavior.Strict);
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), registry);
+        var executor = new TranscodeExecutor(queue.Object, probe.Object, Mock.Of<IMediaEncoder>(), coordinator,
+            registry, replacement, null!, Mock.Of<ILibraryMonitor>(), paths.Object, NullLogger<TranscodeExecutor>.Instance);
+        var job = new TranscodeJob { Automatic = true, SourcePath = source, Status = JobStatus.Pending,
+            Snapshot = new CompressionSnapshot(new EncodingProfile { Id = "profile" }, sourceIdentity, movieRoot,
+                originals, 7, 15, "profile", DateTime.UtcNow) };
+
+        await executor.ExecuteAsync(job, default);
+
+        Assert.Equal(JobStatus.Completed, job.Status);
+        Assert.Equal(source, job.OutputPath);
+        Assert.Equal(outputIdentity.Length, job.OutputSizeBytes);
+        probe.VerifyNoOtherCalls();
     }
 
     [Fact]
