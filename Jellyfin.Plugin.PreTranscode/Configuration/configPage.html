@@ -196,7 +196,7 @@
 (function () {
     'use strict';
     var page = document.querySelector('#CompressorPage'), config, timer, loading = false, active = false;
-    var dirtyState = false, revision = 0, saving = false, scanning = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false;
+    var dirtyState = false, revision = 0, saving = false, scanning = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, lastOperationId;
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0;
     var movieEntries = [], movieRequest = 0, movieTimer, queueingMovie = false, originalFolderState, originalRequest = 0;
     function el(id) { return page.querySelector('#' + id); }
@@ -403,7 +403,7 @@
                 message((manualKind === 'Movie' ? 'Comprobando ' + (manualMovieName || 'la película') : 'Analizando la biblioteca') + ' · ' + Math.round(operation.Progress) + ' %. Puede tardar con archivos grandes…');
                 return;
             }
-            manualOperationId = null; scanning = false; queueingMovie = false; updateControls();
+            manualOperationId = null; lastOperationId = id; scanning = false; queueingMovie = false; updateControls();
             if (operation.State !== 'Completed') { message(operation.Error || 'La comprobación se canceló.', true); return; }
             if (manualKind === 'Movie') message((manualMovieName || 'Película') + ': ' + operation.Result.Reason);
             else candidates(operation.Result || [], manualKind);
@@ -486,7 +486,7 @@
         el('jcEncoder').replaceChildren(); names.forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n === 'libx265' ? 'CPU · libx265' : n; el('jcEncoder').append(o); });
         el('jcFfmpeg').textContent = (c.FfmpegVersion || 'FFmpeg detectado') + '. Los codificadores GPU requieren hardware y controladores compatibles.';
     }).then(load).then(function() { return api('Manual'); }).then(function(state) {
-        if (state.Operation) beginManual(state.Operation);
+        if (state.Operation && state.Operation.Id !== lastOperationId) beginManual(state.Operation);
         return Promise.all([browse('', []), refresh()]);
     }); }); clearInterval(timer); timer = setInterval(function() { action(refresh); }, 5000); });
     page.addEventListener('viewbeforehide', function() { active = false; clearInterval(timer); });

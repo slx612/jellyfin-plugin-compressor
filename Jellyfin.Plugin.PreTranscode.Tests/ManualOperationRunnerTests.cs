@@ -46,6 +46,16 @@ public class ManualOperationRunnerTests
         await WaitForEnd(runner, started.Id);
     }
 
+    [Fact]
+    public async Task LatestResultCanBeRecoveredAfterWorkFinishes()
+    {
+        var runner = new ManualOperationRunner(CancellationToken.None, NullLogger<ManualOperationRunner>.Instance);
+        var started = runner.Start("Analyze", (_, _) => Task.FromResult<object?>(new[] { "film" }));
+        await WaitForEnd(runner, started.Id);
+        Assert.Equal(started.Id, runner.Latest()!.Id);
+        Assert.Equal("Completed", runner.Latest()!.State);
+    }
+
     private static async Task<ManualOperationInfo> WaitForEnd(ManualOperationRunner runner, Guid id)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

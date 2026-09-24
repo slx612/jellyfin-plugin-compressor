@@ -121,7 +121,7 @@ public class PreTranscodeController : ControllerBase
         catch (InvalidOperationException ex) { return BadRequest(new { Message = ex.Message }); }
     }
     [HttpGet("Manual")]
-    public IActionResult ActiveManual() => Ok(new { Operation = manual.Active() });
+    public IActionResult ActiveManual() => Ok(new { Operation = manual.Latest() });
     [HttpGet("Manual/{id}")]
     public IActionResult Manual(Guid id) => manual.Get(id) is { } operation ? Ok(operation) : NotFound();
     [HttpGet("Status")]

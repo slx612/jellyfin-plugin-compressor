@@ -20,6 +20,7 @@ public sealed class ManualOperationRunner
     private readonly Dictionary<Guid, ManualOperationInfo> operations = new();
     private readonly Queue<Guid> order = new();
     private Guid? active;
+    private Guid? latest;
 
     public ManualOperationRunner(CancellationToken stopping, ILogger<ManualOperationRunner> logger)
     { this.stopping = stopping; this.logger = logger; }
@@ -35,6 +36,7 @@ public sealed class ManualOperationRunner
             order.Enqueue(operation.Id);
             while (order.Count > 10) operations.Remove(order.Dequeue());
             active = operation.Id;
+            latest = operation.Id;
         }
 
         _ = Task.Run(async () =>
@@ -67,9 +69,9 @@ public sealed class ManualOperationRunner
         lock (sync) return operations.GetValueOrDefault(id);
     }
 
-    public ManualOperationInfo? Active()
+    public ManualOperationInfo? Latest()
     {
-        lock (sync) return active.HasValue ? operations.GetValueOrDefault(active.Value) : null;
+        lock (sync) return latest.HasValue ? operations.GetValueOrDefault(latest.Value) : null;
     }
 
     private void Update(Guid id, Func<ManualOperationInfo, ManualOperationInfo> change)
