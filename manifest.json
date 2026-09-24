@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.1.3.0",
+        "changelog": "Experimental preview: queue one movie, select a maximum resolution without upscaling, browse originals folders and adjust file stability. Automatic compression remains disabled by default.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.3-alpha.4/jellyfin-compressor-0.1.3.0.zip",
+        "checksum": "4019ee21c0ac617e2a33e143099a3a72",
+        "timestamp": "2026-09-24T16:32:13Z"
+      },
+      {
         "version": "0.1.2.0",
         "changelog": "Experimental preview: redesigned dashboard, visual folder browser and grouped settings. Automatic compression remains disabled by default.",
         "targetAbi": "10.11.6.0",
