@@ -20,6 +20,16 @@ public class CompressionPolicyTests
     }
 
     [Fact]
+    public void MinimumMovieSizeRequiresMoreThanConfiguredGibibytes()
+    {
+        const long tenGb = 10L * 1073741824;
+        Assert.False(CompressionPolicy.MeetsMinimumMovieSize(5L * 1073741824, 10));
+        Assert.False(CompressionPolicy.MeetsMinimumMovieSize(tenGb, 10));
+        Assert.True(CompressionPolicy.MeetsMinimumMovieSize(tenGb + 1, 10));
+        Assert.True(CompressionPolicy.MeetsMinimumMovieSize(1, 0));
+    }
+
+    [Fact]
     public void SnapshotKeepsContainerAndCannotInheritLossyProfileOptions()
     {
         var profile = new EncodingProfile { VideoEncoder = "libx265", Crf = 24, AudioCodec = "aac", MaxWidth = 640,

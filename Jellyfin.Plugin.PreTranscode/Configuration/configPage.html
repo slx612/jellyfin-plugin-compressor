@@ -144,7 +144,7 @@
     <div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze" disabled><span class="material-icons" aria-hidden="true">search</span> Analizar</button><button class="jc-button jc-primary" type="button" id="jcCompress" disabled><span class="material-icons" aria-hidden="true">play_arrow</span> Comprimir carpetas seleccionadas</button></div>
     <p class="jc-subtle" style="margin:1rem 0 0">Estas acciones utilizan la configuración guardada y se desactivan si hay cambios pendientes. Analizar no crea trabajos; Comprimir vuelve a comprobar cada archivo antes de añadirlo a la cola.</p>
   </div>
-  <div class="jc-card"><div class="jc-card-head"><div><h2>Una sola película</h2><p>Busca por título o por nombre del archivo y añade únicamente la que elijas. Se respetan las carpetas, exclusiones y comprobaciones de seguridad guardadas.</p></div><span class="material-icons" aria-hidden="true">movie</span></div>
+  <div class="jc-card"><div class="jc-card-head"><div><h2>Una sola película</h2><p>Busca por título o por nombre del archivo y añade únicamente la que elijas. Se respetan las carpetas, exclusiones y comprobaciones de seguridad guardadas; esta acción manual permite probar una película por debajo del tamaño mínimo.</p></div><span class="material-icons" aria-hidden="true">movie</span></div>
     <label class="jc-field"><span>Buscar película</span><input id="jcMovieSearch" type="search" placeholder="Escribe al menos dos caracteres" autocomplete="off"></label>
     <div id="jcMovieResults" class="jc-picker-list" aria-live="polite"><div class="jc-empty">Escribe un título para buscar.</div></div>
   </div>
@@ -165,7 +165,7 @@
   <div class="jc-card"><div class="jc-card-head"><div><h2>Automatización</h2><p>Controla cuándo se añaden y procesan películas.</p></div><span class="material-icons" aria-hidden="true">schedule</span></div>
     <label class="jc-toggle"><span class="jc-toggle-copy"><strong>Compresión automática</strong><small>Desactivada de fábrica. Al activarla, los nuevos archivos y los análisis programados pueden llenar la cola; se procesa una película cada vez.</small></span><input type="checkbox" id="jcAuto"><span class="jc-switch" aria-hidden="true"></span></label>
     <label class="jc-toggle"><span class="jc-toggle-copy"><strong>Restringir a un horario</strong><small>Los trabajos esperan fuera del horario. Las horas corresponden al reloj del servidor.</small></span><input type="checkbox" id="jcWindow"><span class="jc-switch" aria-hidden="true"></span></label>
-    <div class="jc-grid"><label class="jc-field"><span>Desde</span><input type="time" id="jcStart" value="22:00"></label><label class="jc-field"><span>Hasta</span><input type="time" id="jcStop" value="07:00"></label><label class="jc-field"><span>Esperar tras añadir una película (minutos)</span><input type="number" id="jcStability" min="1" max="1440" required value="1"><span class="jc-subtle">Evita comprimir un archivo mientras se copia a la biblioteca.</span></label></div>
+    <div class="jc-grid"><label class="jc-field"><span>Desde</span><input type="time" id="jcStart" value="22:00"></label><label class="jc-field"><span>Hasta</span><input type="time" id="jcStop" value="07:00"></label><label class="jc-field"><span>Esperar tras añadir una película (minutos)</span><input type="number" id="jcStability" min="1" max="1440" required value="1"><span class="jc-subtle">Evita comprimir un archivo mientras se copia a la biblioteca.</span></label><label class="jc-field"><span>Solo películas de más de (GB)</span><input type="number" id="jcMinMovieGB" min="0" max="1048576" step="1" required value="10"><span class="jc-subtle">Se aplica al análisis y a los lotes automáticos o manuales. 0 desactiva el filtro; una película elegida a mano puede ser menor.</span></label></div>
   </div>
   <div class="jc-card"><div class="jc-card-head"><div><h2>Originales recuperables</h2><p>Jellyfin guarda y verifica el original antes de sustituir la película.</p></div><span class="material-icons" aria-hidden="true">inventory_2</span></div>
     <label class="jc-field"><span>Carpeta de originales en el servidor</span><input id="jcOriginalsPath" required placeholder="Ruta absoluta fuera de las bibliotecas"></label>
@@ -376,6 +376,7 @@
             rules.included = (c.IncludedFolders || []).slice(); rules.excluded = (c.ExcludedFolders || []).slice(); renderRules(); renderExplorer();
             el('jcOriginalsPath').value = c.QuarantineDirectory || ''; el('jcDays').value = c.RetentionDays || ''; el('jcMaxGB').value = (c.QuarantineMaxBytes || 0) / 1073741824; el('jcSavings').value = c.MinSavingsPercent;
             el('jcStability').value = Math.max(1, Math.ceil((c.FileStabilitySeconds || 60) / 60));
+            el('jcMinMovieGB').value = c.MinMovieSizeGb;
             if (c.Profiles && c.Profiles.length) { el('jcQuality').value = c.Profiles[0].Crf; el('jcEncoder').value = c.Profiles[0].VideoEncoder;
                 el('jcResolution').value = c.Profiles[0].ResolutionMode === 2 ? String(c.Profiles[0].MaxHeight) : '0'; }
             el('jcAutoState').textContent = c.AutomaticCompressionEnabled ? 'Activada' : 'Apagada'; dirty(false);
@@ -453,7 +454,7 @@
     el('jcOriginalChoose').onclick = function() { if (originalFolderState && originalFolderState.Selectable) chooseOriginal(originalFolderState.Path); };
     el('jcWindow').onchange = updateWindow;
     ['jcAuto', 'jcWindow', 'jcEncoder', 'jcResolution'].forEach(function(id) { el(id).addEventListener('change', function() { dirty(true); }); });
-    ['jcStart', 'jcStop', 'jcOriginalsPath', 'jcDays', 'jcMaxGB', 'jcSavings', 'jcQuality', 'jcStability'].forEach(function(id) { el(id).addEventListener('input', function() { dirty(true); }); });
+    ['jcStart', 'jcStop', 'jcOriginalsPath', 'jcDays', 'jcMaxGB', 'jcSavings', 'jcQuality', 'jcStability', 'jcMinMovieGB'].forEach(function(id) { el(id).addEventListener('input', function() { dirty(true); }); });
     el('jcForm').onsubmit = function(e) { e.preventDefault();
         if (!el('jcForm').checkValidity()) { setTab(2); el('jcForm').reportValidity(); return; }
         action(function() {
@@ -463,7 +464,7 @@
         var c = JSON.parse(JSON.stringify(config)); c.Enabled = true; c.AutomaticCompressionEnabled = el('jcAuto').checked;
         c.ProcessingWindowEnabled = el('jcWindow').checked; c.ProcessingWindowStartMinutes = minutes(el('jcStart').value); c.ProcessingWindowStopMinutes = minutes(el('jcStop').value);
         c.IncludedFolders = rules.included.slice(); c.ExcludedFolders = rules.excluded.slice(); c.QuarantineDirectory = el('jcOriginalsPath').value.trim(); c.RetentionDays = Number(el('jcDays').value); c.QuarantineMaxBytes = Number(el('jcMaxGB').value) * 1073741824; c.MinSavingsPercent = Number(el('jcSavings').value);
-        c.FileStabilitySeconds = Number(el('jcStability').value) * 60;
+        c.FileStabilitySeconds = Number(el('jcStability').value) * 60; c.MinMovieSizeGb = Number(el('jcMinMovieGB').value);
         c.Profiles[0].VideoEncoder = el('jcEncoder').value; c.Profiles[0].Crf = Number(el('jcQuality').value);
         c.Profiles[0].ResolutionMode = el('jcResolution').value === '0' ? 0 : 2;
         c.Profiles[0].MaxHeight = Number(el('jcResolution').value);

@@ -17,6 +17,10 @@ han probado dentro del servidor.
 
 - Automatización **desactivada por defecto** y ninguna carpeta seleccionada.
 - Inclusiones y exclusiones por carpetas; las exclusiones siempre prevalecen.
+- El análisis y los lotes solo seleccionan películas de **más de 10 GB** por defecto.
+  El mínimo es configurable en Ajustes; 0 lo desactiva. Se mide el archivo original
+  en GB de 1024³ bytes. Al elegir una película concreta a mano se puede probar
+  aunque sea menor; las demás comprobaciones de seguridad siguen vigentes.
 - **Analizar** comprueba elegibilidad; **Comprimir** crea trabajos manuales.
   La búsqueda permite encolar una sola película; se aplican las mismas reglas
   de carpeta, estabilidad, reproducción y prevención de recompresión.

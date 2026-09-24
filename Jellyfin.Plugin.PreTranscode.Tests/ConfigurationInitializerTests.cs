@@ -147,6 +147,7 @@ public class ConfigurationInitializerTests
 
         Assert.True(config.Profiles[0].SkipIfAlreadyCompliant);
         Assert.False(config.VerboseRuleLogging);
+        Assert.Equal(10, config.MinMovieSizeGb);
     }
 
     // The end-to-end reproduction of the reported bug: the constructor must NOT pre-seed collections,
@@ -156,6 +157,7 @@ public class ConfigurationInitializerTests
     {
         var original = new PluginConfiguration();
         ConfigurationInitializer.Normalize(original); // seed defaults, as first run would
+        original.MinMovieSizeGb = 20;
 
         var serializer = new XmlSerializer(typeof(PluginConfiguration));
         string xml;
@@ -175,6 +177,7 @@ public class ConfigurationInitializerTests
         Assert.Equal(4, reloaded.ResolutionPresets.Count);
         Assert.Single(reloaded.Profiles);
         Assert.Single(reloaded.GlobalRules);
+        Assert.Equal(20, reloaded.MinMovieSizeGb);
 
         // And normalizing the reloaded config is a no-op (already seeded, no duplicates).
         Assert.False(ConfigurationInitializer.Normalize(reloaded));

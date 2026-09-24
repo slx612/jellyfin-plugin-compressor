@@ -5,8 +5,10 @@ using Jellyfin.Plugin.PreTranscode.Media;
 using Jellyfin.Plugin.PreTranscode.Safety;
 using MediaBrowser.Common.Configuration;
 using MediaBrowser.Controller.Entities;
+using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Session;
+using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -46,6 +48,43 @@ public sealed class CompressorWiringTests : IDisposable
         Assert.False(await evaluator.EvaluateAndEnqueueAsync(new Folder(), default));
         Assert.Empty(await coordinator.ScanAsync(true, true, null, default));
         queue.VerifyNoOtherCalls(); library.VerifyNoOtherCalls(); probe.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task AutomaticInspectionSkipsSmallMovieBeforeHashingOrProbing()
+    {
+        var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
+        var source = Path.Combine(movieRoot, "small.mkv");
+        File.WriteAllBytes(source, new byte[1024]);
+        File.SetLastWriteTimeUtc(source, DateTime.UtcNow.AddMinutes(-2));
+        plugin.Configuration.AutomaticCompressionEnabled = true;
+        plugin.Configuration.IncludedFolders.Add(movieRoot);
+        plugin.Configuration.QuarantineDirectory = Path.Combine(root, "originals");
+        plugin.Configuration.RetentionDays = 7;
+
+        var queue = new Mock<IJobQueue>(MockBehavior.Strict);
+        queue.Setup(q => q.GetJobs()).Returns(Array.Empty<TranscodeJob>());
+        var library = new Mock<ILibraryManager>();
+        library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Locations = [movieRoot] }]);
+        var movie = new Movie { Name = "Small", Path = source };
+        library.Setup(l => l.GetItemList(It.IsAny<InternalItemsQuery>())).Returns([movie]);
+        var probe = new Mock<IMediaProber>(MockBehavior.Strict);
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")));
+
+        var (candidate, snapshot) = await coordinator.InspectAsync(movie, true, default);
+
+        Assert.False(candidate.Eligible);
+        Assert.Null(snapshot);
+        Assert.Contains("10 GB", candidate.Reason);
+        var batch = await coordinator.ScanAsync(false, false, null, default);
+        Assert.Contains("10 GB", Assert.Single(batch).Reason);
+        probe.VerifyNoOtherCalls();
+
+        probe.Setup(p => p.ProbeAsync(source, It.IsAny<CancellationToken>())).ReturnsAsync(new MediaProbeInfo
+        { VideoStreamCount = 1, Width = 1920, Height = 1080, DurationSeconds = 60, PixelFormat = "yuv420p" });
+        var (manual, manualSnapshot) = await coordinator.InspectAsync(movie, false, default);
+        Assert.True(manual.Eligible);
+        Assert.NotNull(manualSnapshot);
     }
 
     [Fact]

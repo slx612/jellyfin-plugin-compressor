@@ -69,6 +69,8 @@ internal sealed class TranscodeExecutor
             if (!CompressionPolicy.CanRun(job, config)) { Hold(job, "Compresión automática desactivada."); return; }
             var scope = FolderPolicy.Evaluate(job.SourcePath, config, coordinator.Roots());
             if (!scope.Allowed) { Finish(job, JobStatus.Skipped, scope.Reason); return; }
+            if (job.Automatic && !CompressionPolicy.MeetsMinimumMovieSize(new FileInfo(job.SourcePath).Length, config.MinMovieSizeGb))
+            { Finish(job, JobStatus.Skipped, $"No supera el mínimo de {config.MinMovieSizeGb} GB."); return; }
             // Validate saved retention against the current library roots, not a later retention setting.
             var savedConfig = new Configuration.PluginConfiguration { QuarantineDirectory = snapshot.QuarantineRoot,
                 RetentionDays = snapshot.RetentionDays, MinSavingsPercent = snapshot.MinSavingsPercent };
