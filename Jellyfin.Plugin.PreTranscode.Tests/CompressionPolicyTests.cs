@@ -70,6 +70,9 @@ public class CompressionPolicyTests
         output.Width = 3840;
         output.Height = 2160;
         Assert.NotNull(CompressionPolicy.VerificationError(source, output, profile));
+        output.Width = 1922;
+        output.Height = 1080;
+        Assert.NotNull(CompressionPolicy.VerificationError(source, output, profile));
 
         source.Width = 1280;
         source.Height = 720;

@@ -57,6 +57,7 @@ public static class CompressionPolicy
         if (!output.CompressorMarker || output.VideoCodec != "hevc") return "Falta el vídeo HEVC o la marca de compresión.";
         var target = TargetDimensions(profile, source);
         if (source.BitDepth != output.BitDepth || output.Width > source.Width || output.Height > source.Height
+            || (profile?.ResolutionMode == ResolutionMode.CapHeight && (output.Width > profile.MaxWidth || output.Height > profile.MaxHeight))
             || Math.Abs(target.Width - output.Width) > 2 || Math.Abs(target.Height - output.Height) > 2)
             return "La resolución o profundidad de color no coincide con el límite configurado.";
         if (!double.IsFinite(output.DurationSeconds) || output.DurationSeconds <= 0 || Math.Abs(source.DurationSeconds - output.DurationSeconds) > Math.Max(0.5, Math.Min(2, source.DurationSeconds * 0.001))) return "Duración diferente.";
