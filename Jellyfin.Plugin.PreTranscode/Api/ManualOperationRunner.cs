@@ -20,6 +20,7 @@ public sealed class ManualOperationRunner
     private readonly Dictionary<Guid, ManualOperationInfo> operations = new();
     private readonly Queue<Guid> order = new();
     private Guid? active;
+    private CancellationTokenSource? activeCancellation;
     private Guid? latest;
 
     public ManualOperationRunner(CancellationToken stopping, ILogger<ManualOperationRunner> logger)
@@ -29,13 +30,16 @@ public sealed class ManualOperationRunner
     {
         stopping.ThrowIfCancellationRequested();
         var operation = new ManualOperationInfo(Guid.NewGuid(), kind, "Running", 0, null, null);
+        CancellationTokenSource cancellation;
         lock (sync)
         {
             if (active.HasValue) throw new InvalidOperationException("Ya hay una comprobación manual en curso.");
+            cancellation = CancellationTokenSource.CreateLinkedTokenSource(stopping);
             operations.Add(operation.Id, operation);
             order.Enqueue(operation.Id);
             while (order.Count > 10) operations.Remove(order.Dequeue());
             active = operation.Id;
+            activeCancellation = cancellation;
             latest = operation.Id;
         }
 
@@ -44,12 +48,12 @@ public sealed class ManualOperationRunner
             try
             {
                 var progress = new CallbackProgress(value => Update(operation.Id, current => current with { Progress = Math.Clamp(value, 0, 100) }));
-                var result = await work(progress, stopping).ConfigureAwait(false);
+                var result = await work(progress, cancellation.Token).ConfigureAwait(false);
                 Update(operation.Id, current => current with { State = "Completed", Progress = 100, Result = result });
             }
-            catch (OperationCanceledException) when (stopping.IsCancellationRequested)
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
-                Update(operation.Id, current => current with { State = "Cancelled", Error = "Jellyfin se ha detenido." });
+                Update(operation.Id, current => current with { State = "Cancelled", Error = stopping.IsCancellationRequested ? "Jellyfin se ha detenido." : "Análisis cancelado." });
             }
             catch (Exception ex)
             {
@@ -58,7 +62,11 @@ public sealed class ManualOperationRunner
             }
             finally
             {
-                lock (sync) { if (active == operation.Id) active = null; }
+                lock (sync)
+                {
+                    if (active == operation.Id) { active = null; activeCancellation = null; }
+                    cancellation.Dispose();
+                }
             }
         }, CancellationToken.None);
         return operation;
@@ -67,6 +75,19 @@ public sealed class ManualOperationRunner
     public ManualOperationInfo? Get(Guid id)
     {
         lock (sync) return operations.GetValueOrDefault(id);
+    }
+
+    public bool Cancel(Guid id)
+    {
+        CancellationTokenSource cancellation;
+        lock (sync)
+        {
+            if (active != id || operations.GetValueOrDefault(id) is not { Kind: "Analyze", State: "Running" }
+                || activeCancellation is null) return false;
+            cancellation = activeCancellation;
+        }
+        try { cancellation.Cancel(); return true; }
+        catch (ObjectDisposedException) { return false; }
     }
 
     public ManualOperationInfo? Latest()

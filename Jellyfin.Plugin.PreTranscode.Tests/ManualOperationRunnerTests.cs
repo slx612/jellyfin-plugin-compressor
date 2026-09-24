@@ -56,6 +56,33 @@ public class ManualOperationRunnerTests
         Assert.Equal("Completed", runner.Latest()!.State);
     }
 
+    [Fact]
+    public async Task RunningAnalysisCanBeCancelledWithoutStoppingJellyfin()
+    {
+        var runner = new ManualOperationRunner(CancellationToken.None, NullLogger<ManualOperationRunner>.Instance);
+        var started = runner.Start("Analyze", async (_, token) =>
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return null;
+        });
+
+        Assert.True(runner.Cancel(started.Id));
+        var finished = await WaitForEnd(runner, started.Id);
+        Assert.Equal("Cancelled", finished.State);
+        Assert.False(runner.Cancel(started.Id));
+        Assert.Equal("Running", runner.Start("Analyze", (_, _) => Task.FromResult<object?>(null)).State);
+    }
+
+    [Fact]
+    public void CancelDoesNotStopACompressionOperation()
+    {
+        var runner = new ManualOperationRunner(CancellationToken.None, NullLogger<ManualOperationRunner>.Instance);
+        var release = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var started = runner.Start("Compress", (_, _) => release.Task);
+        Assert.False(runner.Cancel(started.Id));
+        release.SetResult(null);
+    }
+
     private static async Task<ManualOperationInfo> WaitForEnd(ManualOperationRunner runner, Guid id)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));

@@ -47,6 +47,7 @@
 #CompressorPage .jc-button.jc-primary:hover {filter:brightness(1.1)}
 #CompressorPage .jc-button.jc-danger {color:#e99a9a}
 #CompressorPage .jc-button:disabled {cursor:not-allowed;opacity:.5}
+#CompressorPage .jc-button[hidden] {display:none}
 #CompressorPage .jc-button .material-icons {font-size:1.1rem}
 #CompressorPage .jc-subtle {font-size:.88rem;opacity:.7}
 #CompressorPage .jc-field {display:block;margin:.8rem 0}
@@ -140,9 +141,9 @@
     <div class="jc-stat"><span class="material-icons" aria-hidden="true">playlist_play</span><strong id="jcJobsCount">0</strong><span>Trabajos pendientes o en curso</span></div>
   </div>
   <div class="jc-card" style="margin-top:1.15rem">
-    <div class="jc-card-head"><div><h2>Analiza tu biblioteca</h2><p>Comprueba qué películas se pueden comprimir antes de crear trabajos.</p></div><span class="material-icons" aria-hidden="true">manage_search</span></div>
-    <div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze" disabled><span class="material-icons" aria-hidden="true">search</span> Analizar</button><button class="jc-button jc-primary" type="button" id="jcCompress" disabled><span class="material-icons" aria-hidden="true">play_arrow</span> Comprimir carpetas seleccionadas</button></div>
-    <p class="jc-subtle" style="margin:1rem 0 0">Estas acciones utilizan la configuración guardada y se desactivan si hay cambios pendientes. Analizar no crea trabajos; Comprimir vuelve a comprobar cada archivo antes de añadirlo a la cola.</p>
+    <div class="jc-card-head"><div><h2>Analiza tu biblioteca</h2><p>Revisa las películas de las carpetas seleccionadas antes de crear trabajos.</p></div><span class="material-icons" aria-hidden="true">manage_search</span></div>
+    <div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze" disabled><span class="material-icons" aria-hidden="true">search</span> Analizar</button><button class="jc-button" type="button" id="jcCancelAnalysis" hidden>Cancelar análisis</button><button class="jc-button jc-primary" type="button" id="jcCompress" disabled><span class="material-icons" aria-hidden="true">play_arrow</span> Comprimir carpetas seleccionadas</button></div>
+    <p class="jc-subtle" style="margin:1rem 0 0">Estas acciones utilizan la configuración guardada y se desactivan si hay cambios pendientes. El análisis es preliminar y no lee el archivo completo; al comprimir se verifica su identidad para no recomprimir películas ya procesadas.</p>
   </div>
   <div class="jc-card"><div class="jc-card-head"><div><h2>Una sola película</h2><p>Busca por título o por nombre del archivo y añade únicamente la que elijas. Se respetan las carpetas, exclusiones y comprobaciones de seguridad guardadas; esta acción manual permite probar una película por debajo del tamaño mínimo.</p></div><span class="material-icons" aria-hidden="true">movie</span></div>
     <label class="jc-field"><span>Buscar película</span><input id="jcMovieSearch" type="search" placeholder="Escribe al menos dos caracteres" autocomplete="off"></label>
@@ -196,7 +197,7 @@
 (function () {
     'use strict';
     var page = document.querySelector('#CompressorPage'), config, timer, loading = false, active = false;
-    var dirtyState = false, revision = 0, saving = false, scanning = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, lastOperationId;
+    var dirtyState = false, revision = 0, saving = false, scanning = false, cancelling = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, lastOperationId;
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0;
     var movieEntries = [], movieRequest = 0, movieTimer, queueingMovie = false, originalFolderState, originalRequest = 0;
     function el(id) { return page.querySelector('#' + id); }
@@ -224,9 +225,11 @@
         box.append(t);
     }
     function updateControls() {
-        el('jcSave').disabled = !dirtyState || saving || !config;
+        el('jcSave').disabled = !dirtyState || saving || scanning || queueingMovie || !config;
         el('jcSaveState').textContent = !config ? 'Cargando configuración…' : saving ? 'Guardando cambios…' : dirtyState ? 'Cambios sin guardar' : 'Configuración guardada';
         el('jcAnalyze').disabled = el('jcCompress').disabled = dirtyState || saving || scanning || queueingMovie || !config;
+        el('jcCancelAnalysis').hidden = !(manualOperationId && manualKind === 'Analyze' && scanning);
+        el('jcCancelAnalysis').disabled = cancelling;
         page.querySelectorAll('button[data-movie-id]').forEach(function(control) { control.disabled = dirtyState || saving || scanning || queueingMovie || !config; });
     }
     function dirty(value) { if (value) revision++; dirtyState = value; updateControls(); }
@@ -385,9 +388,14 @@
     }
     function candidates(list, kind) {
         table('jcCandidates', ['Película', 'Estado', 'Tamaño'], list.slice(0, 500).map(function(c) { return [c.Name, c.Reason, bytes(c.Size)]; }));
+        if (!list.length) {
+            el('jcCandidatesSummary').textContent = 'No hay películas de Jellyfin en las carpetas seleccionadas.';
+            message('No hay películas en las carpetas seleccionadas. Revisa Carpetas y guarda los cambios.');
+            return;
+        }
         var count = list.filter(function(c) { return kind === 'Compress' ? c.Reason === 'En cola' : c.Eligible; }).length;
-        var result = kind === 'Compress' ? count + ' añadidas a la cola.' : count + ' listas para comprimir.';
-        el('jcCandidatesSummary').textContent = list.length + ' películas revisadas · ' + result + ' Se muestran hasta 500.';
+        var result = kind === 'Compress' ? count + ' añadidas a la cola.' : count + ' aptas preliminarmente.';
+        el('jcCandidatesSummary').textContent = list.length + ' películas en las carpetas seleccionadas · ' + result + (list.length > 500 ? ' Se muestran hasta 500.' : '');
         message(list.length + ' películas revisadas. ' + result);
     }
     function beginManual(operation, movieName) {
@@ -404,12 +412,12 @@
                 message((manualKind === 'Movie' ? 'Comprobando ' + (manualMovieName || 'la película') : 'Analizando la biblioteca') + ' · ' + Math.round(operation.Progress) + ' %. Puede tardar con archivos grandes…');
                 return;
             }
-            manualOperationId = null; lastOperationId = id; scanning = false; queueingMovie = false; updateControls();
-            if (operation.State !== 'Completed') { message(operation.Error || 'La comprobación se canceló.', true); return; }
+            manualOperationId = null; lastOperationId = id; scanning = false; queueingMovie = false; cancelling = false; updateControls();
+            if (operation.State !== 'Completed') { message(operation.Error || 'La comprobación se canceló.', operation.State !== 'Cancelled'); return; }
             if (manualKind === 'Movie') message((manualMovieName || 'Película') + ': ' + operation.Result.Reason);
             else candidates(operation.Result || [], manualKind);
         }).catch(function(error) {
-            if (id === manualOperationId) { manualOperationId = null; scanning = false; queueingMovie = false; updateControls(); message(errorText(error), true); }
+            if (id === manualOperationId) { manualOperationId = null; scanning = false; queueingMovie = false; cancelling = false; updateControls(); message(errorText(error), true); }
         }).finally(function() { manualPolling = false; });
     }
     function enumName(value, names) { return typeof value === 'number' ? names[value] : value; }
@@ -471,13 +479,17 @@
         saving = true; updateControls();
         return api('Configuration', 'POST', c).then(function(saved) {
             config = saved;
-            if (revision === submittedRevision) { rules.included = (saved.IncludedFolders || []).slice(); rules.excluded = (saved.ExcludedFolders || []).slice(); renderRules(); renderExplorer(); dirty(false); }
+            if (revision === submittedRevision) { rules.included = (saved.IncludedFolders || []).slice(); rules.excluded = (saved.ExcludedFolders || []).slice(); renderRules(); renderExplorer(); dirty(false);
+                el('jcCandidates').replaceChildren(); el('jcCandidatesSummary').textContent = 'Todavía no se ha analizado ninguna película con esta configuración.'; }
             el('jcAutoState').textContent = saved.AutomaticCompressionEnabled ? 'Activada' : 'Apagada';
             message(revision === submittedRevision ? 'Configuración guardada. Automatización ' + (saved.AutomaticCompressionEnabled ? 'activada.' : 'desactivada.') : 'Se guardaron los cambios anteriores. Quedan cambios nuevos sin guardar.');
         }).finally(function() { saving = false; updateControls(); });
         }); };
     function scan(route) { if (dirtyState || saving || scanning || queueingMovie || !config) return; scanning = true; updateControls(); message('Preparando análisis…'); action(function() { return api(route, 'POST').then(function(operation) { return beginManual(operation); }).catch(function(error) { if (!manualOperationId) { scanning = false; updateControls(); } throw error; }); }); }
     el('jcAnalyze').onclick = function() { scan('Analyze'); }; el('jcCompress').onclick = function() { scan('Compress'); };
+    el('jcCancelAnalysis').onclick = function() { if (!manualOperationId || manualKind !== 'Analyze' || cancelling) return;
+        cancelling = true; updateControls(); action(function() { return api('Manual/' + encodeURIComponent(manualOperationId) + '/Cancel', 'POST')
+            .then(function() { message('Cancelando el análisis…'); }).catch(function(error) { cancelling = false; updateControls(); throw error; }); }); };
     [['jcPause', 'Pause'], ['jcResume', 'Resume'], ['jcPurge', 'Originals/Purge']].forEach(function(pair) { el(pair[0]).onclick = function() { action(function() { return api(pair[1], 'POST').then(refresh); }); }; });
     el('jcClear').onclick = function() { action(function() { return api('History', 'DELETE').then(refresh); }); };
     el('jcRefresh').onclick = function() { action(refresh); };

@@ -3,15 +3,13 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.6 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.7 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
-destino tras instalar y reiniciar: cargaron Resumen, Carpetas y Ajustes, con la
-automatización apagada y ninguna carpeta seleccionada. **No se ha sustituido ni
-restaurado ningún medio real en el servidor de destino**; esta versión aún no se
-ha instalado allí y las operaciones de cuota y retención ampliadas aún no se
-han probado dentro del servidor.
+destino tras instalar y reiniciar. **No se ha sustituido ni restaurado ningún
+medio real en el servidor de destino**; las operaciones de cuota y retención
+ampliadas aún no se han probado dentro de ese servidor.
 
 ## Funcionamiento
 
@@ -21,7 +19,11 @@ han probado dentro del servidor.
   El mínimo es configurable en Ajustes; 0 lo desactiva. Se mide el archivo original
   en GB de 1024³ bytes. Al elegir una película concreta a mano se puede probar
   aunque sea menor; las demás comprobaciones de seguridad siguen vigentes.
-- **Analizar** comprueba elegibilidad; **Comprimir** crea trabajos manuales.
+- **Analizar** hace una comprobación preliminar rápida solo de las carpetas
+  seleccionadas, sin leer entero cada archivo. Se puede cancelar desde el panel.
+  Un resultado «apta preliminarmente» no garantiza que se vaya a encolar: al pulsar
+  **Comprimir** se vuelve a comprobar el archivo, incluida su identidad SHA-256,
+  para impedir recomprimir películas ya procesadas. **Comprimir** crea trabajos manuales.
   La búsqueda permite encolar una sola película; se aplican las mismas reglas
   de carpeta, estabilidad, reproducción y prevención de recompresión.
   Los análisis y las comprobaciones manuales continúan en segundo plano aunque
@@ -69,6 +71,10 @@ perfil, limpiar el historial o eliminar el original vencido. Un original restaur
 también queda protegido. La v1 no ofrece recompresión forzada. Un intento sin ahorro
 se recuerda para el perfil utilizado; cambiar de perfil permite un nuevo intento
 sobre ese original.
+
+El análisis rápido no calcula SHA-256 y puede mostrar como «apta preliminarmente»
+una película ya procesada. La comprobación completa al encolarla la omite en ese caso;
+el análisis por sí solo nunca inicia una compresión.
 
 El registro está en `<directorio de datos de Jellyfin>/jellyfin-compressor/identities`.
 No debe borrarse para limpiar el historial. Si se pierde, la marca del contenedor
@@ -145,7 +151,7 @@ Requiere .NET SDK 9 y FFmpeg/ffprobe en `PATH` para las pruebas de integración.
 
 ```powershell
 dotnet test -c Release
-./build-plugin.ps1 -Version 0.1.6.0
+./build-plugin.ps1 -Version 0.1.7.0
 ```
 
 El ZIP y su SHA-256 quedan en `artifacts/`. Las dependencias de Jellyfin se

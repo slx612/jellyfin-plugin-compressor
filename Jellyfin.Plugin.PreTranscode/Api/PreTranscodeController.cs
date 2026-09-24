@@ -124,6 +124,8 @@ public class PreTranscodeController : ControllerBase
     public IActionResult ActiveManual() => Ok(new { Operation = manual.Latest() });
     [HttpGet("Manual/{id}")]
     public IActionResult Manual(Guid id) => manual.Get(id) is { } operation ? Ok(operation) : NotFound();
+    [HttpPost("Manual/{id}/Cancel")]
+    public IActionResult CancelAnalysis(Guid id) => manual.Cancel(id) ? Ok() : Conflict(new { Message = "No hay un análisis activo con ese identificador." });
     [HttpGet("Status")]
     public IActionResult Status() => Ok(new { Jobs = queue.GetJobs(), Paused = queue.IsPaused, Schedule = control.GetScheduleState(), Error = coordinator.MaintenanceError });
     [HttpPost("Pause")]

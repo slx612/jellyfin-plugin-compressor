@@ -89,6 +89,46 @@ public sealed class CompressorWiringTests : IDisposable
     }
 
     [Fact]
+    public async Task PreviewOnlyInspectsSelectedMoviesWithoutReadingEntireFile()
+    {
+        var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
+        var otherRoot = Directory.CreateDirectory(Path.Combine(root, "other")).FullName;
+        var source = Path.Combine(movieRoot, "large.mkv");
+        var other = Path.Combine(otherRoot, "outside.mkv");
+        File.WriteAllBytes(source, new byte[1024]);
+        File.WriteAllBytes(other, new byte[1024]);
+        File.SetLastWriteTimeUtc(source, DateTime.UtcNow.AddMinutes(-2));
+        File.SetLastWriteTimeUtc(other, DateTime.UtcNow.AddMinutes(-2));
+        plugin.Configuration.IncludedFolders.Add(movieRoot);
+        plugin.Configuration.QuarantineDirectory = Path.Combine(root, "originals");
+        plugin.Configuration.RetentionDays = 7;
+        plugin.Configuration.MinMovieSizeGb = 0;
+
+        var queue = new Mock<IJobQueue>();
+        queue.Setup(q => q.GetJobs()).Returns(Array.Empty<TranscodeJob>());
+        var library = new Mock<ILibraryManager>();
+        library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Locations = [movieRoot, otherRoot] }]);
+        library.Setup(l => l.GetItemList(It.IsAny<InternalItemsQuery>())).Returns([
+            new Movie { Name = "Selected", Path = source },
+            new Movie { Name = "Outside", Path = other }]);
+        var probe = new Mock<IMediaProber>();
+        probe.Setup(p => p.ProbeAsync(source, It.IsAny<CancellationToken>())).ReturnsAsync(new MediaProbeInfo
+        { VideoStreamCount = 1, Width = 1920, Height = 1080, DurationSeconds = 60, PixelFormat = "yuv420p" });
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")));
+
+        using var locked = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.None);
+        var result = await coordinator.ScanAsync(false, false, null, default);
+
+        var selected = Assert.Single(result);
+        Assert.Equal("Selected", selected.Name);
+        Assert.True(selected.Eligible);
+        Assert.Equal(1024, selected.Size);
+        Assert.Contains("preliminar", selected.Reason, StringComparison.OrdinalIgnoreCase);
+        probe.Verify(p => p.ProbeAsync(source, It.IsAny<CancellationToken>()), Times.Once);
+        probe.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task RestartedAutomaticJobRecognizesAlreadyPublishedMovieBelowCurrentThreshold()
     {
         var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;

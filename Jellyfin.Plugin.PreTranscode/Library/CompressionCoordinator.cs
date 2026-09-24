@@ -44,7 +44,7 @@ public sealed class CompressionCoordinator
             && FolderPolicy.Evaluate(job.SourcePath, config, Roots()).Allowed && !IsPlaying(job.SourcePath, job.ItemId)
             && library.GetItemById(Guid.Parse(job.ItemId)) is Movie item && string.Equals(item.Path, job.SourcePath, FolderPolicy.Comparison);
     }
-    public async Task<(Candidate Candidate, CompressionSnapshot? Snapshot)> InspectAsync(BaseItem item, bool automatic, CancellationToken token, bool applyMinimumSize = false)
+    public async Task<(Candidate Candidate, CompressionSnapshot? Snapshot)> InspectAsync(BaseItem item, bool automatic, CancellationToken token, bool applyMinimumSize = false, bool previewOnly = false)
     {
         Candidate Result(bool eligible, string reason, long size = 0) => new(item.Id.ToString("N"), item.Name, item.Path ?? "", eligible, reason, size);
         var config = Config;
@@ -55,9 +55,9 @@ public sealed class CompressionCoordinator
         if (!decision.Allowed) return (Result(false, decision.Reason), null);
         FolderPolicy.ValidateConfiguration(config, roots);
         if (!ItemEvaluator.IsStable(item.Path, Math.Max(60, config.FileStabilitySeconds))) return (Result(false, "Archivo reciente; esperando estabilidad."), null);
+        var size = new FileInfo(item.Path).Length;
         if (automatic || applyMinimumSize)
         {
-            var size = new FileInfo(item.Path).Length;
             if (!CompressionPolicy.MeetsMinimumMovieSize(size, config.MinMovieSizeGb))
                 return (Result(false, $"No supera el mínimo de {config.MinMovieSizeGb} GB.", size), null);
         }
@@ -67,6 +67,12 @@ public sealed class CompressionCoordinator
         var profile = config.Profiles.FirstOrDefault(p => p.Id == config.DefaultProfileId) ?? config.Profiles.FirstOrDefault() ?? throw new InvalidOperationException("Selecciona un perfil.");
         var effective = CompressionPolicy.EffectiveProfile(profile, item.Path);
         var key = CompressionPolicy.Key(effective);
+        if (previewOnly)
+        {
+            var preview = await prober.ProbeAsync(item.Path, token).ConfigureAwait(false);
+            var previewError = preview is null ? "No se puede leer el vídeo." : CompressionPolicy.EligibilityError(preview);
+            return (Result(previewError is null, previewError ?? "Apta preliminarmente; se verificará antes de encolar.", size), null);
+        }
         var identity = await ContentRegistry.IdentifyAsync(item.Path, token).ConfigureAwait(false);
         var prior = registry.Find(identity.Sha256);
         if (prior is not null)
@@ -99,13 +105,19 @@ public sealed class CompressionCoordinator
         if (!await analysis.WaitAsync(0, token).ConfigureAwait(false)) throw new InvalidOperationException("Ya hay un análisis en curso.");
         try
         {
-            FolderPolicy.ValidateConfiguration(Config, Roots());
-            var items = library.GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, IsVirtualItem = false, Recursive = true });
+            var config = Config;
+            var roots = Roots();
+            FolderPolicy.ValidateConfiguration(config, roots);
+            var items = library.GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, IsVirtualItem = false, Recursive = true })
+                .Where(item => item.Path is { Length: > 0 } path && Path.IsPathFullyQualified(path)
+                    && roots.Any(root => FolderPolicy.Contains(root, path))
+                    && config.IncludedFolders.Any(folder => FolderPolicy.Contains(folder, path))
+                    && !config.ExcludedFolders.Any(folder => FolderPolicy.Contains(folder, path))).ToList();
             var results = new List<Candidate>();
             foreach (var item in items)
             {
                 token.ThrowIfCancellationRequested();
-                try { results.Add(enqueue ? await EnqueueAsync(item, automatic, token, true).ConfigureAwait(false) : (await InspectAsync(item, automatic, token, true).ConfigureAwait(false)).Candidate); }
+                try { results.Add(enqueue ? await EnqueueAsync(item, automatic, token, true).ConfigureAwait(false) : (await InspectAsync(item, automatic, token, true, previewOnly: true).ConfigureAwait(false)).Candidate); }
                 catch (Exception ex) when (ex is not OperationCanceledException) { results.Add(new(item.Id.ToString("N"), item.Name, item.Path, false, ex.Message, 0)); }
                 progress?.Report(results.Count * 100d / Math.Max(1, items.Count));
             }
