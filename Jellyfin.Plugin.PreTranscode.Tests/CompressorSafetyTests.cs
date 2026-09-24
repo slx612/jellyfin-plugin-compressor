@@ -29,6 +29,20 @@ public sealed class CompressorSafetyTests : IDisposable
     }
 
     [Fact]
+    public void OriginalsBrowserMarksLibraryAncestorsAndDescendantsAsUnsafe()
+    {
+        var movies = Folder("Movies");
+        Folder("Movies/Child");
+        var originals = Folder("Originals");
+        var entries = QuarantineFolderBrowser.List(root, new[] { movies });
+        Assert.False(entries.Single(e => e.Path == movies).Selectable);
+        Assert.True(entries.Single(e => e.Path == originals).Selectable);
+        Assert.False(QuarantineFolderBrowser.CanSelect(root, new[] { movies }));
+        Assert.False(QuarantineFolderBrowser.CanSelect(Path.Combine(movies, "Child"), new[] { movies }));
+        Assert.True(QuarantineFolderBrowser.CanSelect(originals, new[] { movies }));
+    }
+
+    [Fact]
     public async Task IdentitySurvivesRenameAndRestartAndDetectsChangedContent()
     {
         var source = await FileAt("Movies", "film.mkv", new byte[] { 1, 2, 3 });

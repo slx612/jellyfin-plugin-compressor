@@ -25,6 +25,27 @@ public sealed class CompressorFfmpegTests : IDisposable
     private async Task<MediaProbeInfo> Probe(string path) => MediaProber.Parse(await ProcessRunner.RunAsync(ffprobe, MediaProber.BuildProbeArguments(path), 60000, default), path);
 
     [Theory]
+    [InlineData("960x540", 480)]
+    [InlineData("640x360", 720)]
+    public async Task ResolutionLimitDownscalesOnlyWhenSourceExceedsIt(string size, int cap)
+    {
+        var source = Path.Combine(root, "source.mkv");
+        var output = Path.Combine(root, "output.mkv");
+        await Run(new[] { "-nostdin", "-y", "-hide_banner", "-f", "lavfi", "-i", "testsrc2=size=" + size + ":rate=12",
+            "-t", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p", source });
+        var sourceProbe = await Probe(source);
+        var profile = CompressionPolicy.EffectiveProfile(new EncodingProfile { VideoEncoder = "libx265", Crf = 26,
+            ResolutionMode = ResolutionMode.CapHeight, MaxHeight = cap }, source);
+        await Run(CompressionPolicy.BuildArguments(profile, sourceProbe, source, output));
+        var outputProbe = await Probe(output);
+
+        Assert.Null(CompressionPolicy.VerificationError(sourceProbe, outputProbe, profile));
+        Assert.True(outputProbe.Width <= sourceProbe.Width && outputProbe.Height <= sourceProbe.Height);
+        if (cap == 480) Assert.Equal(480, outputProbe.Height);
+        else Assert.Equal((sourceProbe.Width, sourceProbe.Height), (outputProbe.Width, outputProbe.Height));
+    }
+
+    [Theory]
     [InlineData(".mkv")]
     [InlineData(".mp4")]
     [InlineData(".m4v")]
