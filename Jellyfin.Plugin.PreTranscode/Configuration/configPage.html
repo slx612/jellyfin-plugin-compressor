@@ -176,7 +176,7 @@
   </div>
   <div class="jc-card"><div class="jc-card-head"><div><h2>Calidad de compresión</h2><p>HEVC conserva audio, subtítulos, capítulos y extensión del archivo.</p></div><span class="material-icons" aria-hidden="true">high_quality</span></div>
     <div class="jc-grid"><label class="jc-field"><span>Codificador HEVC</span><select id="jcEncoder"><option value="libx265">CPU · libx265</option></select></label><label class="jc-field"><span>Calidad (16–32)</span><input id="jcQuality" type="number" min="16" max="32" required value="23"><span class="jc-subtle">Menor número: más calidad y mayor tamaño.</span></label><label class="jc-field"><span>Resolución máxima de salida</span><select id="jcResolution"><option value="0">Conservar la original</option><option value="2160">4K · 2160p</option><option value="1080">Full HD · 1080p</option><option value="720">HD · 720p</option><option value="480">SD · 480p</option></select><span class="jc-subtle">Solo reduce si la película supera el límite. Una película de 720p nunca se amplía a 1080p.</span></label></div>
-    <p id="jcFfmpeg" class="jc-subtle">Leyendo FFmpeg del servidor…</p><p class="jc-subtle" style="margin-bottom:0">Se omiten HDR, Dolby Vision y estructuras no compatibles.</p>
+    <p id="jcFfmpeg" class="jc-subtle">Leyendo FFmpeg del servidor…</p><p class="jc-subtle">La calidad elegida no garantiza un archivo menor. Si el temporal supera el tamaño permitido por el ahorro mínimo, se detiene y se conserva el original.</p><p class="jc-subtle" style="margin-bottom:0">Se omiten HDR, Dolby Vision y estructuras no compatibles.</p>
   </div>
 </section>
 
@@ -424,7 +424,8 @@
                 var status = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']), actions = document.createElement('span');
                 if (status === 'Pending' || status === 'Processing') actions.append(button('Cancelar', function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').then(refresh); }));
                 if (status === 'Failed' || status === 'Cancelled') actions.append(button('Reintentar', function() { return api('Jobs/' + j.Id + '/Retry', 'POST').then(function(operation) { return beginManual(operation, j.DisplayName); }); }));
-                return [j.DisplayName, j.ErrorMessage || j.StatusDetail || status, Math.round(j.Progress) + ' %', actions];
+                var progress = status === 'Processing' && j.StatusDetail === 'Comprimiendo' ? Math.round(j.Progress) + ' %' : '—';
+                return [j.DisplayName, j.ErrorMessage || j.StatusDetail || status, progress, actions];
             }));
             table('jcOriginals', ['Película', 'Estado', 'Vencimiento', 'Acciones'], originals.slice().sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); }).map(function(r) {
                 var phase = enumName(r.Phase, ['Prepared', 'BackupVerified', 'Publishing', 'Completed', 'Purging', 'Purged', 'Restoring', 'Restored', 'Aborted']), actions = document.createElement('span');

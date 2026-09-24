@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +20,31 @@ namespace Jellyfin.Plugin.PreTranscode.Tests;
 [Trait("Category", "Integration")]
 public class RealFfmpegIntegrationTests
 {
+    [Fact]
+    public async Task EncodeStopsOnceTemporaryFileExceedsSavingsBudget()
+    {
+        var ffmpeg = FfmpegTestBinaries.Find("ffmpeg");
+        if (ffmpeg is null) return;
+
+        var work = Path.Combine(Path.GetTempPath(), "pretranscode-limit-" + Path.GetRandomFileName());
+        Directory.CreateDirectory(work);
+        var output = Path.Combine(work, "output.mkv");
+        try
+        {
+            var args = new[] { "-y", "-re", "-f", "lavfi", "-i", "testsrc2=size=320x240:rate=30:duration=15",
+                "-c:v", "ffv1", "-f", "matroska", output };
+            var elapsed = Stopwatch.StartNew();
+            await Assert.ThrowsAsync<OutputSizeLimitExceededException>(() => FfmpegExecutor.RunAsync(
+                ffmpeg, args, 15, null, CancellationToken.None, outputPath: output, maxOutputBytes: 64 * 1024));
+            Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(10), "The encode ran to completion instead of stopping early.");
+            File.Delete(output); // The encoder must have released the temporary file.
+        }
+        finally
+        {
+            Directory.Delete(work, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task EndToEnd_ProbeBuildRunVerify()
     {
