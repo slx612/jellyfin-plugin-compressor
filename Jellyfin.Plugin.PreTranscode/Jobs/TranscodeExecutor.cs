@@ -87,15 +87,39 @@ internal sealed class TranscodeExecutor
             var source = await prober.ProbeAsync(job.SourcePath, token).ConfigureAwait(false) ?? throw new IOException("No se puede leer el vídeo.");
             var eligibility = CompressionPolicy.EligibilityError(source);
             if (eligibility is not null) { Finish(job, JobStatus.Skipped, eligibility); return; }
+            var maxOutputBytes = (long)Math.Ceiling(snapshot.Source.Length * (1 - snapshot.MinSavingsPercent / 100));
+            void SkipNoSavings(string detail)
+            {
+                registry.Save(new(snapshot.Source.Sha256, snapshot.Source.Length, "no-savings", snapshot.ProfileKey, null, job.SourcePath));
+                TryDelete(temp);
+                Finish(job, JobStatus.Skipped, detail);
+            }
             Directory.CreateDirectory(tempDirectory);
             temp = Path.Combine(tempDirectory, job.Id + Path.GetExtension(job.SourcePath));
             if (job.VerifiedOutputIdentity is null || !File.Exists(temp))
             {
                 Detail(job, "Comprimiendo");
                 var args = CompressionPolicy.BuildArguments(snapshot.Profile, source, job.SourcePath, temp);
-                var (exit, tail) = await FfmpegExecutor.RunAsync(FfmpegPaths.ResolveFfmpeg(encoder), args, source.DurationSeconds,
-                    p => job.Progress = p, token, onProcessStarted).ConfigureAwait(false);
-                if (exit != 0) { job.LogExcerpt = tail; throw new IOException("FFmpeg no terminó correctamente (" + exit + ")."); }
+                (int ExitCode, string StdErrTail) encode;
+                try
+                {
+                    encode = await FfmpegExecutor.RunAsync(FfmpegPaths.ResolveFfmpeg(encoder), args, source.DurationSeconds,
+                        p => job.Progress = p, token, onProcessStarted, temp, maxOutputBytes).ConfigureAwait(false);
+                }
+                catch (OutputSizeLimitExceededException)
+                {
+                    token.ThrowIfCancellationRequested();
+                    SkipNoSavings("La salida ya superaba el tamaño permitido para ahorrar "
+                        + snapshot.MinSavingsPercent.ToString("0.#", CultureInfo.InvariantCulture) + " %. Se conserva el original.");
+                    return;
+                }
+                if (encode.ExitCode != 0) { job.LogExcerpt = encode.StdErrTail; throw new IOException("FFmpeg no terminó correctamente (" + encode.ExitCode + ")."); }
+                // The final mux can grow after the last poll. Avoid decoding an output that cannot be published.
+                if (FileSizeOrZero(temp) >= maxOutputBytes)
+                {
+                    SkipNoSavings("La salida no alcanzó el ahorro mínimo; se conserva el original.");
+                    return;
+                }
                 Detail(job, "Verificando pistas, capítulos y vídeo completo");
                 var output = await prober.ProbeAsync(temp, token).ConfigureAwait(false) ?? throw new IOException("Resultado ilegible.");
                 var invalid = CompressionPolicy.VerificationError(source, output, snapshot.Profile);
@@ -110,9 +134,7 @@ internal sealed class TranscodeExecutor
                     var savings = 100d * (snapshot.Source.Length - identity.Length) / snapshot.Source.Length;
                     var actual = savings.ToString("0.#", CultureInfo.InvariantCulture);
                     var required = snapshot.MinSavingsPercent.ToString("0.#", CultureInfo.InvariantCulture);
-                    registry.Save(new(snapshot.Source.Sha256, snapshot.Source.Length, "no-savings", snapshot.ProfileKey, null, job.SourcePath));
-                    File.Delete(temp);
-                    Finish(job, JobStatus.Skipped, $"Ahorro {actual} %; mínimo {required} %. Se conserva el original.");
+                    SkipNoSavings($"Ahorro {actual} %; mínimo {required} %. Se conserva el original.");
                     return;
                 }
                 job.VerifiedOutputPath = temp;

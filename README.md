@@ -32,6 +32,9 @@ retención ampliadas aún no se han probado dentro del servidor.
   sobre el mismo identificador, sin escribir sobre los datos de reproducción.
 - Se comprueba la estructura del resultado y se decodifica entero antes de sustituir.
   Si no alcanza el ahorro mínimo (15 % inicialmente), permanece el original.
+  El ajuste de calidad controla el codificador, no garantiza un tamaño final:
+  una película ya comprimida puede crecer. La codificación se corta en cuanto
+  el temporal supera el tamaño permitido para ese ahorro, antes de verificarlo.
 - El original se copia a la carpeta elegida, fuera de todas las bibliotecas,
   y se verifica por SHA-256 antes del reemplazo atómico.
 - Cada original tiene su plazo de retención, que comienza al completar la sustitución.

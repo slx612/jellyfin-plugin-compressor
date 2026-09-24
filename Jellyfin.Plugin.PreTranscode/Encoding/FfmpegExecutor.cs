@@ -2,12 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Jellyfin.Plugin.PreTranscode.Encoding;
+
+internal sealed class OutputSizeLimitExceededException : IOException
+{
+    public OutputSizeLimitExceededException() : base("La salida ya supera el tamaño permitido para lograr el ahorro mínimo.") { }
+}
 
 /// <summary>
 /// Runs ffmpeg for a transcode, streaming progress and capturing an stderr excerpt for diagnostics.
@@ -23,7 +29,9 @@ internal static class FfmpegExecutor
         double totalDurationSeconds,
         Action<double>? onProgress,
         CancellationToken cancellationToken,
-        Action<Process>? onProcessStarted = null)
+        Action<Process>? onProcessStarted = null,
+        string? outputPath = null,
+        long maxOutputBytes = 0)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -104,7 +112,24 @@ internal static class FfmpegExecutor
 
         try
         {
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            var exitTask = process.WaitForExitAsync(cancellationToken);
+            if (outputPath is not null && maxOutputBytes > 0)
+            {
+                using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(500));
+                while (!exitTask.IsCompleted)
+                {
+                    var tickTask = timer.WaitForNextTickAsync(cancellationToken).AsTask();
+                    if (await Task.WhenAny(exitTask, tickTask).ConfigureAwait(false) == exitTask) break;
+                    await tickTask.ConfigureAwait(false);
+                    if (OutputSize(outputPath) >= maxOutputBytes)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        TryKill(process);
+                        throw new OutputSizeLimitExceededException();
+                    }
+                }
+            }
+            await exitTask.ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -119,6 +144,13 @@ internal static class FfmpegExecutor
         }
 
         return (process.ExitCode, tail);
+    }
+
+    private static long OutputSize(string path)
+    {
+        try { return new FileInfo(path).Length; }
+        catch (IOException) { return 0; }
+        catch (UnauthorizedAccessException) { return 0; }
     }
 
     // Process.Kill only posts the termination; it returns before the child is gone. The caller deletes the
