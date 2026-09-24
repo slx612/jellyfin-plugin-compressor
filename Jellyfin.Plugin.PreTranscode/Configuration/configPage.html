@@ -196,7 +196,7 @@
 (function () {
     'use strict';
     var page = document.querySelector('#CompressorPage'), config, timer, loading = false, active = false;
-    var dirtyState = false, revision = 0, saving = false, scanning = false;
+    var dirtyState = false, revision = 0, saving = false, scanning = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, lastOperationId;
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0;
     var movieEntries = [], movieRequest = 0, movieTimer, queueingMovie = false, originalFolderState, originalRequest = 0;
     function el(id) { return page.querySelector('#' + id); }
@@ -226,7 +226,7 @@
     function updateControls() {
         el('jcSave').disabled = !dirtyState || saving || !config;
         el('jcSaveState').textContent = !config ? 'Cargando configuración…' : saving ? 'Guardando cambios…' : dirtyState ? 'Cambios sin guardar' : 'Configuración guardada';
-        el('jcAnalyze').disabled = el('jcCompress').disabled = dirtyState || saving || scanning || !config;
+        el('jcAnalyze').disabled = el('jcCompress').disabled = dirtyState || saving || scanning || queueingMovie || !config;
         page.querySelectorAll('button[data-movie-id]').forEach(function(control) { control.disabled = dirtyState || saving || scanning || queueingMovie || !config; });
     }
     function dirty(value) { if (value) revision++; dirtyState = value; updateControls(); }
@@ -320,9 +320,9 @@
             var add = button('Añadir a la cola', function() {
                 if (dirtyState || saving || scanning || queueingMovie || !config) return;
                 queueingMovie = true; updateControls(); message('Comprobando ' + item.Name + '…');
-                return api('Items/' + encodeURIComponent(item.Id) + '/Compress', 'POST').then(function(result) {
-                    message(item.Name + ': ' + result.Reason); return refresh();
-                }).finally(function() { queueingMovie = false; updateControls(); });
+                return api('Items/' + encodeURIComponent(item.Id) + '/Compress', 'POST').then(function(operation) {
+                    beginManual(operation, item.Name);
+                }).catch(function(error) { queueingMovie = false; updateControls(); throw error; });
             });
             add.dataset.movieId = item.Id;
             row.append(icon('movie'), name, add); box.append(row);
@@ -382,11 +382,34 @@
             message(c.AutomaticCompressionEnabled ? 'Compresión automática activada.' : 'Compresión automática desactivada. Puedes analizar y comprimir manualmente.');
         });
     }
-    function candidates(list) {
+    function candidates(list, kind) {
         table('jcCandidates', ['Película', 'Estado', 'Tamaño'], list.slice(0, 500).map(function(c) { return [c.Name, c.Reason, bytes(c.Size)]; }));
-        var ready = list.filter(function(c) { return c.Eligible; }).length;
-        el('jcCandidatesSummary').textContent = list.length + ' películas revisadas · ' + ready + ' listas para comprimir. Se muestran hasta 500.';
-        message(list.length + ' películas revisadas. ' + ready + ' listas para comprimir.');
+        var count = list.filter(function(c) { return kind === 'Compress' ? c.Reason === 'En cola' : c.Eligible; }).length;
+        var result = kind === 'Compress' ? count + ' añadidas a la cola.' : count + ' listas para comprimir.';
+        el('jcCandidatesSummary').textContent = list.length + ' películas revisadas · ' + result + ' Se muestran hasta 500.';
+        message(list.length + ' películas revisadas. ' + result);
+    }
+    function beginManual(operation, movieName) {
+        manualOperationId = operation.Id; manualKind = operation.Kind; manualMovieName = movieName || '';
+        scanning = manualKind !== 'Movie'; queueingMovie = manualKind === 'Movie'; updateControls();
+        return pollManual();
+    }
+    function pollManual() {
+        if (!manualOperationId || manualPolling || !active) return Promise.resolve();
+        var id = manualOperationId; manualPolling = true;
+        return api('Manual/' + encodeURIComponent(id)).then(function(operation) {
+            if (id !== manualOperationId) return;
+            if (operation.State === 'Running') {
+                message((manualKind === 'Movie' ? 'Comprobando ' + (manualMovieName || 'la película') : 'Analizando la biblioteca') + ' · ' + Math.round(operation.Progress) + ' %. Puede tardar con archivos grandes…');
+                return;
+            }
+            manualOperationId = null; lastOperationId = id; scanning = false; queueingMovie = false; updateControls();
+            if (operation.State !== 'Completed') { message(operation.Error || 'La comprobación se canceló.', true); return; }
+            if (manualKind === 'Movie') message((manualMovieName || 'Película') + ': ' + operation.Result.Reason);
+            else candidates(operation.Result || [], manualKind);
+        }).catch(function(error) {
+            if (id === manualOperationId) { manualOperationId = null; scanning = false; queueingMovie = false; updateControls(); message(errorText(error), true); }
+        }).finally(function() { manualPolling = false; });
     }
     function enumName(value, names) { return typeof value === 'number' ? names[value] : value; }
     function refresh() {
@@ -400,7 +423,7 @@
             table('jcJobs', ['Película', 'Estado', 'Progreso', 'Acciones'], jobs.map(function(j) {
                 var status = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']), actions = document.createElement('span');
                 if (status === 'Pending' || status === 'Processing') actions.append(button('Cancelar', function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').then(refresh); }));
-                if (status === 'Failed' || status === 'Cancelled') actions.append(button('Reintentar', function() { return api('Jobs/' + j.Id + '/Retry', 'POST').then(refresh); }));
+                if (status === 'Failed' || status === 'Cancelled') actions.append(button('Reintentar', function() { return api('Jobs/' + j.Id + '/Retry', 'POST').then(function(operation) { return beginManual(operation, j.DisplayName); }); }));
                 return [j.DisplayName, j.ErrorMessage || j.StatusDetail || status, Math.round(j.Progress) + ' %', actions];
             }));
             table('jcOriginals', ['Película', 'Estado', 'Vencimiento', 'Acciones'], originals.slice().sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); }).map(function(r) {
@@ -408,7 +431,7 @@
                 if (phase === 'Completed') actions.append(button('Restaurar original', function() { return api('Originals/' + r.Request.Id + '/Restore', 'POST').then(function() { message('Original restaurado.'); return refresh(); }); }));
                 return [r.Request.SourcePath, r.RetentionStatus || (r.LibraryRefreshPending ? 'Actualización de Jellyfin pendiente' : phase), r.ExpiresUtc ? new Date(r.ExpiresUtc).toLocaleString() : 'Sin vencimiento', actions];
             }));
-        }).finally(function() { loading = false; });
+        }).then(pollManual).finally(function() { loading = false; });
     }
     function setTab(index) {
         var tabs = ['Overview', 'Folders', 'Settings', 'Activity'], panels = ['jcOverview', 'jcFolderPanel', 'jcSettings', 'jcActivity'];
@@ -451,7 +474,7 @@
             message(revision === submittedRevision ? 'Configuración guardada. Automatización ' + (saved.AutomaticCompressionEnabled ? 'activada.' : 'desactivada.') : 'Se guardaron los cambios anteriores. Quedan cambios nuevos sin guardar.');
         }).finally(function() { saving = false; updateControls(); });
         }); };
-    function scan(route) { if (dirtyState || saving || scanning || !config) return; scanning = true; updateControls(); message('Revisando películas y sus huellas. Puede tardar con archivos grandes…'); action(function() { return api(route, 'POST').then(candidates).then(refresh); }).finally(function() { scanning = false; updateControls(); }); }
+    function scan(route) { if (dirtyState || saving || scanning || queueingMovie || !config) return; scanning = true; updateControls(); message('Preparando análisis…'); action(function() { return api(route, 'POST').then(function(operation) { return beginManual(operation); }).catch(function(error) { if (!manualOperationId) { scanning = false; updateControls(); } throw error; }); }); }
     el('jcAnalyze').onclick = function() { scan('Analyze'); }; el('jcCompress').onclick = function() { scan('Compress'); };
     [['jcPause', 'Pause'], ['jcResume', 'Resume'], ['jcPurge', 'Originals/Purge']].forEach(function(pair) { el(pair[0]).onclick = function() { action(function() { return api(pair[1], 'POST').then(refresh); }); }; });
     el('jcClear').onclick = function() { action(function() { return api('History', 'DELETE').then(refresh); }); };
@@ -462,7 +485,10 @@
         (c.VideoCodecs || []).forEach(function(codec) { (codec.Encoders || []).forEach(function(e) { if (allowed.includes(e.Name) && !names.includes(e.Name)) names.push(e.Name); }); });
         el('jcEncoder').replaceChildren(); names.forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n === 'libx265' ? 'CPU · libx265' : n; el('jcEncoder').append(o); });
         el('jcFfmpeg').textContent = (c.FfmpegVersion || 'FFmpeg detectado') + '. Los codificadores GPU requieren hardware y controladores compatibles.';
-    }).then(load).then(function() { return Promise.all([browse('', []), refresh()]); }); }); clearInterval(timer); timer = setInterval(function() { action(refresh); }, 5000); });
+    }).then(load).then(function() { return api('Manual'); }).then(function(state) {
+        if (state.Operation && state.Operation.Id !== lastOperationId) beginManual(state.Operation);
+        return Promise.all([browse('', []), refresh()]);
+    }); }); clearInterval(timer); timer = setInterval(function() { action(refresh); }, 5000); });
     page.addEventListener('viewbeforehide', function() { active = false; clearInterval(timer); });
 }());
 </script>

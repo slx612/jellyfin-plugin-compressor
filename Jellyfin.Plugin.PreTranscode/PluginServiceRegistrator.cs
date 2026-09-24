@@ -7,6 +7,7 @@ using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Jellyfin.Plugin.PreTranscode.Safety;
+using Jellyfin.Plugin.PreTranscode.Api;
 using MediaBrowser.Common.Configuration;
 using System.IO;
 
@@ -26,6 +27,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton(sp => new ContentRegistry(Path.Combine(sp.GetRequiredService<IApplicationPaths>().DataPath, "jellyfin-compressor", "identities")));
         serviceCollection.AddSingleton(sp => new ReplacementService(Path.Combine(sp.GetRequiredService<IApplicationPaths>().DataPath, "jellyfin-compressor", "transactions"), sp.GetRequiredService<ContentRegistry>()));
         serviceCollection.AddSingleton<CompressionCoordinator>();
+        serviceCollection.AddSingleton(sp => new ManualOperationRunner(sp.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ManualOperationRunner>>()));
         serviceCollection.AddSingleton<AlternateVersionMerger>();
         serviceCollection.AddSingleton<ReplacedItemUpdater>();
         serviceCollection.AddSingleton<TranscodeExecutor>();

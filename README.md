@@ -3,13 +3,13 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.3 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.4 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
 destino tras instalar y reiniciar: cargaron Resumen, Carpetas y Ajustes, con la
 automatización apagada y ninguna carpeta seleccionada. **No se ha comprimido ni
-restaurado ningún medio real con v0.1.3**; las operaciones de cuota y
+restaurado ningún medio real con v0.1.4**; las operaciones de cuota y
 retención ampliadas aún no se han probado dentro del servidor.
 
 ## Funcionamiento
@@ -19,6 +19,8 @@ retención ampliadas aún no se han probado dentro del servidor.
 - **Analizar** comprueba elegibilidad; **Comprimir** crea trabajos manuales.
   La búsqueda permite encolar una sola película; se aplican las mismas reglas
   de carpeta, estabilidad, reproducción y prevención de recompresión.
+  Los análisis y las comprobaciones manuales continúan en segundo plano aunque
+  se cierre la petición del navegador; el panel consulta su progreso y resultado.
 - Una película cada vez, pausa y horario opcional según la hora del servidor.
 - HEVC con resolución original o límite de 2160p, 1080p, 720p o 480p.
   El límite solo reduce: una película de 720p nunca se amplía a 1080p.
@@ -135,7 +137,7 @@ Requiere .NET SDK 9 y FFmpeg/ffprobe en `PATH` para las pruebas de integración.
 
 ```powershell
 dotnet test -c Release
-./build-plugin.ps1 -Version 0.1.3.0
+./build-plugin.ps1 -Version 0.1.4.0
 ```
 
 El ZIP y su SHA-256 quedan en `artifacts/`. Las dependencias de Jellyfin se
