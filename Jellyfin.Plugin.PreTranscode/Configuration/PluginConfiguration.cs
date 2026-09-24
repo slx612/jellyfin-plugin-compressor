@@ -60,6 +60,8 @@ public class PluginConfiguration : BasePluginConfiguration
     public long QuarantineMaxBytes { get; set; }
     /// <summary>Minimum percentage reduction required before replacement.</summary>
     public double MinSavingsPercent { get; set; } = 15;
+    /// <summary>Only analyze and batch-queue movies larger than this many GiB; zero disables the filter.</summary>
+    public int MinMovieSizeGb { get; set; } = 10;
 
     /// <summary>
     /// Gets or sets the maximum number of concurrent transcode jobs. Defaults to 1 (CPU-friendly).

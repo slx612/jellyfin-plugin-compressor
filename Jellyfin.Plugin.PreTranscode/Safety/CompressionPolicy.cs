@@ -19,6 +19,7 @@ public static class CompressionPolicy
 {
     public static readonly string[] Encoders = { "libx265", "hevc_nvenc", "hevc_qsv", "hevc_amf" };
     public static bool CanRun(TranscodeJob job, PluginConfiguration config) => config.Enabled && (!job.Automatic || config.AutomaticCompressionEnabled);
+    public static bool MeetsMinimumMovieSize(long bytes, int minimumGb) => minimumGb == 0 || bytes > minimumGb * 1073741824L;
     public static EncodingProfile EffectiveProfile(EncodingProfile profile, string path)
     {
         var container = Path.GetExtension(path).ToLowerInvariant() switch

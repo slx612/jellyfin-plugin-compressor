@@ -44,7 +44,7 @@ public sealed class CompressionCoordinator
             && FolderPolicy.Evaluate(job.SourcePath, config, Roots()).Allowed && !IsPlaying(job.SourcePath, job.ItemId)
             && library.GetItemById(Guid.Parse(job.ItemId)) is Movie item && string.Equals(item.Path, job.SourcePath, FolderPolicy.Comparison);
     }
-    public async Task<(Candidate Candidate, CompressionSnapshot? Snapshot)> InspectAsync(BaseItem item, bool automatic, CancellationToken token)
+    public async Task<(Candidate Candidate, CompressionSnapshot? Snapshot)> InspectAsync(BaseItem item, bool automatic, CancellationToken token, bool applyMinimumSize = false)
     {
         Candidate Result(bool eligible, string reason, long size = 0) => new(item.Id.ToString("N"), item.Name, item.Path ?? "", eligible, reason, size);
         var config = Config;
@@ -55,6 +55,12 @@ public sealed class CompressionCoordinator
         if (!decision.Allowed) return (Result(false, decision.Reason), null);
         FolderPolicy.ValidateConfiguration(config, roots);
         if (!ItemEvaluator.IsStable(item.Path, Math.Max(60, config.FileStabilitySeconds))) return (Result(false, "Archivo reciente; esperando estabilidad."), null);
+        if (automatic || applyMinimumSize)
+        {
+            var size = new FileInfo(item.Path).Length;
+            if (!CompressionPolicy.MeetsMinimumMovieSize(size, config.MinMovieSizeGb))
+                return (Result(false, $"No supera el mínimo de {config.MinMovieSizeGb} GB.", size), null);
+        }
         if (IsPlaying(item.Path, item.Id.ToString("N"))) return (Result(false, "En reproducción; se aplaza."), null);
         if (queue.GetJobs().Any(j => string.Equals(j.SourcePath, item.Path, FolderPolicy.Comparison) && j.Status is JobStatus.Pending or JobStatus.Processing))
             return (Result(false, "En cola o en curso."), null);
@@ -74,9 +80,9 @@ public sealed class CompressionCoordinator
         return (Result(true, "Lista para comprimir", identity.Length), new(effective, identity, decision.Root!, config.QuarantineDirectory,
             config.RetentionDays, config.MinSavingsPercent, key, item.DateCreated));
     }
-    public async Task<Candidate> EnqueueAsync(BaseItem item, bool automatic, CancellationToken token)
+    public async Task<Candidate> EnqueueAsync(BaseItem item, bool automatic, CancellationToken token, bool applyMinimumSize = false)
     {
-        var (candidate, snapshot) = await InspectAsync(item, automatic, token).ConfigureAwait(false);
+        var (candidate, snapshot) = await InspectAsync(item, automatic, token, applyMinimumSize).ConfigureAwait(false);
         if (snapshot is null) return candidate;
         var job = new TranscodeJob { SourcePath = item.Path, ItemId = item.Id.ToString("N"), DisplayName = item.Name,
             CreatedUtc = DateTime.UtcNow, ProfileId = snapshot.Profile.Id, Snapshot = snapshot, Automatic = automatic };
@@ -99,7 +105,7 @@ public sealed class CompressionCoordinator
             foreach (var item in items)
             {
                 token.ThrowIfCancellationRequested();
-                try { results.Add(enqueue ? await EnqueueAsync(item, automatic, token).ConfigureAwait(false) : (await InspectAsync(item, automatic, token).ConfigureAwait(false)).Candidate); }
+                try { results.Add(enqueue ? await EnqueueAsync(item, automatic, token, true).ConfigureAwait(false) : (await InspectAsync(item, automatic, token, true).ConfigureAwait(false)).Candidate); }
                 catch (Exception ex) when (ex is not OperationCanceledException) { results.Add(new(item.Id.ToString("N"), item.Name, item.Path, false, ex.Message, 0)); }
                 progress?.Report(results.Count * 100d / Math.Max(1, items.Count));
             }

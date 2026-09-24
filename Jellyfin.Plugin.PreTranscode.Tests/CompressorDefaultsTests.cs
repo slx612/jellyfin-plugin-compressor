@@ -13,6 +13,7 @@ public class CompressorDefaultsTests
         Assert.Empty(config.IncludedFolders);
         Assert.Equal(0, config.RetentionDays);
         Assert.Equal(0, config.QuarantineMaxBytes);
+        Assert.Equal(10, config.MinMovieSizeGb);
         Assert.Empty(config.QuarantineDirectory);
         Assert.Equal(1, config.MaxConcurrentJobs);
         var profile = Assert.Single(config.Profiles);

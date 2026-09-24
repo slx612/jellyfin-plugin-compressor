@@ -1,5 +1,5 @@
 <# Build an experimental package; does not install the plugin or modify any media. #>
-param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.5.0")
+param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.6.0")
 $ErrorActionPreference = "Stop"
 $taskRoot = $PSScriptRoot
 $taskProject = Join-Path $taskRoot "Jellyfin.Plugin.PreTranscode/Jellyfin.Plugin.PreTranscode.csproj"
@@ -12,7 +12,7 @@ Copy-Item -LiteralPath (Join-Path $taskRoot "Jellyfin.Plugin.PreTranscode/bin/Re
 Copy-Item -LiteralPath (Join-Path $taskRoot "LICENSE"), (Join-Path $taskRoot "UPSTREAM.md") -Destination $taskStage
 $taskMeta = [ordered]@{
     category = "General"
-    changelog = "Experimental preview: stop oversized encodes early, clarify progress and keep the original when minimum savings cannot be met. Automatic compression stays off by default."
+    changelog = "Experimental preview: select movies larger than a configurable minimum size (10 GB by default) for analysis and batch compression. Single-movie checks remain available. Automatic compression stays off by default."
     description = "Compress movies while retaining originals temporarily and preserving Jellyfin item identity."
     guid = "274af2b7-724c-41e9-82e7-56c3e80139c1"
     name = "Jellyfin Compressor"

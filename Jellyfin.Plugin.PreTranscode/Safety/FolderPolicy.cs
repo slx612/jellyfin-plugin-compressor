@@ -60,6 +60,8 @@ public static class FolderPolicy
             throw new InvalidOperationException("La carpeta de originales debe estar separada de todas las bibliotecas.");
         if (!double.IsFinite(config.MinSavingsPercent) || config.MinSavingsPercent is < 1 or > 95)
             throw new InvalidOperationException("El ahorro mínimo debe estar entre 1 y 95 %.");
+        if (config.MinMovieSizeGb is < 0 or > 1048576)
+            throw new InvalidOperationException("El tamaño mínimo de película debe estar entre 0 y 1048576 GB.");
         foreach (var folder in config.IncludedFolders.Concat(config.ExcludedFolders))
         {
             if (!Path.IsPathFullyQualified(folder) || !roots.Any(r => Contains(r, folder)))

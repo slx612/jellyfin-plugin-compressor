@@ -83,6 +83,8 @@ internal sealed class TranscodeExecutor
                 return;
             }
             if (sourceIdentity != snapshot.Source) throw new IOException("La película cambió desde que se encoló; vuelve a analizarla.");
+            if (job.Automatic && !CompressionPolicy.MeetsMinimumMovieSize(sourceIdentity.Length, config.MinMovieSizeGb))
+            { Finish(job, JobStatus.Skipped, $"No supera el mínimo de {config.MinMovieSizeGb} GB."); return; }
             if (!coordinator.MayPublish(job)) { Hold(job, "Esperando reproducción, horario o permisos de procesamiento."); return; }
             var source = await prober.ProbeAsync(job.SourcePath, token).ConfigureAwait(false) ?? throw new IOException("No se puede leer el vídeo.");
             var eligibility = CompressionPolicy.EligibilityError(source);
