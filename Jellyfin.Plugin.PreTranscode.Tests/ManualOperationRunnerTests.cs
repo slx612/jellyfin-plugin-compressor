@@ -54,6 +54,7 @@ public class ManualOperationRunnerTests
         await WaitForEnd(runner, started.Id);
         Assert.Equal(started.Id, runner.Latest()!.Id);
         Assert.Equal("Completed", runner.Latest()!.State);
+        Assert.True(runner.Cancel(started.Id));
     }
 
     [Fact]
@@ -69,7 +70,7 @@ public class ManualOperationRunnerTests
         Assert.True(runner.Cancel(started.Id));
         var finished = await WaitForEnd(runner, started.Id);
         Assert.Equal("Cancelled", finished.State);
-        Assert.False(runner.Cancel(started.Id));
+        Assert.True(runner.Cancel(started.Id));
         Assert.Equal("Running", runner.Start("Analyze", (_, _) => Task.FromResult<object?>(null)).State);
     }
 

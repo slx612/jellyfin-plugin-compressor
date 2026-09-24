@@ -1,5 +1,5 @@
 <# Build an experimental package; does not install the plugin or modify any media. #>
-param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.7.0")
+param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.8.0")
 $ErrorActionPreference = "Stop"
 $taskRoot = $PSScriptRoot
 $taskProject = Join-Path $taskRoot "Jellyfin.Plugin.PreTranscode/Jellyfin.Plugin.PreTranscode.csproj"
@@ -12,7 +12,7 @@ Copy-Item -LiteralPath (Join-Path $taskRoot "Jellyfin.Plugin.PreTranscode/bin/Re
 Copy-Item -LiteralPath (Join-Path $taskRoot "LICENSE"), (Join-Path $taskRoot "UPSTREAM.md") -Destination $taskStage
 $taskMeta = [ordered]@{
     category = "General"
-    changelog = "Experimental preview: fast analysis of selected folders, clearer preliminary results and an analysis cancel button. Full identity checks still prevent recompression when queueing. Automatic compression stays off by default."
+    changelog = "Experimental preview: fast analysis of selected folders and safe cancellation even when an analysis just finished. Full identity checks still prevent recompression when queueing. Automatic compression stays off by default."
     description = "Compress movies while retaining originals temporarily and preserving Jellyfin item identity."
     guid = "274af2b7-724c-41e9-82e7-56c3e80139c1"
     name = "Jellyfin Compressor"
