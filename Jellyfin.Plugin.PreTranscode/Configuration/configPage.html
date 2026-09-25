@@ -410,7 +410,7 @@
             el('jcStability').value = Math.max(1, Math.ceil((c.FileStabilitySeconds || 60) / 60));
             el('jcMinMovieGB').value = c.MinMovieSizeGb;
             if (c.Profiles && c.Profiles.length) { el('jcQuality').value = c.Profiles[0].Crf; el('jcEncoder').value = c.Profiles[0].VideoEncoder;
-                el('jcResolution').value = c.Profiles[0].ResolutionMode === 2 ? String(c.Profiles[0].MaxHeight) : '0'; }
+                el('jcResolution').value = c.Profiles[0].ResolutionMode === 'CapHeight' || c.Profiles[0].ResolutionMode === 2 ? String(c.Profiles[0].MaxHeight) : '0'; }
             el('jcAutoState').textContent = c.AutomaticCompressionEnabled ? 'Activada' : 'Apagada'; dirty(false);
             message(c.AutomaticCompressionEnabled ? 'Compresión automática activada.' : 'Compresión automática desactivada. Puedes analizar y comprimir manualmente.');
             return refreshFolderCounts();

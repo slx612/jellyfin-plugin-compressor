@@ -3,7 +3,7 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.9 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.10 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
@@ -153,7 +153,7 @@ Requiere .NET SDK 9 y FFmpeg/ffprobe en `PATH` para las pruebas de integración.
 
 ```powershell
 dotnet test -c Release
-./build-plugin.ps1 -Version 0.1.9.0
+./build-plugin.ps1 -Version 0.1.10.0
 ```
 
 El ZIP y su SHA-256 quedan en `artifacts/`. Las dependencias de Jellyfin se
