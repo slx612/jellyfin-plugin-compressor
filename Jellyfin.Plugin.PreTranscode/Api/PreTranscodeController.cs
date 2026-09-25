@@ -37,6 +37,13 @@ public class PreTranscodeController : ControllerBase
 
     [HttpGet("Configuration")]
     public ActionResult<PluginConfiguration> GetConfiguration() => Ok(CompressionCoordinator.Config);
+    [HttpGet("FolderStatus")]
+    public IActionResult FolderStatus()
+    {
+        try { return Ok(coordinator.FolderMovieCounts()); }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException)
+        { return BadRequest(new { Message = ex.Message }); }
+    }
     [HttpPost("Configuration")]
     public IActionResult SaveConfiguration([FromBody] PluginConfiguration config)
     {

@@ -39,6 +39,9 @@
 #CompressorPage .jc-callout .material-icons {flex:none;color:var(--jc-accent)}
 #CompressorPage .jc-callout p {margin:0}
 #CompressorPage .jc-callout strong {display:block}
+#CompressorPage .jc-warning {margin:0 0 1.1rem;border-left-color:#eab308;background:rgba(234,179,8,.12)}
+#CompressorPage .jc-warning .material-icons {color:#eab308}
+#CompressorPage .jc-warning[hidden] {display:none}
 #CompressorPage .jc-actions {display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
 #CompressorPage button {font:inherit;cursor:pointer}
 #CompressorPage .jc-button {display:inline-flex;align-items:center;justify-content:center;gap:.45rem;min-height:38px;padding:.55rem .85rem;border:1px solid var(--jc-line);border-radius:8px;background:var(--jc-surface-strong);color:inherit;font-weight:600}
@@ -125,6 +128,7 @@
   <div class="jc-hero-icon" aria-hidden="true"><span class="material-icons">compress</span></div>
 </header>
 <div id="jcMessage" role="status" aria-live="polite">Cargando configuración…</div>
+<div id="jcSelectionWarning" class="jc-callout jc-warning" role="status" aria-live="polite" hidden><span class="material-icons" aria-hidden="true">warning_amber</span><p id="jcSelectionWarningText"></p></div>
 
 <form id="jcForm" novalidate>
 <nav class="jc-tabs" role="tablist" aria-label="Secciones de Jellyfin Compressor">
@@ -198,7 +202,7 @@
     'use strict';
     var page = document.querySelector('#CompressorPage'), config, timer, loading = false, active = false;
     var dirtyState = false, revision = 0, saving = false, scanning = false, cancelling = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, lastOperationId;
-    var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0;
+    var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0, folderCounts = null, folderCountsError = false, folderCountsRequest = 0;
     var movieEntries = [], movieRequest = 0, movieTimer, queueingMovie = false, originalFolderState, originalRequest = 0;
     function el(id) { return page.querySelector('#' + id); }
     function message(text, error) { el('jcMessage').textContent = text; el('jcMessage').style.borderColor = error ? '#e99a9a' : 'var(--jc-accent)'; }
@@ -231,6 +235,31 @@
         el('jcCancelAnalysis').hidden = !(manualOperationId && manualKind === 'Analyze' && scanning);
         el('jcCancelAnalysis').disabled = cancelling;
         page.querySelectorAll('button[data-movie-id]').forEach(function(control) { control.disabled = dirtyState || saving || scanning || queueingMovie || !config; });
+        updateSelectionWarning();
+    }
+    function updateSelectionWarning() {
+        var warning = el('jcSelectionWarning'), text = '';
+        if (config && dirtyState) text = 'Hay cambios sin guardar. Pulsa «Guardar cambios» antes de analizar: Jellyfin usará las carpetas guardadas, no las que acabas de marcar.';
+        else if (config && !rules.included.length) text = 'No hay carpetas incluidas. Abre «Carpetas», selecciona al menos una y guarda los cambios antes de analizar.';
+        else if (config && folderCountsError) text = 'No se ha podido comprobar cuántas películas hay en las carpetas seleccionadas. Revisa el registro de Jellyfin.';
+        else if (config && folderCounts) {
+            var empty = folderCounts.filter(function(folder) { return folder.Movies === 0; });
+            if (empty.length) text = (empty.length === folderCounts.length ? 'Jellyfin no encuentra ninguna película en las carpetas incluidas: ' : 'Jellyfin no encuentra películas en: ')
+                + empty.map(function(folder) { return folder.Path; }).join(', ') + '. Revisa la ruta y el escaneo de la biblioteca; esas carpetas aportarán 0 resultados.';
+        }
+        el('jcSelectionWarningText').textContent = text;
+        warning.hidden = !text;
+    }
+    function refreshFolderCounts() {
+        var request = ++folderCountsRequest;
+        folderCounts = null; folderCountsError = false; updateSelectionWarning();
+        return api('FolderStatus').then(function(counts) {
+            if (request !== folderCountsRequest) return;
+            folderCounts = counts; updateSelectionWarning();
+        }).catch(function() {
+            if (request !== folderCountsRequest) return;
+            folderCountsError = true; updateSelectionWarning();
+        });
     }
     function dirty(value) { if (value) revision++; dirtyState = value; updateControls(); }
     function renderRules() {
@@ -384,6 +413,7 @@
                 el('jcResolution').value = c.Profiles[0].ResolutionMode === 2 ? String(c.Profiles[0].MaxHeight) : '0'; }
             el('jcAutoState').textContent = c.AutomaticCompressionEnabled ? 'Activada' : 'Apagada'; dirty(false);
             message(c.AutomaticCompressionEnabled ? 'Compresión automática activada.' : 'Compresión automática desactivada. Puedes analizar y comprimir manualmente.');
+            return refreshFolderCounts();
         });
     }
     function candidates(list, kind) {
@@ -483,6 +513,7 @@
                 el('jcCandidates').replaceChildren(); el('jcCandidatesSummary').textContent = 'Todavía no se ha analizado ninguna película con esta configuración.'; }
             el('jcAutoState').textContent = saved.AutomaticCompressionEnabled ? 'Activada' : 'Apagada';
             message(revision === submittedRevision ? 'Configuración guardada. Automatización ' + (saved.AutomaticCompressionEnabled ? 'activada.' : 'desactivada.') : 'Se guardaron los cambios anteriores. Quedan cambios nuevos sin guardar.');
+            return refreshFolderCounts();
         }).finally(function() { saving = false; updateControls(); });
         }); };
     function scan(route) { if (dirtyState || saving || scanning || queueingMovie || !config) return; scanning = true; updateControls(); message('Preparando análisis…'); action(function() { return api(route, 'POST').then(function(operation) { return beginManual(operation); }).catch(function(error) { if (!manualOperationId) { scanning = false; updateControls(); } throw error; }); }); }

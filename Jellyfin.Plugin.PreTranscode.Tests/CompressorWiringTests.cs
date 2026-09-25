@@ -89,6 +89,31 @@ public sealed class CompressorWiringTests : IDisposable
     }
 
     [Fact]
+    public void FolderMovieCountsWarnsAboutEmptySelectionsWithoutReadingMedia()
+    {
+        var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
+        var emptyRoot = Directory.CreateDirectory(Path.Combine(root, "empty")).FullName;
+        var excluded = Directory.CreateDirectory(Path.Combine(movieRoot, "excluded")).FullName;
+        plugin.Configuration.IncludedFolders.Add(movieRoot);
+        plugin.Configuration.IncludedFolders.Add(emptyRoot);
+        plugin.Configuration.ExcludedFolders.Add(excluded);
+        plugin.Configuration.QuarantineDirectory = Path.Combine(root, "originals");
+        plugin.Configuration.RetentionDays = 7;
+
+        var library = new Mock<ILibraryManager>();
+        library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Locations = [movieRoot, emptyRoot] }]);
+        library.Setup(l => l.GetItemList(It.IsAny<InternalItemsQuery>())).Returns([
+            new Movie { Name = "Selected", Path = Path.Combine(movieRoot, "selected.mkv") },
+            new Movie { Name = "Excluded", Path = Path.Combine(excluded, "excluded.mkv") }]);
+        var coordinator = new CompressionCoordinator(Mock.Of<IJobQueue>(MockBehavior.Strict), Mock.Of<IMediaProber>(MockBehavior.Strict),
+            library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")));
+
+        var counts = coordinator.FolderMovieCounts();
+
+        Assert.Equal([(movieRoot, 1), (emptyRoot, 0)], counts.Select(c => (c.Path, c.Movies)).ToArray());
+    }
+
+    [Fact]
     public async Task PreviewOnlyInspectsSelectedMoviesWithoutReadingEntireFile()
     {
         var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;

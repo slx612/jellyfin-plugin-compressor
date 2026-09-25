@@ -3,7 +3,7 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.8 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.9 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
@@ -15,6 +15,8 @@ ampliadas aún no se han probado dentro de ese servidor.
 
 - Automatización **desactivada por defecto** y ninguna carpeta seleccionada.
 - Inclusiones y exclusiones por carpetas; las exclusiones siempre prevalecen.
+  El panel avisa si hay cambios sin guardar o si Jellyfin no encuentra películas
+  en alguna carpeta incluida, antes de iniciar el análisis.
 - El análisis y los lotes solo seleccionan películas de **más de 10 GB** por defecto.
   El mínimo es configurable en Ajustes; 0 lo desactiva. Se mide el archivo original
   en GB de 1024³ bytes. Al elegir una película concreta a mano se puede probar
@@ -151,7 +153,7 @@ Requiere .NET SDK 9 y FFmpeg/ffprobe en `PATH` para las pruebas de integración.
 
 ```powershell
 dotnet test -c Release
-./build-plugin.ps1 -Version 0.1.8.0
+./build-plugin.ps1 -Version 0.1.9.0
 ```
 
 El ZIP y su SHA-256 quedan en `artifacts/`. Las dependencias de Jellyfin se

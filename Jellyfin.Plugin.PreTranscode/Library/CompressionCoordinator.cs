@@ -17,6 +17,7 @@ using MediaBrowser.Controller.Session;
 namespace Jellyfin.Plugin.PreTranscode.Library;
 
 public sealed record Candidate(string ItemId, string Name, string Path, bool Eligible, string Reason, long Size);
+public sealed record FolderMovieCount(string Path, int Movies);
 
 public sealed class CompressionCoordinator
 {
@@ -31,6 +32,21 @@ public sealed class CompressionCoordinator
     { this.queue = queue; this.prober = prober; this.library = library; this.sessions = sessions; this.registry = registry; }
     public string[] Roots() => library.GetVirtualFolders().SelectMany(f => f.Locations).Distinct().ToArray();
     public static PluginConfiguration Config => Plugin.Instance?.Configuration ?? throw new InvalidOperationException("Configuración no disponible.");
+    private List<BaseItem> SelectedMovies(PluginConfiguration config, IReadOnlyList<string> roots) =>
+        library.GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, IsVirtualItem = false, Recursive = true })
+            .Where(item => item.Path is { Length: > 0 } path && Path.IsPathFullyQualified(path)
+                && roots.Any(root => FolderPolicy.Contains(root, path))
+                && config.IncludedFolders.Any(folder => FolderPolicy.Contains(folder, path))
+                && !config.ExcludedFolders.Any(folder => FolderPolicy.Contains(folder, path))).ToList();
+    public IReadOnlyList<FolderMovieCount> FolderMovieCounts()
+    {
+        var config = Config;
+        var roots = Roots();
+        FolderPolicy.ValidateConfiguration(config, roots);
+        var movies = SelectedMovies(config, roots);
+        return config.IncludedFolders.Select(folder => new FolderMovieCount(folder,
+            movies.Count(movie => FolderPolicy.Contains(folder, movie.Path)))).ToArray();
+    }
     public bool IsPlaying(string path, string itemId) => sessions.Sessions.Any(s => s.NowPlayingItem is not null &&
         (s.NowPlayingItem.Id.ToString("N").Equals(itemId.Replace("-", ""), StringComparison.OrdinalIgnoreCase)
          || string.Equals(s.NowPlayingItem.Path, path, FolderPolicy.Comparison)));
@@ -108,11 +124,7 @@ public sealed class CompressionCoordinator
             var config = Config;
             var roots = Roots();
             FolderPolicy.ValidateConfiguration(config, roots);
-            var items = library.GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, IsVirtualItem = false, Recursive = true })
-                .Where(item => item.Path is { Length: > 0 } path && Path.IsPathFullyQualified(path)
-                    && roots.Any(root => FolderPolicy.Contains(root, path))
-                    && config.IncludedFolders.Any(folder => FolderPolicy.Contains(folder, path))
-                    && !config.ExcludedFolders.Any(folder => FolderPolicy.Contains(folder, path))).ToList();
+            var items = SelectedMovies(config, roots);
             var results = new List<Candidate>();
             foreach (var item in items)
             {
