@@ -42,6 +42,29 @@ public class Hdr10PlusToolchainTests
     }
 
     [Fact]
+    public void VideoTimestampCheckAllowsOnlyContainerRounding()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var encoded = Path.Combine(dir, "encoded.txt");
+            var output = Path.Combine(dir, "output.txt");
+            File.WriteAllText(encoded, "# timestamp format v2\n0\n41.708333\n83.416667\n");
+            File.WriteAllText(output, "# timestamp format v2\n0\n42\n83\n");
+            Assert.True(Hdr10PlusToolchain.TimestampsMatch(encoded, output));
+            File.WriteAllText(output, "# timestamp format v2\n0\n44\n83\n");
+            Assert.False(Hdr10PlusToolchain.TimestampsMatch(encoded, output));
+            File.WriteAllText(output, "# timestamp format v2\n0\n42\n");
+            Assert.False(Hdr10PlusToolchain.TimestampsMatch(encoded, output));
+            File.WriteAllText(encoded, "# timestamp format v2\n");
+            File.WriteAllText(output, "# timestamp format v2\n");
+            Assert.False(Hdr10PlusToolchain.TimestampsMatch(encoded, output));
+        }
+        finally { Directory.Delete(dir, true); }
+    }
+
+    [Fact]
     public async Task TrialClipPreservesHdr10PlusAndNonVideoPackets()
     {
         var trial = Environment.GetEnvironmentVariable("JELLYFIN_HDR10PLUS_TRIAL_DIR");

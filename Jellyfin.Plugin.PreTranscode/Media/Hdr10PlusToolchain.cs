@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -18,6 +19,7 @@ internal static class Hdr10PlusToolchain
     private const string MkvHash = "C66345B30D6D5FD640EA982AB5E202A99B9F541A20E42AA19EDD90F3DDD5DC9B";
     private const string HdrHash = "7845916B549C36E5D7FE9DBB3D24C124466D7C71EC3442E207551B677949D0BE";
     private static readonly string[] WorkNames = { "encoded.mkv", "source.json", "encoded.hevc", "injected.hevc", "timestamps.txt",
+        "output.timestamps.txt",
         "output.json", "source.framecrc", "output.framecrc" };
 
     internal static bool MetadataMatches(string source, string output)
@@ -26,6 +28,24 @@ internal static class Hdr10PlusToolchain
         using var a = File.OpenRead(source);
         using var b = File.OpenRead(output);
         return a.Length == b.Length && SHA256.HashData(a).SequenceEqual(SHA256.HashData(b));
+    }
+
+    internal static bool TimestampsMatch(string encoded, string output)
+    {
+        using var left = File.ReadLines(encoded).Where(line => !line.StartsWith('#')).GetEnumerator();
+        using var right = File.ReadLines(output).Where(line => !line.StartsWith('#')).GetEnumerator();
+        var seen = false;
+        while (true)
+        {
+            var hasLeft = left.MoveNext();
+            var hasRight = right.MoveNext();
+            if (hasLeft != hasRight) return false;
+            if (!hasLeft) return seen;
+            seen = true;
+            if (!double.TryParse(left.Current, NumberStyles.Float, CultureInfo.InvariantCulture, out var a)
+                || !double.TryParse(right.Current, NumberStyles.Float, CultureInfo.InvariantCulture, out var b)
+                || !double.IsFinite(a) || !double.IsFinite(b) || Math.Abs(a - b) > 1) return false;
+        }
     }
 
     internal static void EnsureAvailable(string dataRoot) => _ = ResolveTools(dataRoot);
@@ -63,6 +83,10 @@ internal static class Hdr10PlusToolchain
                 appImage).ConfigureAwait(false);
             var muxArgs = BuildMuxArguments(identify, W("injected.hevc"), encoded, output, W("timestamps.txt"));
             await RunTool(mkvmerge, muxArgs, token, onProcessStarted, appImage).ConfigureAwait(false);
+            await RunTool(mkvextract, new[] { output, "timestamps_v2", "0:" + W("output.timestamps.txt") },
+                token, onProcessStarted, appImage).ConfigureAwait(false);
+            if (!TimestampsMatch(W("timestamps.txt"), W("output.timestamps.txt")))
+                throw new IOException("HDR10+: las marcas de tiempo del vídeo cambiaron al remontar.");
             await RunTool(hdr, new[] { "extract", output, "-o", W("output.json") }, token, onProcessStarted).ConfigureAwait(false);
             if (!File.Exists(W("output.json")) || !MetadataMatches(W("source.json"), W("output.json")))
                 throw new IOException("HDR10+: los metadatos dinámicos de la salida no coinciden con el original.");
@@ -140,8 +164,8 @@ internal static class Hdr10PlusToolchain
         using var process = new Process { StartInfo = start };
         if (!process.Start()) throw new IOException("HDR10+: no se pudo iniciar " + Path.GetFileName(executable));
         callback?.Invoke(process);
-        var stdout = process.StandardOutput.ReadToEndAsync(token);
-        var stderr = process.StandardError.ReadToEndAsync(token);
+        var stdout = ReadBoundedAsync(process.StandardOutput, 2_000_000, token);
+        var stderr = ReadBoundedAsync(process.StandardError, 16_000, token);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
         deadline.CancelAfter(TimeSpan.FromHours(6));
         try { await process.WaitForExitAsync(deadline.Token).ConfigureAwait(false); }
@@ -156,6 +180,18 @@ internal static class Hdr10PlusToolchain
         if (process.ExitCode != 0)
             throw new IOException("HDR10+: " + Path.GetFileName(executable) + " terminó con error: " + error[^Math.Min(error.Length, 3000)..]);
         return output;
+    }
+
+    private static async Task<string> ReadBoundedAsync(StreamReader reader, int limit, CancellationToken token)
+    {
+        var output = new StringBuilder();
+        var buffer = new char[4096];
+        int read;
+        while ((read = await reader.ReadAsync(buffer, token).ConfigureAwait(false)) > 0)
+        {
+            if (output.Length < limit) output.Append(buffer, 0, Math.Min(read, limit - output.Length));
+        }
+        return output.ToString();
     }
 
     private static (string Hdr, string MkvMerge, string MkvExtract) ResolveTools(string dataRoot)
