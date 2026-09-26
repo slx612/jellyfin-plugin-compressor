@@ -10,7 +10,7 @@ using Jellyfin.Plugin.PreTranscode.Encoding;
 namespace Jellyfin.Plugin.PreTranscode.Media;
 
 internal sealed record DynamicHdrFacts(long Hdr10PlusFrames, long DolbyVisionRpuFrames,
-    long MasteringDisplayFrames, long ContentLightFrames)
+    long MasteringDisplayFrames, long ContentLightFrames, long TotalFrames = 0)
 {
     internal bool HasHdr10Plus => Hdr10PlusFrames > 0;
     internal bool HasDolbyVisionRpu => DolbyVisionRpuFrames > 0;
@@ -46,7 +46,8 @@ internal static class DynamicHdrDetector
 
     internal static string? PreservationError(DynamicHdrFacts source, DynamicHdrFacts output)
     {
-        if ((source.Hdr10PlusFrames != output.Hdr10PlusFrames)
+        if ((source.TotalFrames > 0 && source.TotalFrames != output.TotalFrames)
+            || (source.Hdr10PlusFrames != output.Hdr10PlusFrames)
             || (source.DolbyVisionRpuFrames > 0 && source.DolbyVisionRpuFrames != output.DolbyVisionRpuFrames)
             || (source.MasteringDisplayFrames > 0 && source.MasteringDisplayFrames != output.MasteringDisplayFrames)
             || (source.ContentLightFrames > 0 && source.ContentLightFrames != output.ContentLightFrames))
@@ -64,7 +65,7 @@ internal static class DynamicHdrDetector
         Directory.CreateDirectory(temporaryDirectory);
         var prefix = Path.Combine(temporaryDirectory, Guid.NewGuid().ToString("N"));
         var paths = new[] { prefix + "-hdr10plus.framecrc", prefix + "-rpu.framecrc",
-            prefix + "-mastering.framecrc", prefix + "-light.framecrc" };
+            prefix + "-mastering.framecrc", prefix + "-light.framecrc", prefix + "-all.framecrc" };
         try
         {
             var args = new[] { "-xerror", "-hide_banner", "-loglevel", "error", "-protocol_whitelist", "file", "-i", sourcePath,
@@ -79,10 +80,22 @@ internal static class DynamicHdrDetector
                 "-map", "[co]", "-c:v", "wrapped_avframe", "-f", "framecrc", paths[3] };
             var (exitCode, error) = await FfmpegExecutor.RunAsync(ffmpegPath, args, durationSeconds, null,
                 token, onProcessStarted).ConfigureAwait(false);
-            if (exitCode != 0 || paths.Any(path => !File.Exists(path)))
-                throw new IOException("No se pudieron comprobar los metadatos HDR de todos los fotogramas. " + error);
-            var matches = paths.Select(path => CountFrames(File.ReadLines(path))).ToArray();
-            return new DynamicHdrFacts(matches[0], matches[1], matches[2], matches[3]);
+            if (exitCode != 0 || paths.Take(4).Any(path => !File.Exists(path)))
+                throw new IOException("No se pudieron comprobar los metadatos HDR de todos los fotogramas (FFmpeg "
+                    + exitCode + ", salidas " + string.Join(',', paths.Take(4).Select(File.Exists)) + "). " + error);
+            var matches = paths.Take(4).Select(path => CountFrames(File.ReadLines(path))).ToArray();
+            long total = 0;
+            if (matches[0] > 0)
+            {
+                var countArgs = new[] { "-xerror", "-hide_banner", "-loglevel", "error", "-protocol_whitelist", "file",
+                    "-i", sourcePath, "-map", "0:v:0", "-c:v", "wrapped_avframe", "-f", "framecrc", paths[4] };
+                var (countExit, countError) = await FfmpegExecutor.RunAsync(ffmpegPath, countArgs, durationSeconds, null,
+                    token, onProcessStarted).ConfigureAwait(false);
+                if (countExit != 0 || !File.Exists(paths[4]))
+                    throw new IOException("No se pudieron contar los fotogramas HDR10+: " + countError);
+                total = CountFrames(File.ReadLines(paths[4]));
+            }
+            return new DynamicHdrFacts(matches[0], matches[1], matches[2], matches[3], total);
         }
         finally
         {

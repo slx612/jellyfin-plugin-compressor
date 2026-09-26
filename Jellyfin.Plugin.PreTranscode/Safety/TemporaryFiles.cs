@@ -20,5 +20,12 @@ public static class TemporaryFiles
             FolderPolicy.RejectLinks(path);
             File.Delete(path);
         }
+        foreach (var path in Directory.EnumerateDirectories(directory, "*.hdr10plus"))
+        {
+            var name = Path.GetFileName(path);
+            var id = name[..^".hdr10plus".Length];
+            if (Guid.TryParseExact(id, "N", out _) && !active.Contains(id))
+                Media.Hdr10PlusToolchain.CleanupWork(directory, id);
+        }
     }
 }

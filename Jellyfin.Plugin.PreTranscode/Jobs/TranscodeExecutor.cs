@@ -29,6 +29,7 @@ internal sealed class TranscodeExecutor
     private readonly ILibraryMonitor monitor;
     private readonly ILogger<TranscodeExecutor> logger;
     private readonly string tempDirectory;
+    private readonly string dataDirectory;
     private DateTime nextMaintenance;
     public string MaintenanceError { get; private set; } = "";
 
@@ -38,6 +39,7 @@ internal sealed class TranscodeExecutor
     {
         this.queue = queue; this.prober = prober; this.encoder = encoder; this.coordinator = coordinator;
         this.registry = registry; this.replacement = replacement; this.updater = updater; this.monitor = monitor; this.logger = logger;
+        dataDirectory = paths.DataPath;
         tempDirectory = Path.Combine(paths.DataPath, "jellyfin-compressor", "tmp");
     }
     public async Task RecoverAndMaintainAsync(CancellationToken token)
@@ -122,13 +124,22 @@ internal sealed class TranscodeExecutor
             temp = Path.Combine(tempDirectory, job.Id + Path.GetExtension(job.SourcePath));
             if (job.VerifiedOutputIdentity is null || !File.Exists(temp))
             {
+                var hdr10Plus = source.HasHdr10Plus;
+                var encodeTarget = hdr10Plus ? Path.Combine(tempDirectory, job.Id + ".hdr10plus", "encoded.mkv") : temp;
+                if (hdr10Plus)
+                {
+                    Hdr10PlusToolchain.EnsureAvailable(dataDirectory);
+                    Hdr10PlusToolchain.CleanupWork(tempDirectory, job.Id);
+                    Directory.CreateDirectory(Path.GetDirectoryName(encodeTarget)!);
+                }
                 Detail(job, "Comprimiendo");
-                var args = CompressionPolicy.BuildArguments(snapshot.Profile, source, job.SourcePath, temp);
+                var args = CompressionPolicy.BuildArguments(snapshot.Profile, source, job.SourcePath, encodeTarget,
+                    preserveHdr10Plus: hdr10Plus);
                 (int ExitCode, string StdErrTail) encode;
                 try
                 {
                     encode = await FfmpegExecutor.RunAsync(FfmpegPaths.ResolveFfmpeg(encoder), args, source.DurationSeconds,
-                        p => job.Progress = p, token, onProcessStarted, temp, maxOutputBytes).ConfigureAwait(false);
+                        p => job.Progress = p, token, onProcessStarted, encodeTarget, maxOutputBytes).ConfigureAwait(false);
                 }
                 catch (OutputSizeLimitExceededException)
                 {
@@ -138,6 +149,13 @@ internal sealed class TranscodeExecutor
                     return;
                 }
                 if (encode.ExitCode != 0) { job.LogExcerpt = encode.StdErrTail; throw new IOException("FFmpeg no terminó correctamente (" + encode.ExitCode + ")."); }
+                if (hdr10Plus)
+                {
+                    Detail(job, "Reinsertando y comprobando metadatos HDR10+; puede tardar varios minutos");
+                    await Hdr10PlusToolchain.RunAsync(job.SourcePath, encodeTarget, temp,
+                        FfmpegPaths.ResolveFfmpeg(encoder), dataDirectory, tempDirectory, job.Id,
+                        source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
+                }
                 // The final mux can grow after the last poll. Avoid decoding an output that cannot be published.
                 if (FileSizeOrZero(temp) >= maxOutputBytes)
                 {
@@ -170,6 +188,8 @@ internal sealed class TranscodeExecutor
             {
                 if (await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false) != job.VerifiedOutputIdentity)
                     throw new IOException("El temporal verificado cambió.");
+                if (source.HasHdr10Plus && CompressionCoordinator.Config.EnableExperimentalHdr10Plus != true)
+                    throw new IOException("HDR10+ experimental desactivado; no se publicará la salida pendiente.");
                 await VerifyOutputFrameFactsAsync().ConfigureAwait(false);
             }
             if (!FolderPolicy.SameFolder(CompressionCoordinator.Config.QuarantineDirectory, snapshot.QuarantineRoot))
@@ -219,6 +239,12 @@ internal sealed class TranscodeExecutor
             Finish(job, JobStatus.Failed, ex.Message);
             if (job.VerifiedOutputIdentity is null) TryDelete(temp);
             nextMaintenance = DateTime.MinValue;
+        }
+        finally
+        {
+            try { Hdr10PlusToolchain.CleanupWork(tempDirectory, job.Id); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { logger.LogWarning(ex, "Could not remove HDR10+ temporary files for {JobId}", job.Id); }
         }
     }
     private void Detail(TranscodeJob job, string text) { job.StatusDetail = text; queue.Update(job); }
