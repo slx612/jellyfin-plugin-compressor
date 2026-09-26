@@ -90,15 +90,17 @@ internal sealed class TranscodeExecutor
             coordinator.MergeLibraryHdrFacts(Guid.Parse(job.ItemId), source);
             var eligibility = CompressionPolicy.EligibilityError(source, snapshot.Profile, config, job.Automatic, snapshot.SingleMovieSelection);
             if (eligibility is not null) { Finish(job, JobStatus.Skipped, eligibility); return; }
-            if (source.IsHdr || source.IsDolbyVision)
+            DynamicHdrFacts? sourceFrameFacts = null;
+            if (source.BitDepth >= 10 || source.IsHdr || source.IsDolbyVision)
             {
-                Detail(job, "Comprobando HDR10+ en todos los fotogramas; puede tardar varios minutos");
-                if (await DynamicHdrDetector.HasHdr10PlusAsync(FfmpegPaths.ResolveFfmpeg(encoder), job.SourcePath,
-                    tempDirectory, source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false))
-                {
-                    Finish(job, JobStatus.Skipped, "Se ha detectado HDR10+ en los fotogramas; se conserva el original.");
-                    return;
-                }
+                Detail(job, "Comprobando metadatos HDR en todos los fotogramas; puede tardar varios minutos");
+                sourceFrameFacts = await DynamicHdrDetector.ScanAsync(FfmpegPaths.ResolveFfmpeg(encoder), job.SourcePath,
+                    tempDirectory, source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
+                var scanError = DynamicHdrDetector.ApplyFacts(source, sourceFrameFacts);
+                if (scanError is not null) { Finish(job, JobStatus.Skipped, scanError); return; }
+                eligibility = CompressionPolicy.EligibilityError(source, snapshot.Profile, CompressionCoordinator.Config,
+                    job.Automatic, snapshot.SingleMovieSelection);
+                if (eligibility is not null) { Finish(job, JobStatus.Skipped, eligibility); return; }
             }
             var maxOutputBytes = (long)Math.Ceiling(snapshot.Source.Length * (1 - snapshot.MinSavingsPercent / 100));
             void SkipNoSavings(string detail)
@@ -106,6 +108,17 @@ internal sealed class TranscodeExecutor
                 registry.Save(new(snapshot.Source.Sha256, snapshot.Source.Length, "no-savings", snapshot.ProfileKey, null, job.SourcePath));
                 TryDelete(temp);
                 Finish(job, JobStatus.Skipped, detail);
+            }
+            async Task VerifyOutputFrameFactsAsync()
+            {
+                if (sourceFrameFacts is null) return;
+                Detail(job, "Verificando metadatos HDR por fotograma");
+                var outputFrameFacts = await DynamicHdrDetector.ScanAsync(FfmpegPaths.ResolveFfmpeg(encoder), temp!,
+                    tempDirectory, source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
+                if ((sourceFrameFacts.HasDolbyVisionRpu && !outputFrameFacts.HasDolbyVisionRpu)
+                    || (sourceFrameFacts.HasMasteringDisplay && !outputFrameFacts.HasMasteringDisplay)
+                    || (sourceFrameFacts.HasContentLight && !outputFrameFacts.HasContentLight))
+                    throw new IOException("La salida ha perdido metadatos HDR o Dolby Vision de sus fotogramas.");
             }
             Directory.CreateDirectory(tempDirectory);
             temp = Path.Combine(tempDirectory, job.Id + Path.GetExtension(job.SourcePath));
@@ -141,6 +154,7 @@ internal sealed class TranscodeExecutor
                     new[] { "-nostdin", "-v", "error", "-xerror", "-i", temp, "-map", "0:V", "-map", "0:a?", "-f", "null", "-" }, source.DurationSeconds,
                     _ => { }, token, onProcessStarted).ConfigureAwait(false);
                 if (decodeExit != 0) { job.LogExcerpt = decodeTail; throw new IOException("La decodificación completa detectó errores."); }
+                await VerifyOutputFrameFactsAsync().ConfigureAwait(false);
                 var identity = await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false);
                 if (identity.Length >= snapshot.Source.Length * (1 - snapshot.MinSavingsPercent / 100))
                 {
@@ -154,8 +168,12 @@ internal sealed class TranscodeExecutor
                 job.VerifiedOutputIdentity = identity;
                 queue.Update(job);
             }
-            else if (await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false) != job.VerifiedOutputIdentity)
-                throw new IOException("El temporal verificado cambió.");
+            else
+            {
+                if (await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false) != job.VerifiedOutputIdentity)
+                    throw new IOException("El temporal verificado cambió.");
+                await VerifyOutputFrameFactsAsync().ConfigureAwait(false);
+            }
             if (!FolderPolicy.SameFolder(CompressionCoordinator.Config.QuarantineDirectory, snapshot.QuarantineRoot))
             {
                 TryDelete(temp);
@@ -163,13 +181,23 @@ internal sealed class TranscodeExecutor
                 return;
             }
             if (!coordinator.MayPublish(job)) { Hold(job, "Comprimida y verificada; esperando para sustituir."); return; }
+            var currentEligibility = CompressionPolicy.EligibilityError(source, snapshot.Profile, CompressionCoordinator.Config,
+                job.Automatic, snapshot.SingleMovieSelection);
+            if (currentEligibility is not null)
+            {
+                TryDelete(temp);
+                Finish(job, JobStatus.Skipped, currentEligibility);
+                return;
+            }
             Detail(job, "Guardando el original y sustituyendo");
             monitor.ReportFileSystemChangeBeginning(job.SourcePath);
             try
             {
                 var request = new ReplacementRequest(Guid.NewGuid().ToString("N"), job.SourcePath, temp, snapshot.LibraryRoot,
                     snapshot.QuarantineRoot, snapshot.RetentionDays, snapshot.ProfileKey, snapshot.Source, job.VerifiedOutputIdentity!, job.ItemId, snapshot.ItemDateCreated);
-                await replacement.PublishAsync(request, token, () => coordinator.MayPublish(job),
+                await replacement.PublishAsync(request, token, () => coordinator.MayPublish(job)
+                    && CompressionPolicy.EligibilityError(source, snapshot.Profile, CompressionCoordinator.Config,
+                        job.Automatic, snapshot.SingleMovieSelection) is null,
                     CompressionCoordinator.Config.QuarantineMaxBytes).ConfigureAwait(false);
                 await RefreshPendingAsync(CancellationToken.None).ConfigureAwait(false);
             }

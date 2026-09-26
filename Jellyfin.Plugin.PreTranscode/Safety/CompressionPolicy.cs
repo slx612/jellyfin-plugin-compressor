@@ -51,6 +51,7 @@ public static class CompressionPolicy
         bool automatic = false, bool manualSingle = true)
     {
         if (info.CompressorMarker) return "Ya comprimida (marca del contenedor).";
+        if (info.HasHdr10Plus) return "HDR10+: se omite para no perder metadatos dinámicos.";
         if (info.VideoStreamCount != 1 || info.HasAttachedPicture || info.HasDataStream) return "Estructura de vídeo no admitida en v1.";
         if (info.Width <= 0 || info.Height <= 0 || !double.IsFinite(info.DurationSeconds) || info.DurationSeconds <= 0) return "Información de vídeo incompleta.";
         if (info.PixelFormat is not ("yuv420p" or "yuv420p10le")) return "Formato de píxel no admitido en v1.";
@@ -58,7 +59,6 @@ public static class CompressionPolicy
         {
             if (automatic || !manualSingle) return "HDR / Dolby Vision: elige una sola película para la prueba experimental.";
             if (profile?.VideoEncoder != "libx265") return "HDR / Dolby Vision: se requiere libx265.";
-            if (info.HasHdr10Plus) return "HDR10+: se omite para no perder metadatos dinámicos.";
             if (info.BitDepth != 10 || info.ColorPrimaries != "bt2020" || info.ColorTransfer != "smpte2084"
                 || info.ColorSpace != "bt2020nc") return "HDR: señal de color no compatible o incompleta.";
             if (info.IsDolbyVision)
@@ -109,6 +109,7 @@ public static class CompressionPolicy
     }
     public static IReadOnlyList<string> BuildArguments(EncodingProfile profile, MediaProbeInfo source, string input, string output)
     {
+        if (source.HasHdr10Plus) throw new InvalidOperationException("HDR10+ no se conserva en esta ruta de codificación.");
         if ((source.IsHdr || source.IsDolbyVision) && profile.VideoEncoder != "libx265")
             throw new InvalidOperationException("HDR / Dolby Vision requiere libx265.");
         if (source.IsDolbyVision && TargetDimensions(profile, source) != (source.Width, source.Height))
@@ -126,8 +127,16 @@ public static class CompressionPolicy
         var quality = profile.Crf.ToString(CultureInfo.InvariantCulture);
         switch (profile.VideoEncoder)
         {
-            case "libx265": args.AddRange(new[] { "-crf", quality, "-preset", "medium", "-x265-params",
-                "pools=2:frame-threads=2" + (source.IsHdr ? ":hdr-opt=1" : "") }); break;
+            case "libx265":
+                var x265Parameters = "pools=2:frame-threads=2" + (source.IsHdr ? ":hdr-opt=1" : "");
+                if (source.IsDolbyVision)
+                {
+                    // x265 refuses Dolby Vision without VBV/HRD. Keep the ceiling well above normal CRF output.
+                    var ceiling = (long)source.Width * source.Height > 1920L * 1080 ? "100000" : "40000";
+                    x265Parameters += ":vbv-maxrate=" + ceiling + ":vbv-bufsize=" + ceiling;
+                }
+                args.AddRange(new[] { "-crf", quality, "-preset", "medium", "-x265-params", x265Parameters });
+                break;
             case "hevc_nvenc": args.AddRange(new[] { "-preset", "p4", "-rc", "vbr", "-cq", quality, "-b:v", "0" }); break;
             case "hevc_qsv": args.AddRange(new[] { "-global_quality", quality }); break;
             case "hevc_amf": args.AddRange(new[] { "-rc", "cqp", "-qp_i", quality, "-qp_p", quality }); break;

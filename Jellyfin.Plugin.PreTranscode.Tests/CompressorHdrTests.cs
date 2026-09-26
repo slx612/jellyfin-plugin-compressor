@@ -67,6 +67,7 @@ public class CompressorHdrTests
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, automatic: true));
         source.HasHdr10Plus = true;
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config));
+        Assert.Throws<InvalidOperationException>(() => CompressionPolicy.BuildArguments(CpuProfile, source, "in.mkv", "out.mkv"));
     }
 
     [Fact]
@@ -79,6 +80,7 @@ public class CompressorHdrTests
         Assert.Equal("bt2020", args[Array.IndexOf(args, "-color_primaries") + 1]);
         Assert.Equal("smpte2084", args[Array.IndexOf(args, "-color_trc") + 1]);
         Assert.Equal("bt2020nc", args[Array.IndexOf(args, "-colorspace") + 1]);
+        Assert.Contains("vbv-maxrate=100000:vbv-bufsize=100000", args[Array.IndexOf(args, "-x265-params") + 1]);
     }
 
     [Fact]
@@ -156,5 +158,30 @@ public class CompressorHdrTests
         var header = new[] { "#format: frame checksums", "#stream#, dts, pts, duration, size, hash" };
         Assert.False(DynamicHdrDetector.ContainsFrame(header));
         Assert.True(DynamicHdrDetector.ContainsFrame(header.Append("0, 0, 0, 1, 18478080, abcdef")));
+    }
+
+    [Fact]
+    public void Hdr10PlusCatalogFlagRejectsEvenWhenColorTagsAreMissing()
+    {
+        var source = new MediaProbeInfo { VideoStreamCount = 1, Width = 1920, Height = 1080,
+            DurationSeconds = 120, PixelFormat = "yuv420p10le", BitDepth = 10, HasHdr10Plus = true };
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile));
+    }
+
+    [Fact]
+    public void FrameOnlyRpuCannotSilentlyTakeTheHdr10Route()
+    {
+        var source = MediaProber.Parse(DolbyVisionProbe.Replace("\"side_data_type\":\"DOVI configuration record\"", "\"side_data_type\":\"Other\""), "movie.mkv");
+        Assert.Null(DynamicHdrDetector.ApplyFacts(source, new DynamicHdrFacts(false, true, true, true)));
+        Assert.True(source.IsDolbyVision);
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile,
+            new PluginConfiguration { EnableExperimentalHdr = true, EnableExperimentalDolbyVision = true }));
+    }
+
+    [Fact]
+    public void FrameOnlyStaticHdrMetadataMustNotBeLost()
+    {
+        var source = MediaProber.Parse(DolbyVisionProbe.Replace("\"side_data_type\":\"Mastering display metadata\"", "\"side_data_type\":\"Other\""), "movie.mkv");
+        Assert.NotNull(DynamicHdrDetector.ApplyFacts(source, new DynamicHdrFacts(false, true, true, true)));
     }
 }
