@@ -72,6 +72,23 @@ public class CompressorHdrTests
     }
 
     [Fact]
+    public void Hdr10PlusRequiresItsOwnManualOptInAndMkv()
+    {
+        var switchProperty = typeof(PluginConfiguration).GetProperty("EnableExperimentalHdr10Plus");
+        Assert.NotNull(switchProperty);
+        var source = MediaProber.Parse(DolbyVisionProbe, "movie.mkv");
+        source.HasHdr10Plus = true;
+        var config = new PluginConfiguration { EnableExperimentalDolbyVision = true };
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config));
+        switchProperty.SetValue(config, true);
+        Assert.Null(CompressionPolicy.EligibilityError(source, CpuProfile, config));
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, automatic: true));
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, manualSingle: false));
+        source.Path = "movie.mp4";
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config));
+    }
+
+    [Fact]
     public void DolbyVisionCommandRequiresRpuAndPreservesHdrSignal()
     {
         var source = MediaProber.Parse(DolbyVisionProbe, "movie.mkv");
@@ -209,6 +226,8 @@ public class CompressorHdrTests
         Assert.Null(DynamicHdrDetector.PreservationError(source, new DynamicHdrFacts(0, 50, 50, 50)));
         Assert.NotNull(DynamicHdrDetector.PreservationError(source, new DynamicHdrFacts(0, 49, 50, 50)));
         Assert.NotNull(DynamicHdrDetector.PreservationError(source, new DynamicHdrFacts(0, 50, 49, 50)));
+        Assert.NotNull(DynamicHdrDetector.PreservationError(new DynamicHdrFacts(50, 50, 50, 50),
+            new DynamicHdrFacts(49, 50, 50, 50)));
     }
 
     [Fact]
