@@ -11,6 +11,11 @@ destino tras instalar y reiniciar. **No se ha sustituido ni restaurado ningún
 medio real en el servidor de destino**; las operaciones de cuota y retención
 ampliadas aún no se han probado dentro de ese servidor.
 
+La rama de desarrollo incorpora una prueba aún no publicada de HDR10 y Dolby Vision
+8.1. Está apagada por defecto y limitada a películas elegidas individualmente;
+consulta [su alcance y las pruebas pendientes](docs/hdr-experimental.md). La versión
+0.1.10 instalada sigue omitiendo ambos formatos.
+
 ## Funcionamiento
 
 - Automatización **desactivada por defecto** y ninguna carpeta seleccionada.

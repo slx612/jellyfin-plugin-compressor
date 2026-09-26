@@ -87,8 +87,19 @@ internal sealed class TranscodeExecutor
             { Finish(job, JobStatus.Skipped, $"No supera el mínimo de {config.MinMovieSizeGb} GB."); return; }
             if (!coordinator.MayPublish(job)) { Hold(job, "Esperando reproducción, horario o permisos de procesamiento."); return; }
             var source = await prober.ProbeAsync(job.SourcePath, token).ConfigureAwait(false) ?? throw new IOException("No se puede leer el vídeo.");
-            var eligibility = CompressionPolicy.EligibilityError(source);
+            coordinator.MergeLibraryHdrFacts(Guid.Parse(job.ItemId), source);
+            var eligibility = CompressionPolicy.EligibilityError(source, snapshot.Profile, config, job.Automatic, snapshot.SingleMovieSelection);
             if (eligibility is not null) { Finish(job, JobStatus.Skipped, eligibility); return; }
+            if (source.IsHdr || source.IsDolbyVision)
+            {
+                Detail(job, "Comprobando HDR10+ en todos los fotogramas; puede tardar varios minutos");
+                if (await DynamicHdrDetector.HasHdr10PlusAsync(FfmpegPaths.ResolveFfmpeg(encoder), job.SourcePath,
+                    tempDirectory, source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false))
+                {
+                    Finish(job, JobStatus.Skipped, "Se ha detectado HDR10+ en los fotogramas; se conserva el original.");
+                    return;
+                }
+            }
             var maxOutputBytes = (long)Math.Ceiling(snapshot.Source.Length * (1 - snapshot.MinSavingsPercent / 100));
             void SkipNoSavings(string detail)
             {

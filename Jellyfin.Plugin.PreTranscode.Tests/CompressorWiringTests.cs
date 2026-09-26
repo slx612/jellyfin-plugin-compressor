@@ -42,7 +42,7 @@ public sealed class CompressorWiringTests : IDisposable
         var queue = new Mock<IJobQueue>(MockBehavior.Strict);
         var library = new Mock<ILibraryManager>(MockBehavior.Strict);
         var probe = new Mock<IMediaProber>(MockBehavior.Strict);
-        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")));
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")), Mock.Of<IMediaSourceManager>());
         var evaluator = new ItemEvaluator(queue.Object, probe.Object, library.Object, NullLogger<ItemEvaluator>.Instance, coordinator);
         await new PreTranscodeSweepTask(evaluator).ExecuteAsync(new Progress<double>(), default);
         await new PreTranscodeScanTask(evaluator, NullLogger<PreTranscodeScanTask>.Instance).Run(new Progress<double>(), default);
@@ -70,7 +70,7 @@ public sealed class CompressorWiringTests : IDisposable
         var movie = new Movie { Name = "Small", Path = source };
         library.Setup(l => l.GetItemList(It.IsAny<InternalItemsQuery>())).Returns([movie]);
         var probe = new Mock<IMediaProber>(MockBehavior.Strict);
-        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")));
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")), Mock.Of<IMediaSourceManager>());
 
         var (candidate, snapshot) = await coordinator.InspectAsync(movie, true, default);
 
@@ -106,7 +106,7 @@ public sealed class CompressorWiringTests : IDisposable
             new Movie { Name = "Selected", Path = Path.Combine(movieRoot, "selected.mkv") },
             new Movie { Name = "Excluded", Path = Path.Combine(excluded, "excluded.mkv") }]);
         var coordinator = new CompressionCoordinator(Mock.Of<IJobQueue>(MockBehavior.Strict), Mock.Of<IMediaProber>(MockBehavior.Strict),
-            library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")));
+            library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")), Mock.Of<IMediaSourceManager>());
 
         var counts = coordinator.FolderMovieCounts();
 
@@ -139,7 +139,7 @@ public sealed class CompressorWiringTests : IDisposable
         var probe = new Mock<IMediaProber>();
         probe.Setup(p => p.ProbeAsync(source, It.IsAny<CancellationToken>())).ReturnsAsync(new MediaProbeInfo
         { VideoStreamCount = 1, Width = 1920, Height = 1080, DurationSeconds = 60, PixelFormat = "yuv420p" });
-        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")));
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")), Mock.Of<IMediaSourceManager>());
 
         using var locked = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.None);
         var result = await coordinator.ScanAsync(false, false, null, default);
@@ -178,7 +178,7 @@ public sealed class CompressorWiringTests : IDisposable
         var library = new Mock<ILibraryManager>();
         library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Locations = [movieRoot] }]);
         var probe = new Mock<IMediaProber>(MockBehavior.Strict);
-        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), registry);
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), registry, Mock.Of<IMediaSourceManager>());
         var executor = new TranscodeExecutor(queue.Object, probe.Object, Mock.Of<IMediaEncoder>(), coordinator,
             registry, replacement, null!, Mock.Of<ILibraryMonitor>(), paths.Object, NullLogger<TranscodeExecutor>.Instance);
         var job = new TranscodeJob { Automatic = true, SourcePath = source, Status = JobStatus.Pending,
