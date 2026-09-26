@@ -224,8 +224,17 @@ public class CompressorHdrTests
                 "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=12", "-t", "1", "-c:v", "libx265",
                 "-preset", "ultrafast", "-pix_fmt", "yuv420p10le", source }, 60_000, default);
             Assert.True(File.Exists(source));
-            var facts = await DynamicHdrDetector.ScanAsync(ffmpeg, source, directory, 1, default);
-            Assert.Equal(new DynamicHdrFacts(0, 0, 0, 0), facts);
+            var filters = await ProcessRunner.RunAsync(ffmpeg, new[] { "-hide_banner", "-h", "filter=sidedata" }, 60_000, default);
+            if (filters.Contains("DOVI_RPU_BUFFER", StringComparison.Ordinal))
+            {
+                var facts = await DynamicHdrDetector.ScanAsync(ffmpeg, source, directory, 1, default);
+                Assert.Equal(new DynamicHdrFacts(0, 0, 0, 0), facts);
+            }
+            else
+            {
+                // Generic system FFmpeg may predate Jellyfin's FFmpeg 7.1.3. It must fail closed.
+                await Assert.ThrowsAsync<IOException>(() => DynamicHdrDetector.ScanAsync(ffmpeg, source, directory, 1, default));
+            }
         }
         finally
         {
