@@ -115,10 +115,8 @@ internal sealed class TranscodeExecutor
                 Detail(job, "Verificando metadatos HDR por fotograma");
                 var outputFrameFacts = await DynamicHdrDetector.ScanAsync(FfmpegPaths.ResolveFfmpeg(encoder), temp!,
                     tempDirectory, source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
-                if ((sourceFrameFacts.HasDolbyVisionRpu && !outputFrameFacts.HasDolbyVisionRpu)
-                    || (sourceFrameFacts.HasMasteringDisplay && !outputFrameFacts.HasMasteringDisplay)
-                    || (sourceFrameFacts.HasContentLight && !outputFrameFacts.HasContentLight))
-                    throw new IOException("La salida ha perdido metadatos HDR o Dolby Vision de sus fotogramas.");
+                var metadataError = DynamicHdrDetector.PreservationError(sourceFrameFacts, outputFrameFacts);
+                if (metadataError is not null) throw new IOException(metadataError);
             }
             Directory.CreateDirectory(tempDirectory);
             temp = Path.Combine(tempDirectory, job.Id + Path.GetExtension(job.SourcePath));

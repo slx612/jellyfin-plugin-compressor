@@ -55,6 +55,8 @@ public static class CompressionPolicy
         if (info.VideoStreamCount != 1 || info.HasAttachedPicture || info.HasDataStream) return "Estructura de vídeo no admitida en v1.";
         if (info.Width <= 0 || info.Height <= 0 || !double.IsFinite(info.DurationSeconds) || info.DurationSeconds <= 0) return "Información de vídeo incompleta.";
         if (info.PixelFormat is not ("yuv420p" or "yuv420p10le")) return "Formato de píxel no admitido en v1.";
+        if (!info.IsHdr && (info.MasteringDisplayMetadata.Length > 0 || info.ContentLightMetadata.Length > 0))
+            return "Metadatos HDR sin señal de color HDR verificable.";
         if (info.IsHdr || info.IsDolbyVision)
         {
             if (automatic || !manualSingle) return "HDR / Dolby Vision: elige una sola película para la prueba experimental.";

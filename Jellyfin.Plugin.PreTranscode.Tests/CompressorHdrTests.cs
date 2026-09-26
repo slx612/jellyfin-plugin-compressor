@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.PreTranscode.Configuration;
+using Jellyfin.Plugin.PreTranscode.Ffmpeg;
 using Jellyfin.Plugin.PreTranscode.Library;
 using Jellyfin.Plugin.PreTranscode.Media;
 using Jellyfin.Plugin.PreTranscode.Safety;
@@ -153,11 +154,11 @@ public class CompressorHdrTests
     }
 
     [Fact]
-    public void FrameHashDistinguishesARealHdr10PlusFrameFromAnEmptyScan()
+    public void FrameLogDistinguishesARealHdr10PlusFrameFromAnEmptyScan()
     {
         var header = new[] { "#format: frame checksums", "#stream#, dts, pts, duration, size, hash" };
-        Assert.False(DynamicHdrDetector.ContainsFrame(header));
-        Assert.True(DynamicHdrDetector.ContainsFrame(header.Append("0, 0, 0, 1, 18478080, abcdef")));
+        Assert.Equal(0, DynamicHdrDetector.CountFrames(header));
+        Assert.Equal(1, DynamicHdrDetector.CountFrames(header.Append("0, 0, 0, 1, 18478080, abcdef")));
     }
 
     [Fact]
@@ -172,7 +173,7 @@ public class CompressorHdrTests
     public void FrameOnlyRpuCannotSilentlyTakeTheHdr10Route()
     {
         var source = MediaProber.Parse(DolbyVisionProbe.Replace("\"side_data_type\":\"DOVI configuration record\"", "\"side_data_type\":\"Other\""), "movie.mkv");
-        Assert.Null(DynamicHdrDetector.ApplyFacts(source, new DynamicHdrFacts(false, true, true, true)));
+        Assert.Null(DynamicHdrDetector.ApplyFacts(source, new DynamicHdrFacts(0, 50, 50, 50)));
         Assert.True(source.IsDolbyVision);
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile,
             new PluginConfiguration { EnableExperimentalHdr = true, EnableExperimentalDolbyVision = true }));
@@ -182,6 +183,54 @@ public class CompressorHdrTests
     public void FrameOnlyStaticHdrMetadataMustNotBeLost()
     {
         var source = MediaProber.Parse(DolbyVisionProbe.Replace("\"side_data_type\":\"Mastering display metadata\"", "\"side_data_type\":\"Other\""), "movie.mkv");
-        Assert.NotNull(DynamicHdrDetector.ApplyFacts(source, new DynamicHdrFacts(false, true, true, true)));
+        Assert.NotNull(DynamicHdrDetector.ApplyFacts(source, new DynamicHdrFacts(0, 50, 50, 50)));
+    }
+
+    [Fact]
+    public void StaticFrameHdrWithoutColorSignalIsRejected()
+    {
+        var source = new MediaProbeInfo { BitDepth = 10, MasteringDisplayMetadata = "present" };
+        Assert.NotNull(DynamicHdrDetector.ApplyFacts(source, new DynamicHdrFacts(0, 0, 50, 0)));
+    }
+
+    [Fact]
+    public void StaticStreamHdrWithoutColorSignalIsRejected()
+    {
+        var source = new MediaProbeInfo { VideoStreamCount = 1, Width = 1920, Height = 1080,
+            DurationSeconds = 120, PixelFormat = "yuv420p10le", BitDepth = 10,
+            MasteringDisplayMetadata = "present" };
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile));
+    }
+
+    [Fact]
+    public void OutputMustRetainFrameByFrameRpuAndStaticHdrCounts()
+    {
+        var source = new DynamicHdrFacts(0, 50, 50, 50);
+        Assert.Null(DynamicHdrDetector.PreservationError(source, new DynamicHdrFacts(0, 50, 50, 50)));
+        Assert.NotNull(DynamicHdrDetector.PreservationError(source, new DynamicHdrFacts(0, 49, 50, 50)));
+        Assert.NotNull(DynamicHdrDetector.PreservationError(source, new DynamicHdrFacts(0, 50, 49, 50)));
+    }
+
+    [Fact]
+    public async Task RealFrameScanFinishesWithNoDynamicMetadataOnSyntheticVideo()
+    {
+        var ffmpeg = FfmpegTestBinaries.Find("ffmpeg");
+        if (ffmpeg is null) return;
+        var directory = Directory.CreateTempSubdirectory("compressor-hdr-scan-").FullName;
+        var source = Path.Combine(directory, "source.mkv");
+        try
+        {
+            await ProcessRunner.RunAsync(ffmpeg, new[] { "-nostdin", "-y", "-hide_banner", "-loglevel", "error",
+                "-f", "lavfi", "-i", "testsrc2=size=320x180:rate=12", "-t", "1", "-c:v", "libx265",
+                "-preset", "ultrafast", "-pix_fmt", "yuv420p10le", source }, 60_000, default);
+            Assert.True(File.Exists(source));
+            var facts = await DynamicHdrDetector.ScanAsync(ffmpeg, source, directory, 1, default);
+            Assert.Equal(new DynamicHdrFacts(0, 0, 0, 0), facts);
+        }
+        finally
+        {
+            if (File.Exists(source)) File.Delete(source);
+            Directory.Delete(directory);
+        }
     }
 }
