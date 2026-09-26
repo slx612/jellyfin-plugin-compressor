@@ -52,6 +52,8 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool EnableExperimentalHdr { get; set; }
     /// <summary>Allow manual Dolby Vision 8.1 compression with libx265 after explicit opt-in.</summary>
     public bool EnableExperimentalDolbyVision { get; set; }
+    /// <summary>Allow manual HDR10+ MKV compression with metadata reinjection after explicit opt-in.</summary>
+    public bool EnableExperimentalHdr10Plus { get; set; }
     /// <summary>Explicit source folders. Empty means nothing is eligible.</summary>
     public List<string> IncludedFolders { get; set; } = new();
     /// <summary>Excluded folders, always taking priority.</summary>

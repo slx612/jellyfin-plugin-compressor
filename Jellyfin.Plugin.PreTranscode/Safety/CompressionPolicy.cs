@@ -51,7 +51,15 @@ public static class CompressionPolicy
         bool automatic = false, bool manualSingle = true)
     {
         if (info.CompressorMarker) return "Ya comprimida (marca del contenedor).";
-        if (info.HasHdr10Plus) return "HDR10+: se omite para no perder metadatos dinámicos.";
+        if (info.HasHdr10Plus)
+        {
+            if (config?.EnableExperimentalHdr10Plus != true) return "HDR10+ experimental desactivado.";
+            if (automatic || !manualSingle) return "HDR10+: elige una sola película para la prueba experimental.";
+            if (!Path.GetExtension(info.Path).Equals(".mkv", StringComparison.OrdinalIgnoreCase))
+                return "HDR10+ experimental solo admite películas MKV.";
+            if (!info.IsHdr || profile is null || TargetDimensions(profile, info) != (info.Width, info.Height))
+                return "HDR10+ experimental requiere HDR10 y conservar la resolución original.";
+        }
         if (info.VideoStreamCount != 1 || info.HasAttachedPicture || info.HasDataStream) return "Estructura de vídeo no admitida en v1.";
         if (info.Width <= 0 || info.Height <= 0 || !double.IsFinite(info.DurationSeconds) || info.DurationSeconds <= 0) return "Información de vídeo incompleta.";
         if (info.PixelFormat is not ("yuv420p" or "yuv420p10le")) return "Formato de píxel no admitido en v1.";
@@ -109,9 +117,11 @@ public static class CompressionPolicy
         return (Math.Max(2, (int)Math.Round(source.Width * ratio / 2, MidpointRounding.AwayFromZero) * 2),
             Math.Max(2, (int)Math.Round(source.Height * ratio / 2, MidpointRounding.AwayFromZero) * 2));
     }
-    public static IReadOnlyList<string> BuildArguments(EncodingProfile profile, MediaProbeInfo source, string input, string output)
+    public static IReadOnlyList<string> BuildArguments(EncodingProfile profile, MediaProbeInfo source, string input, string output,
+        bool preserveHdr10Plus = false)
     {
-        if (source.HasHdr10Plus) throw new InvalidOperationException("HDR10+ no se conserva en esta ruta de codificación.");
+        if (source.HasHdr10Plus && !preserveHdr10Plus)
+            throw new InvalidOperationException("HDR10+ requiere la ruta de reinyección verificada.");
         if ((source.IsHdr || source.IsDolbyVision) && profile.VideoEncoder != "libx265")
             throw new InvalidOperationException("HDR / Dolby Vision requiere libx265.");
         if (source.IsDolbyVision && TargetDimensions(profile, source) != (source.Width, source.Height))

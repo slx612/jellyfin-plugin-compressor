@@ -182,7 +182,8 @@
   <div class="jc-card"><div class="jc-card-head"><div><h2>Calidad de compresión</h2><p>HEVC conserva audio, subtítulos, capítulos y extensión del archivo.</p></div><span class="material-icons" aria-hidden="true">high_quality</span></div>
     <div class="jc-grid"><label class="jc-field"><span>Codificador HEVC</span><select id="jcEncoder"><option value="libx265">CPU · libx265</option></select></label><label class="jc-field"><span>Calidad (16–32)</span><input id="jcQuality" type="number" min="16" max="32" required value="23"><span class="jc-subtle">Menor número: más calidad y mayor tamaño.</span></label><label class="jc-field"><span>Resolución máxima de salida</span><select id="jcResolution"><option value="0">Conservar la original</option><option value="2160">4K · 2160p</option><option value="1080">Full HD · 1080p</option><option value="720">HD · 720p</option><option value="480">SD · 480p</option></select><span class="jc-subtle">Solo reduce si la película supera el límite. Una película de 720p nunca se amplía a 1080p.</span></label></div>
     <label class="jc-toggle"><span class="jc-toggle-copy"><strong>HDR10 experimental</strong><small>Solo películas elegidas a mano y con libx265. Se verifican la señal de color y los metadatos HDR antes de sustituir el original.</small></span><input type="checkbox" id="jcHdr"><span class="jc-switch" aria-hidden="true"></span></label>
-    <label class="jc-toggle"><span class="jc-toggle-copy"><strong>Dolby Vision 8.1 experimental</strong><small>Solo películas elegidas a mano, con base HDR10 y RPU, sin HDR10+. Mantiene la resolución original y puede ser mucho más lento que NVENC.</small></span><input type="checkbox" id="jcDolby"><span class="jc-switch" aria-hidden="true"></span></label>
+    <label class="jc-toggle"><span class="jc-toggle-copy"><strong>Dolby Vision 8.1 experimental</strong><small>Solo películas elegidas a mano, con base HDR10 y RPU. Mantiene la resolución original y puede ser mucho más lento que NVENC.</small></span><input type="checkbox" id="jcDolby"><span class="jc-switch" aria-hidden="true"></span></label>
+    <label class="jc-toggle"><span class="jc-toggle-copy"><strong>HDR10+ experimental</strong><small>Solo películas MKV elegidas a mano, sin reducir resolución. Requiere las herramientas incluidas para Docker/Linux x86‑64; verifica los metadatos antes de sustituir el original.</small></span><input type="checkbox" id="jcHdr10Plus"><span class="jc-switch" aria-hidden="true"></span></label>
     <p id="jcFfmpeg" class="jc-subtle">Leyendo FFmpeg del servidor…</p><p class="jc-subtle">La calidad elegida no garantiza un archivo menor. Si el temporal supera el tamaño permitido por el ahorro mínimo, se detiene y se conserva el original.</p><p class="jc-subtle" style="margin-bottom:0">Antes de codificar HDR se revisan todos los fotogramas para detectar HDR10+; puede tardar varios minutos. Los demás formatos HDR y las estructuras no compatibles se omiten. La automatización nunca añade películas HDR.</p>
   </div>
 </section>
@@ -406,7 +407,7 @@
     function load() {
         return api('Configuration').then(function(c) {
             config = c; el('jcAuto').checked = !!c.AutomaticCompressionEnabled; el('jcWindow').checked = !!c.ProcessingWindowEnabled;
-            el('jcHdr').checked = !!c.EnableExperimentalHdr; el('jcDolby').checked = !!c.EnableExperimentalDolbyVision;
+            el('jcHdr').checked = !!c.EnableExperimentalHdr; el('jcDolby').checked = !!c.EnableExperimentalDolbyVision; el('jcHdr10Plus').checked = !!c.EnableExperimentalHdr10Plus;
             el('jcStart').value = time(c.ProcessingWindowStartMinutes); el('jcStop').value = time(c.ProcessingWindowStopMinutes); updateWindow();
             rules.included = (c.IncludedFolders || []).slice(); rules.excluded = (c.ExcludedFolders || []).slice(); renderRules(); renderExplorer();
             el('jcOriginalsPath').value = c.QuarantineDirectory || ''; el('jcDays').value = c.RetentionDays || ''; el('jcMaxGB').value = (c.QuarantineMaxBytes || 0) / 1073741824; el('jcSavings').value = c.MinSavingsPercent;
@@ -494,7 +495,7 @@
     el('jcOriginalBack').onclick = function() { action(function() { return browseOriginals(originalFolderState.Parent || ''); }); };
     el('jcOriginalChoose').onclick = function() { if (originalFolderState && originalFolderState.Selectable) chooseOriginal(originalFolderState.Path); };
     el('jcWindow').onchange = updateWindow;
-    ['jcAuto', 'jcWindow', 'jcHdr', 'jcDolby', 'jcEncoder', 'jcResolution'].forEach(function(id) { el(id).addEventListener('change', function() { dirty(true); }); });
+    ['jcAuto', 'jcWindow', 'jcHdr', 'jcDolby', 'jcHdr10Plus', 'jcEncoder', 'jcResolution'].forEach(function(id) { el(id).addEventListener('change', function() { dirty(true); }); });
     ['jcStart', 'jcStop', 'jcOriginalsPath', 'jcDays', 'jcMaxGB', 'jcSavings', 'jcQuality', 'jcStability', 'jcMinMovieGB'].forEach(function(id) { el(id).addEventListener('input', function() { dirty(true); }); });
     el('jcForm').onsubmit = function(e) { e.preventDefault();
         if (!el('jcForm').checkValidity()) { setTab(2); el('jcForm').reportValidity(); return; }
@@ -503,7 +504,7 @@
         if (saving) return;
         var submittedRevision = revision;
         var c = JSON.parse(JSON.stringify(config)); c.Enabled = true; c.AutomaticCompressionEnabled = el('jcAuto').checked;
-        c.EnableExperimentalHdr = el('jcHdr').checked; c.EnableExperimentalDolbyVision = el('jcDolby').checked;
+        c.EnableExperimentalHdr = el('jcHdr').checked; c.EnableExperimentalDolbyVision = el('jcDolby').checked; c.EnableExperimentalHdr10Plus = el('jcHdr10Plus').checked;
         c.ProcessingWindowEnabled = el('jcWindow').checked; c.ProcessingWindowStartMinutes = minutes(el('jcStart').value); c.ProcessingWindowStopMinutes = minutes(el('jcStop').value);
         c.IncludedFolders = rules.included.slice(); c.ExcludedFolders = rules.excluded.slice(); c.QuarantineDirectory = el('jcOriginalsPath').value.trim(); c.RetentionDays = Number(el('jcDays').value); c.QuarantineMaxBytes = Number(el('jcMaxGB').value) * 1073741824; c.MinSavingsPercent = Number(el('jcSavings').value);
         c.FileStabilitySeconds = Number(el('jcStability').value) * 60; c.MinMovieSizeGb = Number(el('jcMinMovieGB').value);

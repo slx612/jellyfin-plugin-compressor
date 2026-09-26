@@ -46,7 +46,8 @@ internal static class DynamicHdrDetector
 
     internal static string? PreservationError(DynamicHdrFacts source, DynamicHdrFacts output)
     {
-        if ((source.DolbyVisionRpuFrames > 0 && source.DolbyVisionRpuFrames != output.DolbyVisionRpuFrames)
+        if ((source.Hdr10PlusFrames != output.Hdr10PlusFrames)
+            || (source.DolbyVisionRpuFrames > 0 && source.DolbyVisionRpuFrames != output.DolbyVisionRpuFrames)
             || (source.MasteringDisplayFrames > 0 && source.MasteringDisplayFrames != output.MasteringDisplayFrames)
             || (source.ContentLightFrames > 0 && source.ContentLightFrames != output.ContentLightFrames))
             return "La salida ha perdido metadatos HDR o Dolby Vision de sus fotogramas.";
