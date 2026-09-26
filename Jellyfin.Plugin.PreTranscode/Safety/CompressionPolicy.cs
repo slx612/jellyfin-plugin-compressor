@@ -13,7 +13,10 @@ using Jellyfin.Plugin.PreTranscode.Media;
 namespace Jellyfin.Plugin.PreTranscode.Safety;
 
 public sealed record CompressionSnapshot(EncodingProfile Profile, ContentIdentity Source, string LibraryRoot,
-    string QuarantineRoot, int RetentionDays, double MinSavingsPercent, string ProfileKey, DateTime ItemDateCreated);
+    string QuarantineRoot, int RetentionDays, double MinSavingsPercent, string ProfileKey, DateTime ItemDateCreated)
+{
+    public bool SingleMovieSelection { get; init; }
+}
 
 public static class CompressionPolicy
 {
@@ -44,18 +47,57 @@ public static class CompressionPolicy
             PixelFormatMode = PixelFormatMode.KeepSourceBitDepth };
     }
     public static string Key(EncodingProfile profile) => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(profile)))).ToLowerInvariant();
-    public static string? EligibilityError(MediaProbeInfo info)
+    public static string? EligibilityError(MediaProbeInfo info, EncodingProfile? profile = null, PluginConfiguration? config = null,
+        bool automatic = false, bool manualSingle = true)
     {
         if (info.CompressorMarker) return "Ya comprimida (marca del contenedor).";
-        if (info.IsHdr || info.IsDolbyVision) return "HDR / Dolby Vision: omitida en v1.";
+        if (info.HasHdr10Plus)
+        {
+            if (config?.EnableExperimentalHdr10Plus != true) return "HDR10+ experimental desactivado.";
+            if (automatic || !manualSingle) return "HDR10+: elige una sola película para la prueba experimental.";
+            if (!Path.GetExtension(info.Path).Equals(".mkv", StringComparison.OrdinalIgnoreCase))
+                return "HDR10+ experimental solo admite películas MKV.";
+            if (!info.IsHdr || profile is null || TargetDimensions(profile, info) != (info.Width, info.Height))
+                return "HDR10+ experimental requiere HDR10 y conservar la resolución original.";
+        }
         if (info.VideoStreamCount != 1 || info.HasAttachedPicture || info.HasDataStream) return "Estructura de vídeo no admitida en v1.";
         if (info.Width <= 0 || info.Height <= 0 || !double.IsFinite(info.DurationSeconds) || info.DurationSeconds <= 0) return "Información de vídeo incompleta.";
         if (info.PixelFormat is not ("yuv420p" or "yuv420p10le")) return "Formato de píxel no admitido en v1.";
+        if (!info.IsHdr && (info.MasteringDisplayMetadata.Length > 0 || info.ContentLightMetadata.Length > 0))
+            return "Metadatos HDR sin señal de color HDR verificable.";
+        if (info.IsHdr || info.IsDolbyVision)
+        {
+            if (automatic || !manualSingle) return "HDR / Dolby Vision: elige una sola película para la prueba experimental.";
+            if (profile?.VideoEncoder != "libx265") return "HDR / Dolby Vision: se requiere libx265.";
+            if (info.BitDepth != 10 || info.ColorPrimaries != "bt2020" || info.ColorTransfer != "smpte2084"
+                || info.ColorSpace != "bt2020nc") return "HDR: señal de color no compatible o incompleta.";
+            if (info.IsDolbyVision)
+            {
+                if (config?.EnableExperimentalDolbyVision != true) return "Dolby Vision experimental desactivado.";
+                if (info.DolbyVisionProfile != 8 || info.DolbyVisionCompatibilityId != 1 || !info.DolbyVisionHasRpu
+                    || !info.DolbyVisionHasBaseLayer || info.DolbyVisionHasEnhancementLayer)
+                    return "Solo se admite Dolby Vision 8.1 con base HDR10 y RPU, sin capa de mejora.";
+                if (profile is not null && TargetDimensions(profile, info) != (info.Width, info.Height))
+                    return "Dolby Vision experimental: conserva la resolución original hasta validar la reducción con RPU.";
+            }
+            else if (config?.EnableExperimentalHdr != true) return "HDR10 experimental desactivado.";
+        }
         return null;
     }
     public static string? VerificationError(MediaProbeInfo source, MediaProbeInfo output, EncodingProfile? profile = null)
     {
         if (!output.CompressorMarker || output.VideoCodec != "hevc") return "Falta el vídeo HEVC o la marca de compresión.";
+        if (source.IsHdr && !output.IsHdr) return "La salida ha perdido HDR.";
+        if (source.IsHdr && (source.ColorPrimaries != output.ColorPrimaries || source.ColorTransfer != output.ColorTransfer
+            || source.ColorSpace != output.ColorSpace || (source.ColorRange.Length > 0 && source.ColorRange != output.ColorRange)
+            || (source.MasteringDisplayMetadata.Length > 0 && source.MasteringDisplayMetadata != output.MasteringDisplayMetadata)
+            || (source.ContentLightMetadata.Length > 0 && source.ContentLightMetadata != output.ContentLightMetadata)))
+            return "La salida ha cambiado los metadatos HDR.";
+        if (source.IsDolbyVision && (!output.IsDolbyVision || source.DolbyVisionProfile != output.DolbyVisionProfile
+            || source.DolbyVisionCompatibilityId != output.DolbyVisionCompatibilityId || !output.DolbyVisionHasRpu
+            || source.DolbyVisionHasBaseLayer != output.DolbyVisionHasBaseLayer
+            || source.DolbyVisionHasEnhancementLayer != output.DolbyVisionHasEnhancementLayer))
+            return "La salida ha perdido Dolby Vision o su RPU.";
         var target = TargetDimensions(profile, source);
         if (source.BitDepth != output.BitDepth || output.Width > source.Width || output.Height > source.Height
             || (profile?.ResolutionMode == ResolutionMode.CapHeight && (output.Width > profile.MaxWidth || output.Height > profile.MaxHeight))
@@ -75,15 +117,38 @@ public static class CompressionPolicy
         return (Math.Max(2, (int)Math.Round(source.Width * ratio / 2, MidpointRounding.AwayFromZero) * 2),
             Math.Max(2, (int)Math.Round(source.Height * ratio / 2, MidpointRounding.AwayFromZero) * 2));
     }
-    public static IReadOnlyList<string> BuildArguments(EncodingProfile profile, MediaProbeInfo source, string input, string output)
+    public static IReadOnlyList<string> BuildArguments(EncodingProfile profile, MediaProbeInfo source, string input, string output,
+        bool preserveHdr10Plus = false)
     {
+        if (source.HasHdr10Plus && !preserveHdr10Plus)
+            throw new InvalidOperationException("HDR10+ requiere la ruta de reinyección verificada.");
+        if ((source.IsHdr || source.IsDolbyVision) && profile.VideoEncoder != "libx265")
+            throw new InvalidOperationException("HDR / Dolby Vision requiere libx265.");
+        if (source.IsDolbyVision && TargetDimensions(profile, source) != (source.Width, source.Height))
+            throw new InvalidOperationException("Dolby Vision experimental requiere conservar la resolución original.");
         var args = new List<string> { "-nostdin", "-y", "-hide_banner", "-protocol_whitelist", "file", "-i", input,
             "-map", "0:V:0", "-map", "0:a?", "-map", "0:s?", "-map", "0:t?", "-map_metadata", "0", "-map_chapters", "0", "-c", "copy", "-c:v:0", profile.VideoEncoder,
             "-pix_fmt", source.PixelFormat, "-metadata", "JELLYFIN_COMPRESSOR=v1" };
+        if (source.IsHdr)
+        {
+            args.AddRange(new[] { "-color_primaries", source.ColorPrimaries, "-color_trc", source.ColorTransfer,
+                "-colorspace", source.ColorSpace });
+            if (source.ColorRange.Length > 0) args.AddRange(new[] { "-color_range", source.ColorRange });
+        }
+        if (source.IsDolbyVision) args.AddRange(new[] { "-dolbyvision", "1" });
         var quality = profile.Crf.ToString(CultureInfo.InvariantCulture);
         switch (profile.VideoEncoder)
         {
-            case "libx265": args.AddRange(new[] { "-crf", quality, "-preset", "medium", "-x265-params", "pools=2:frame-threads=2" }); break;
+            case "libx265":
+                var x265Parameters = "pools=2:frame-threads=2" + (source.IsHdr ? ":hdr-opt=1" : "");
+                if (source.IsDolbyVision)
+                {
+                    // x265 refuses Dolby Vision without VBV/HRD. Keep the ceiling well above normal CRF output.
+                    var ceiling = (long)source.Width * source.Height > 1920L * 1080 ? "100000" : "40000";
+                    x265Parameters += ":vbv-maxrate=" + ceiling + ":vbv-bufsize=" + ceiling;
+                }
+                args.AddRange(new[] { "-crf", quality, "-preset", "medium", "-x265-params", x265Parameters });
+                break;
             case "hevc_nvenc": args.AddRange(new[] { "-preset", "p4", "-rc", "vbr", "-cq", quality, "-b:v", "0" }); break;
             case "hevc_qsv": args.AddRange(new[] { "-global_quality", quality }); break;
             case "hevc_amf": args.AddRange(new[] { "-rc", "cqp", "-qp_i", quality, "-qp_p", quality }); break;

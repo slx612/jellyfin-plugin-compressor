@@ -21,6 +21,16 @@ jobs:
       - name: Package preview
         shell: pwsh
         run: ./build-plugin.ps1
+      - name: Smoke-test bundled Linux tools without FUSE
+        run: |
+          mkdir -p /tmp/jellyfin-compressor-preview
+          unzip -q artifacts/jellyfin-compressor-0.1.11.0.zip -d /tmp/jellyfin-compressor-preview
+          chmod +x /tmp/jellyfin-compressor-preview/tools/*
+          ln -s mkvtoolnix.AppImage /tmp/jellyfin-compressor-preview/tools/mkvmerge
+          ln -s mkvtoolnix.AppImage /tmp/jellyfin-compressor-preview/tools/mkvextract
+          /tmp/jellyfin-compressor-preview/tools/hdr10plus_tool --version
+          APPIMAGE_EXTRACT_AND_RUN=1 /tmp/jellyfin-compressor-preview/tools/mkvmerge --version
+          APPIMAGE_EXTRACT_AND_RUN=1 /tmp/jellyfin-compressor-preview/tools/mkvextract --version
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: jellyfin-compressor-preview

@@ -29,6 +29,7 @@ internal sealed class TranscodeExecutor
     private readonly ILibraryMonitor monitor;
     private readonly ILogger<TranscodeExecutor> logger;
     private readonly string tempDirectory;
+    private readonly string dataDirectory;
     private DateTime nextMaintenance;
     public string MaintenanceError { get; private set; } = "";
 
@@ -38,6 +39,7 @@ internal sealed class TranscodeExecutor
     {
         this.queue = queue; this.prober = prober; this.encoder = encoder; this.coordinator = coordinator;
         this.registry = registry; this.replacement = replacement; this.updater = updater; this.monitor = monitor; this.logger = logger;
+        dataDirectory = paths.DataPath;
         tempDirectory = Path.Combine(paths.DataPath, "jellyfin-compressor", "tmp");
     }
     public async Task RecoverAndMaintainAsync(CancellationToken token)
@@ -87,8 +89,21 @@ internal sealed class TranscodeExecutor
             { Finish(job, JobStatus.Skipped, $"No supera el mínimo de {config.MinMovieSizeGb} GB."); return; }
             if (!coordinator.MayPublish(job)) { Hold(job, "Esperando reproducción, horario o permisos de procesamiento."); return; }
             var source = await prober.ProbeAsync(job.SourcePath, token).ConfigureAwait(false) ?? throw new IOException("No se puede leer el vídeo.");
-            var eligibility = CompressionPolicy.EligibilityError(source);
+            coordinator.MergeLibraryHdrFacts(Guid.Parse(job.ItemId), source);
+            var eligibility = CompressionPolicy.EligibilityError(source, snapshot.Profile, config, job.Automatic, snapshot.SingleMovieSelection);
             if (eligibility is not null) { Finish(job, JobStatus.Skipped, eligibility); return; }
+            DynamicHdrFacts? sourceFrameFacts = null;
+            if (source.BitDepth >= 10 || source.IsHdr || source.IsDolbyVision)
+            {
+                Detail(job, "Comprobando metadatos HDR en todos los fotogramas; puede tardar varios minutos");
+                sourceFrameFacts = await DynamicHdrDetector.ScanAsync(FfmpegPaths.ResolveFfmpeg(encoder), job.SourcePath,
+                    tempDirectory, source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
+                var scanError = DynamicHdrDetector.ApplyFacts(source, sourceFrameFacts);
+                if (scanError is not null) { Finish(job, JobStatus.Skipped, scanError); return; }
+                eligibility = CompressionPolicy.EligibilityError(source, snapshot.Profile, CompressionCoordinator.Config,
+                    job.Automatic, snapshot.SingleMovieSelection);
+                if (eligibility is not null) { Finish(job, JobStatus.Skipped, eligibility); return; }
+            }
             var maxOutputBytes = (long)Math.Ceiling(snapshot.Source.Length * (1 - snapshot.MinSavingsPercent / 100));
             void SkipNoSavings(string detail)
             {
@@ -96,17 +111,35 @@ internal sealed class TranscodeExecutor
                 TryDelete(temp);
                 Finish(job, JobStatus.Skipped, detail);
             }
+            async Task VerifyOutputFrameFactsAsync()
+            {
+                if (sourceFrameFacts is null) return;
+                Detail(job, "Verificando metadatos HDR por fotograma");
+                var outputFrameFacts = await DynamicHdrDetector.ScanAsync(FfmpegPaths.ResolveFfmpeg(encoder), temp!,
+                    tempDirectory, source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
+                var metadataError = DynamicHdrDetector.PreservationError(sourceFrameFacts, outputFrameFacts);
+                if (metadataError is not null) throw new IOException(metadataError);
+            }
             Directory.CreateDirectory(tempDirectory);
             temp = Path.Combine(tempDirectory, job.Id + Path.GetExtension(job.SourcePath));
             if (job.VerifiedOutputIdentity is null || !File.Exists(temp))
             {
+                var hdr10Plus = source.HasHdr10Plus;
+                var encodeTarget = hdr10Plus ? Path.Combine(tempDirectory, job.Id + ".hdr10plus", "encoded.mkv") : temp;
+                if (hdr10Plus)
+                {
+                    Hdr10PlusToolchain.EnsureAvailable(dataDirectory);
+                    Hdr10PlusToolchain.CleanupWork(tempDirectory, job.Id);
+                    Directory.CreateDirectory(Path.GetDirectoryName(encodeTarget)!);
+                }
                 Detail(job, "Comprimiendo");
-                var args = CompressionPolicy.BuildArguments(snapshot.Profile, source, job.SourcePath, temp);
+                var args = CompressionPolicy.BuildArguments(snapshot.Profile, source, job.SourcePath, encodeTarget,
+                    preserveHdr10Plus: hdr10Plus);
                 (int ExitCode, string StdErrTail) encode;
                 try
                 {
                     encode = await FfmpegExecutor.RunAsync(FfmpegPaths.ResolveFfmpeg(encoder), args, source.DurationSeconds,
-                        p => job.Progress = p, token, onProcessStarted, temp, maxOutputBytes).ConfigureAwait(false);
+                        p => job.Progress = p, token, onProcessStarted, encodeTarget, maxOutputBytes).ConfigureAwait(false);
                 }
                 catch (OutputSizeLimitExceededException)
                 {
@@ -116,6 +149,13 @@ internal sealed class TranscodeExecutor
                     return;
                 }
                 if (encode.ExitCode != 0) { job.LogExcerpt = encode.StdErrTail; throw new IOException("FFmpeg no terminó correctamente (" + encode.ExitCode + ")."); }
+                if (hdr10Plus)
+                {
+                    Detail(job, "Reinsertando y comprobando metadatos HDR10+; puede tardar varios minutos");
+                    await Hdr10PlusToolchain.RunAsync(job.SourcePath, encodeTarget, temp,
+                        FfmpegPaths.ResolveFfmpeg(encoder), dataDirectory, tempDirectory, job.Id,
+                        source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
+                }
                 // The final mux can grow after the last poll. Avoid decoding an output that cannot be published.
                 if (FileSizeOrZero(temp) >= maxOutputBytes)
                 {
@@ -130,6 +170,7 @@ internal sealed class TranscodeExecutor
                     new[] { "-nostdin", "-v", "error", "-xerror", "-i", temp, "-map", "0:V", "-map", "0:a?", "-f", "null", "-" }, source.DurationSeconds,
                     _ => { }, token, onProcessStarted).ConfigureAwait(false);
                 if (decodeExit != 0) { job.LogExcerpt = decodeTail; throw new IOException("La decodificación completa detectó errores."); }
+                await VerifyOutputFrameFactsAsync().ConfigureAwait(false);
                 var identity = await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false);
                 if (identity.Length >= snapshot.Source.Length * (1 - snapshot.MinSavingsPercent / 100))
                 {
@@ -143,8 +184,14 @@ internal sealed class TranscodeExecutor
                 job.VerifiedOutputIdentity = identity;
                 queue.Update(job);
             }
-            else if (await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false) != job.VerifiedOutputIdentity)
-                throw new IOException("El temporal verificado cambió.");
+            else
+            {
+                if (await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false) != job.VerifiedOutputIdentity)
+                    throw new IOException("El temporal verificado cambió.");
+                if (source.HasHdr10Plus && CompressionCoordinator.Config.EnableExperimentalHdr10Plus != true)
+                    throw new IOException("HDR10+ experimental desactivado; no se publicará la salida pendiente.");
+                await VerifyOutputFrameFactsAsync().ConfigureAwait(false);
+            }
             if (!FolderPolicy.SameFolder(CompressionCoordinator.Config.QuarantineDirectory, snapshot.QuarantineRoot))
             {
                 TryDelete(temp);
@@ -152,13 +199,23 @@ internal sealed class TranscodeExecutor
                 return;
             }
             if (!coordinator.MayPublish(job)) { Hold(job, "Comprimida y verificada; esperando para sustituir."); return; }
+            var currentEligibility = CompressionPolicy.EligibilityError(source, snapshot.Profile, CompressionCoordinator.Config,
+                job.Automatic, snapshot.SingleMovieSelection);
+            if (currentEligibility is not null)
+            {
+                TryDelete(temp);
+                Finish(job, JobStatus.Skipped, currentEligibility);
+                return;
+            }
             Detail(job, "Guardando el original y sustituyendo");
             monitor.ReportFileSystemChangeBeginning(job.SourcePath);
             try
             {
                 var request = new ReplacementRequest(Guid.NewGuid().ToString("N"), job.SourcePath, temp, snapshot.LibraryRoot,
                     snapshot.QuarantineRoot, snapshot.RetentionDays, snapshot.ProfileKey, snapshot.Source, job.VerifiedOutputIdentity!, job.ItemId, snapshot.ItemDateCreated);
-                await replacement.PublishAsync(request, token, () => coordinator.MayPublish(job),
+                await replacement.PublishAsync(request, token, () => coordinator.MayPublish(job)
+                    && CompressionPolicy.EligibilityError(source, snapshot.Profile, CompressionCoordinator.Config,
+                        job.Automatic, snapshot.SingleMovieSelection) is null,
                     CompressionCoordinator.Config.QuarantineMaxBytes).ConfigureAwait(false);
                 await RefreshPendingAsync(CancellationToken.None).ConfigureAwait(false);
             }
@@ -182,6 +239,12 @@ internal sealed class TranscodeExecutor
             Finish(job, JobStatus.Failed, ex.Message);
             if (job.VerifiedOutputIdentity is null) TryDelete(temp);
             nextMaintenance = DateTime.MinValue;
+        }
+        finally
+        {
+            try { Hdr10PlusToolchain.CleanupWork(tempDirectory, job.Id); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { logger.LogWarning(ex, "Could not remove HDR10+ temporary files for {JobId}", job.Id); }
         }
     }
     private void Detail(TranscodeJob job, string text) { job.StatusDetail = text; queue.Update(job); }

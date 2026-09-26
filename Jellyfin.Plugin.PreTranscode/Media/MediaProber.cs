@@ -181,6 +181,7 @@ internal sealed partial class MediaProber : IMediaProber
                     info.VideoFramerate = ParseRate(GetString(stream, "r_frame_rate"));
                     info.IsHdr = DetectHdr(stream);
                     info.IsDolbyVision = DetectDolbyVision(stream);
+                    ReadColorFacts(stream, info);
                 }
                 else if (string.Equals(type, "audio", StringComparison.Ordinal))
                 {
@@ -403,6 +404,50 @@ internal sealed partial class MediaProber : IMediaProber
         }
 
         return false;
+    }
+
+    private static void ReadColorFacts(JsonElement stream, MediaProbeInfo info)
+    {
+        info.ColorPrimaries = GetString(stream, "color_primaries");
+        info.ColorTransfer = GetString(stream, "color_transfer");
+        info.ColorSpace = GetString(stream, "color_space");
+        info.ColorRange = GetString(stream, "color_range");
+        if (!stream.TryGetProperty("side_data_list", out var entries) || entries.ValueKind != JsonValueKind.Array) return;
+        foreach (var entry in entries.EnumerateArray())
+        {
+            var type = GetString(entry, "side_data_type");
+            if (type.Equals("Mastering display metadata", StringComparison.OrdinalIgnoreCase))
+                info.MasteringDisplayMetadata = CanonicalSideData(entry);
+            else if (type.Equals("Content light level metadata", StringComparison.OrdinalIgnoreCase))
+                info.ContentLightMetadata = CanonicalSideData(entry);
+            else if (type.Contains("DOVI", StringComparison.OrdinalIgnoreCase) || type.Contains("Dolby Vision", StringComparison.OrdinalIgnoreCase))
+            {
+                info.DolbyVisionProfile = (int)GetDouble(entry, "dv_profile");
+                info.DolbyVisionCompatibilityId = (int)GetDouble(entry, "dv_bl_signal_compatibility_id");
+                info.DolbyVisionHasRpu = GetDouble(entry, "rpu_present_flag") == 1;
+                info.DolbyVisionHasEnhancementLayer = GetDouble(entry, "el_present_flag") == 1;
+                info.DolbyVisionHasBaseLayer = GetDouble(entry, "bl_present_flag") == 1;
+            }
+            else if (type.Contains("HDR10+", StringComparison.OrdinalIgnoreCase)
+                || type.Contains("SMPTE2094-40", StringComparison.OrdinalIgnoreCase)
+                || type.Contains("SMPTE 2094-40", StringComparison.OrdinalIgnoreCase))
+                info.HasHdr10Plus = true;
+        }
+    }
+
+    private static string CanonicalSideData(JsonElement entry) => string.Join("|", entry.EnumerateObject()
+        .Where(p => p.Name != "side_data_type")
+        .OrderBy(p => p.Name, StringComparer.Ordinal)
+        .Select(p => p.Name + "=" + CanonicalNumber(p.Value.ToString())));
+
+    private static string CanonicalNumber(string value)
+    {
+        var parts = value.Split('/');
+        if (parts.Length == 2 && decimal.TryParse(parts[0], NumberStyles.Number, CultureInfo.InvariantCulture, out var numerator)
+            && decimal.TryParse(parts[1], NumberStyles.Number, CultureInfo.InvariantCulture, out var denominator) && denominator != 0)
+            return (numerator / denominator).ToString("G29", CultureInfo.InvariantCulture);
+        return decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var number)
+            ? number.ToString("G29", CultureInfo.InvariantCulture) : value;
     }
 
     private static string GetLanguage(JsonElement stream)
