@@ -334,7 +334,7 @@ public sealed class ReplacementService
         }
         finally { gate.Release(); }
     }
-    public async Task RestoreAsync(string id, CancellationToken token, Func<bool>? mayPublish = null)
+    public async Task RestoreAsync(string id, CancellationToken token, Func<bool>? mayPublish = null, IProgress<double>? progress = null)
     {
         await gate.WaitAsync(token).ConfigureAwait(false);
         try
@@ -342,11 +342,15 @@ public sealed class ReplacementService
             var r = List().Single(r => r.Request.Id == id);
             if (r.Phase != ReplacementPhase.Completed) throw new InvalidOperationException("El original no está disponible para restaurar.");
             var q = r.Request;
+            progress?.Report(5);
             await Require(r.OriginalPath, q.Source, token).ConfigureAwait(false);
+            progress?.Report(30);
             await Require(q.SourcePath, q.Output, token).ConfigureAwait(false);
+            progress?.Report(50);
             r.Phase = ReplacementPhase.Restoring;
             Save(r);
             await CopyVerified(r.OriginalPath, r.StagedPath, q.Source, token).ConfigureAwait(false);
+            progress?.Report(75);
             Dates(r, r.StagedPath);
             await Require(q.SourcePath, q.Output, token).ConfigureAwait(false);
             if (mayPublish is not null && !mayPublish()) throw new InvalidOperationException("Hay una reproducción activa.");
@@ -356,6 +360,7 @@ public sealed class ReplacementService
             r.Phase = ReplacementPhase.Restored;
             r.LibraryRefreshPending = q.ItemId is not null;
             Save(r);
+            progress?.Report(90);
             if (!r.LibraryRefreshPending) await CleanRestoredAsync(r, token).ConfigureAwait(false);
         }
         finally { gate.Release(); }

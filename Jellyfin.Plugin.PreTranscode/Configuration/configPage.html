@@ -204,7 +204,7 @@
 (function () {
     'use strict';
     var page = document.querySelector('#CompressorPage'), config, timer, loading = false, active = false;
-    var dirtyState = false, revision = 0, saving = false, scanning = false, cancelling = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, lastOperationId;
+    var dirtyState = false, revision = 0, saving = false, scanning = false, cancelling = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, manualStartedAt = 0, lastOperationId;
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0, folderCounts = null, folderCountsError = false, folderCountsRequest = 0;
     var movieEntries = [], movieRequest = 0, movieTimer, queueingMovie = false, originalFolderState, originalRequest = 0;
     function el(id) { return page.querySelector('#' + id); }
@@ -212,7 +212,7 @@
     function icon(name) { var node = document.createElement('span'); node.className = 'material-icons'; node.setAttribute('aria-hidden', 'true'); node.textContent = name; return node; }
     function api(path, method, body) {
         var options = {type: method || 'GET', url: ApiClient.getUrl('JellyfinCompressor/' + path)};
-        if (!method || method === 'GET' || path === 'Analyze' || path === 'Compress' || path === 'Configuration' || path.startsWith('Items/')) options.dataType = 'json';
+        if (!method || method === 'GET' || path === 'Analyze' || path === 'Compress' || path === 'Configuration' || path.startsWith('Items/') || path.endsWith('/Restore')) options.dataType = 'json';
         if (body) { options.contentType = 'application/json'; options.data = JSON.stringify(body); }
         return ApiClient.ajax(options);
     }
@@ -221,7 +221,9 @@
     function time(minutes) { return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0'); }
     function minutes(value) { var p = value.split(':'); return Number(p[0]) * 60 + Number(p[1]); }
     function bytes(value) { return (value / 1073741824).toFixed(2) + ' GB'; }
-    function button(label, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = 'jc-button'; b.textContent = label; b.onclick = function() { action(fn); }; return b; }
+    function button(label, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = 'jc-button'; b.textContent = label;
+        b.onclick = function() { if (b.disabled) return; b.disabled = true; b.textContent = 'Iniciando…'; message(label + '…');
+            action(fn).finally(function() { if (b.isConnected) { b.disabled = false; b.textContent = label; } }); }; return b; }
     function table(target, heads, rows) {
         var box = el(target); box.replaceChildren();
         if (!rows.length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = 'No hay registros.'; box.append(empty); return; }
@@ -433,7 +435,7 @@
         message(list.length + ' películas revisadas. ' + result);
     }
     function beginManual(operation, movieName) {
-        manualOperationId = operation.Id; manualKind = operation.Kind; manualMovieName = movieName || '';
+        manualOperationId = operation.Id; manualKind = operation.Kind; manualMovieName = movieName || ''; manualStartedAt = Date.now();
         scanning = manualKind !== 'Movie'; queueingMovie = manualKind === 'Movie'; updateControls();
         return pollManual();
     }
@@ -443,12 +445,20 @@
         return api('Manual/' + encodeURIComponent(id)).then(function(operation) {
             if (id !== manualOperationId) return;
             if (operation.State === 'Running') {
+                if (manualKind === 'Restore') {
+                    var p = Math.round(operation.Progress), stage = p < 30 ? 'Verificando el original' : p < 50 ? 'Verificando la película comprimida'
+                        : p < 75 ? 'Copiando el original' : p < 90 ? 'Comprobando la copia' : p < 95 ? 'Original colocado; preparando la ficha' : 'Actualizando Jellyfin';
+                    message('Restaurando ' + (manualMovieName || 'la película') + ' · ' + stage + ' · '
+                        + Math.floor((Date.now() - manualStartedAt) / 1000) + ' s. Jellyfin sigue trabajando.');
+                    return;
+                }
                 message((manualKind === 'Movie' ? 'Comprobando ' + (manualMovieName || 'la película') : 'Analizando la biblioteca') + ' · ' + Math.round(operation.Progress) + ' %. Puede tardar con archivos grandes…');
                 return;
             }
             manualOperationId = null; lastOperationId = id; scanning = false; queueingMovie = false; cancelling = false; updateControls();
             if (operation.State !== 'Completed') { message(operation.Error || 'La comprobación se canceló.', operation.State !== 'Cancelled'); return; }
-            if (manualKind === 'Movie') message((manualMovieName || 'Película') + ': ' + operation.Result.Reason);
+            if (manualKind === 'Restore') message('Original restaurado y ficha de Jellyfin actualizada.');
+            else if (manualKind === 'Movie') message((manualMovieName || 'Película') + ': ' + operation.Result.Reason);
             else candidates(operation.Result || [], manualKind);
         }).catch(function(error) {
             if (id === manualOperationId) { manualOperationId = null; scanning = false; queueingMovie = false; cancelling = false; updateControls(); message(errorText(error), true); }
@@ -472,7 +482,11 @@
             }));
             table('jcOriginals', ['Película', 'Estado', 'Vencimiento', 'Acciones'], originals.slice().sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); }).map(function(r) {
                 var phase = enumName(r.Phase, ['Prepared', 'BackupVerified', 'Publishing', 'Completed', 'Purging', 'Purged', 'Restoring', 'Restored', 'Aborted']), actions = document.createElement('span');
-                if (phase === 'Completed') actions.append(button('Restaurar original', function() { return api('Originals/' + r.Request.Id + '/Restore', 'POST').then(function() { message('Original restaurado.'); return refresh(); }); }));
+                if (phase === 'Completed') {
+                    if (manualKind === 'Restore' && manualOperationId) actions.textContent = 'Restaurando…';
+                    else actions.append(button('Restaurar original', function() { return api('Originals/' + r.Request.Id + '/Restore', 'POST')
+                        .then(function(operation) { return beginManual(operation, r.Request.SourcePath.split('/').pop()); }); }));
+                }
                 return [r.Request.SourcePath, r.RetentionStatus || (r.LibraryRefreshPending ? 'Actualización de Jellyfin pendiente' : phase), r.ExpiresUtc ? new Date(r.ExpiresUtc).toLocaleString() : 'Sin vencimiento', actions];
             }));
         }).then(pollManual).finally(function() { loading = false; });
