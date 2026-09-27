@@ -116,6 +116,19 @@ public sealed class CompressorSafetyTests : IDisposable
     }
 
     [Fact]
+    public async Task RestoreReportsItsVerificationAndCopyStages()
+    {
+        var (service, _, request) = await Prepare();
+        await service.PublishAsync(request, default);
+        var progress = new CollectedProgress();
+
+        await service.RestoreAsync(request.Id, default, progress: progress);
+
+        Assert.Equal(new[] { 5d, 30d, 50d, 75d, 90d }, progress.Values);
+        Assert.Equal(request.Source, await ContentRegistry.IdentifyAsync(request.SourcePath, default));
+    }
+
+    [Fact]
     public async Task ChangedSourceCannotBeOverwritten()
     {
         var (service, _, request) = await Prepare();
@@ -205,5 +218,11 @@ public sealed class CompressorSafetyTests : IDisposable
         File.WriteAllText(active, "active"); File.WriteAllText(finished, "finished"); File.WriteAllText(unknown, "unknown");
         TemporaryFiles.Clean(temp, new[] { new Jellyfin.Plugin.PreTranscode.Jobs.TranscodeJob { Id = activeId } });
         Assert.True(File.Exists(active)); Assert.False(File.Exists(finished)); Assert.True(File.Exists(unknown));
+    }
+
+    private sealed class CollectedProgress : IProgress<double>
+    {
+        public List<double> Values { get; } = new();
+        public void Report(double value) => Values.Add(value);
     }
 }
