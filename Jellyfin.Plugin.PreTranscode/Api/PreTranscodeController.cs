@@ -156,7 +156,7 @@ public class PreTranscodeController : ControllerBase
     [HttpPost("Originals/Purge")]
     public async Task<IActionResult> Purge(CancellationToken token) => Ok(new { Deleted = await replacement.PurgeExpiredAsync(DateTimeOffset.UtcNow, token).ConfigureAwait(false) });
     [HttpPost("Originals/{id}/Restore")]
-    public async Task<IActionResult> Restore(string id, CancellationToken token)
+    public IActionResult Restore(string id)
     {
         var record = replacement.List().SingleOrDefault(r => r.Request.Id == id);
         if (record is null) return NotFound();
@@ -165,15 +165,22 @@ public class PreTranscodeController : ControllerBase
         if (item is null || coordinator.IsPlaying(path, item.Id.ToString("N"))) return BadRequest(new { Message = "No se puede restaurar: ficha ausente o reproducción activa." });
         if (queue.GetJobs().Any(j => j.SourcePath == path && j.Status is JobStatus.Processing or JobStatus.Pending)) return BadRequest(new { Message = "Cancela primero el trabajo activo de esta película." });
         var dateCreated = item.DateCreated;
-        monitor.ReportFileSystemChangeBeginning(path);
         try
         {
-            await replacement.RestoreAsync(id, token, () => !coordinator.IsPlaying(path, item.Id.ToString("N"))).ConfigureAwait(false);
-            await replacement.RefreshPendingAsync((r, ct) => updater.RefreshSameItemAsync(r.Request.ItemId!, r.Request.SourcePath,
-                r.Request.ItemDateCreated ?? dateCreated, ct), CancellationToken.None).ConfigureAwait(false);
-            return Ok();
+            return Accepted(manual.Start("Restore", async (progress, token) =>
+            {
+                monitor.ReportFileSystemChangeBeginning(path);
+                try
+                {
+                    await replacement.RestoreAsync(id, token, () => !coordinator.IsPlaying(path, item.Id.ToString("N")), progress).ConfigureAwait(false);
+                    progress.Report(95);
+                    await replacement.RefreshPendingAsync((r, ct) => updater.RefreshSameItemAsync(r.Request.ItemId!, r.Request.SourcePath,
+                        r.Request.ItemDateCreated ?? dateCreated, ct), CancellationToken.None).ConfigureAwait(false);
+                    return null;
+                }
+                finally { monitor.ReportFileSystemChangeComplete(path, false); }
+            }));
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException) { return BadRequest(new { Message = ex.Message }); }
-        finally { monitor.ReportFileSystemChangeComplete(path, false); }
+        catch (InvalidOperationException ex) { return BadRequest(new { Message = ex.Message }); }
     }
 }
