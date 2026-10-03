@@ -20,6 +20,44 @@ public class CompressorHdrTests
 
     private static readonly EncodingProfile CpuProfile = new() { VideoEncoder = "libx265" };
 
+    private const string FrameOnlyHdrProbe = """
+        {"format":{"duration":"120"},"streams":[{"codec_type":"video","codec_name":"hevc","width":3840,"height":1604,
+        "pix_fmt":"yuv420p10le","color_primaries":"bt2020","color_transfer":"smpte2084","color_space":"bt2020nc",
+        "side_data_list":[{"side_data_type":"DOVI configuration record","dv_profile":8,"dv_bl_signal_compatibility_id":1,
+        "rpu_present_flag":1,"el_present_flag":0,"bl_present_flag":1}]}],
+        "frames":[{"side_data_list":[{"side_data_type":"Mastering display metadata","red_x":"34000/50000","max_luminance":"10000000/10000"},
+        {"side_data_type":"Content light level metadata","max_content":1000,"max_average":400},
+        {"side_data_type":"Dolby Vision RPU Data"}]}]}
+        """;
+
+    [Fact]
+    public void FrameOnlyHdrStaticMetadataIsReadWithoutOverwritingDolbyConfiguration()
+    {
+        var info = MediaProber.Parse(FrameOnlyHdrProbe, "movie.mkv");
+        Assert.NotEmpty(info.MasteringDisplayMetadata);
+        Assert.NotEmpty(info.ContentLightMetadata);
+        Assert.Equal(8, info.DolbyVisionProfile);
+        Assert.Equal(1, info.DolbyVisionCompatibilityId);
+        Assert.True(info.DolbyVisionHasRpu);
+        Assert.Null(DynamicHdrDetector.ApplyFacts(info, new DynamicHdrFacts(0, 1, 1, 1)));
+    }
+
+    [Fact]
+    public void ConflictingStaticHdrAcrossFramesIsRejectedInsteadOfSilentlyUsingTheLastValue()
+    {
+        var json = FrameOnlyHdrProbe.Replace("\"frames\":[", "\"frames\":[{\"side_data_list\":[{\"side_data_type\":\"Mastering display metadata\",\"red_x\":\"33000/50000\",\"max_luminance\":\"10000000/10000\"}]},");
+        Assert.Throws<System.IO.InvalidDataException>(() => MediaProber.Parse(json, "movie.mkv"));
+    }
+
+    [Fact]
+    public void FrameAndStreamHdrValuesUseTheSameRationalNormalization()
+    {
+        var json = DolbyVisionProbe.Replace("\"format\":", "\"frames\":[{\"side_data_list\":[{\"side_data_type\":\"Mastering display metadata\",\"red_x\":\"68/100\",\"max_luminance\":\"1000/1\"}]}],\"format\":");
+        Assert.NotEmpty(MediaProber.Parse(json, "movie.mkv").MasteringDisplayMetadata);
+        var conflicting = json.Replace("\"red_x\":\"68/100\"", "\"red_x\":\"67/100\"");
+        Assert.Throws<System.IO.InvalidDataException>(() => MediaProber.Parse(conflicting, "movie.mkv"));
+    }
+
     [Fact]
     public void VerificationRejectsAnHdrOutputThatBecameSdr()
     {

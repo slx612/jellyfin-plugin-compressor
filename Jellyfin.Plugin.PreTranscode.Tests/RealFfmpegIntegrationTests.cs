@@ -21,6 +21,39 @@ namespace Jellyfin.Plugin.PreTranscode.Tests;
 public class RealFfmpegIntegrationTests
 {
     [Fact]
+    public async Task HdrStaticMetadataInFramesIsCapturedByTheActualProber()
+    {
+        var ffmpeg = FfmpegTestBinaries.Find("ffmpeg");
+        var ffprobe = FfmpegTestBinaries.Find("ffprobe");
+        if (ffmpeg is null || ffprobe is null) return;
+        var work = Path.Combine(Path.GetTempPath(), "compressor-hdr-probe-" + Path.GetRandomFileName());
+        Directory.CreateDirectory(work);
+        try
+        {
+            var source = Path.Combine(work, "source.mkv");
+            var (exit, error) = await FfmpegExecutor.RunAsync(ffmpeg, new[]
+            {
+                "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=24:duration=1", "-c:v", "libx265", "-pix_fmt", "yuv420p10le",
+                "-color_primaries", "bt2020", "-color_trc", "smpte2084", "-colorspace", "bt2020nc",
+                "-x265-params", "pools=1:frame-threads=1:master-display=G(8500,39850)B(6550,2300)R(35400,14600)WP(15635,16450)L(10000000,50):max-cll=1158,394",
+                source
+            }, 1, null, CancellationToken.None);
+            Assert.True(exit == 0, error);
+            var encoder = new Mock<IMediaEncoder>();
+            encoder.SetupGet(x => x.EncoderPath).Returns(ffmpeg);
+            encoder.SetupGet(x => x.ProbePath).Returns(ffprobe);
+            var prober = new MediaProber(encoder.Object, NullLogger<MediaProber>.Instance);
+            var info = await prober.ProbeAsync(source, CancellationToken.None);
+            Assert.NotNull(info);
+            Assert.True(info.IsHdr);
+            Assert.Contains("max_luminance=1000", info.MasteringDisplayMetadata);
+            Assert.Contains("max_content=1158", info.ContentLightMetadata);
+            Assert.Contains("max_average=394", info.ContentLightMetadata);
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Fact]
     public async Task EncodeStopsOnceTemporaryFileExceedsSavingsBudget()
     {
         var ffmpeg = FfmpegTestBinaries.Find("ffmpeg");

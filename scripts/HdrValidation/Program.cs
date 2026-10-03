@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.Loader;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Jellyfin.Plugin.PreTranscode.Configuration;
@@ -48,6 +49,11 @@ internal static class Trial
         Directory.CreateDirectory(root);
         using var cancellation = new CancellationTokenSource();
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; cancellation.Cancel(); };
+        using var termination = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+        {
+            context.Cancel = true;
+            cancellation.Cancel();
+        });
         var heartbeat = Heartbeat(root, cancellation.Token);
         try
         {
@@ -85,10 +91,11 @@ internal static class Trial
         await VerifyTool(mkv, "c66345b30d6d5fd640ea982ab5e202a99b9f541a20e42aa19edd90f3ddd5dc9b", token);
         var manifest = JsonSerializer.Deserialize<Dictionary<string, string>>(await File.ReadAllTextAsync(Path.Combine(tools, "sha256.json"), token))!;
         await VerifyTool(dovi, manifest["dovi_tool"], token);
-        Stage("Hashing original");
-        var sourceHash = await Hash(source, token);
+        Stage("Reading stream and frame HDR metadata");
         var input = await Probe(source, "source", ffprobe, root, token);
         if (!input.IsHdr && !input.IsDolbyVision) throw new IOException("This diagnostic requires an HDR source.");
+        Stage("Hashing original");
+        var sourceHash = await Hash(source, token);
         Stage("Scanning every source frame for HDR/Dolby metadata");
         var facts = await DynamicHdrDetector.ScanAsync(ffmpeg, source, root, input.DurationSeconds, token, Started);
         Check(DynamicHdrDetector.ApplyFacts(input, facts));
@@ -154,7 +161,11 @@ internal static class Trial
     {
         var json = await ProcessRunner.RunAsync(ffprobe, MediaProber.BuildProbeArguments(path), 60000, token);
         await File.WriteAllTextAsync(Path.Combine(root, name + ".probe.json"), json, token);
-        return MediaProber.Parse(json, path);
+        var info = MediaProber.Parse(json, path);
+        var frames = await ProcessRunner.RunAsync(ffprobe, MediaProber.BuildFrameProbeArguments(path), 60000, token);
+        await File.WriteAllTextAsync(Path.Combine(root, name + ".frames.probe.json"), frames, token);
+        MediaProber.ApplyFrameHdrMetadata(frames, info);
+        return info;
     }
 
     private static async Task Rpu(string path, string name, string ffmpeg, string dovi, string root, double duration, CancellationToken token)
