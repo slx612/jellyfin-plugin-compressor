@@ -485,7 +485,10 @@
                 if (status === 'Pending' || status === 'Processing') actions.append(button('Cancelar', function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').then(refresh); }));
                 if (status === 'Failed' || status === 'Cancelled') actions.append(button('Reintentar', function() { return api('Jobs/' + j.Id + '/Retry', 'POST').then(function(operation) { return beginManual(operation, j.DisplayName); }); }));
                 var progress = status === 'Processing' && j.StatusDetail === 'Comprimiendo' ? Math.round(j.Progress) + ' %' : '—';
-                var transaction = records.filter(function(r) { return r.Request.ItemId === j.ItemId && r.Request.SourcePath === j.SourcePath; })
+                var sourceHash = j.Snapshot && j.Snapshot.Source && j.Snapshot.Source.Sha256,
+                    outputHash = j.VerifiedOutputIdentity && j.VerifiedOutputIdentity.Sha256;
+                var transaction = records.filter(function(r) { return sourceHash && outputHash && r.Request.ItemId === j.ItemId && r.Request.SourcePath === j.SourcePath
+                    && r.Request.Source && r.Request.Source.Sha256 === sourceHash && r.Request.Output && r.Request.Output.Sha256 === outputHash; })
                     .sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); })[0];
                 var detail = j.ErrorMessage || j.StatusDetail || status;
                 if (status === 'Completed' && transaction) {

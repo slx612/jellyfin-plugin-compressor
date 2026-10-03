@@ -9,6 +9,12 @@ spec.loader.exec_module(driver)
 
 
 class ManualContractTests(unittest.TestCase):
+    def test_successful_restore_can_omit_its_null_result(self):
+        api = driver.Api()
+        responses = iter([{'Id': 'restore-1'}, {'State': 'Completed'}])
+        api.call = lambda *args, **kwargs: next(responses)
+        self.assertIsNone(api.manual('/JellyfinCompressor/Originals/original-1/Restore'))
+
     def test_manual_call_waits_for_completion_and_returns_the_result(self):
         api = driver.Api()
         calls = []

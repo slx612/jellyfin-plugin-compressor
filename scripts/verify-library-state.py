@@ -84,7 +84,7 @@ class Api:
                     f"{path}: {current.get('Error') or current['State']}")
             return current if current["State"] == "Completed" else None
 
-        return wait_for(finished, "manual operation " + path, 1200)["Result"]
+        return wait_for(finished, "manual operation " + path, 1200).get("Result")
 
 
 def prepare(root, ffmpeg, plugin):

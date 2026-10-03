@@ -52,12 +52,34 @@ test('a transient polling failure keeps tracking the operation until its real co
 });
 
 const restored = {
-    Request: { Id: 'transaction-1', ItemId: 'movie-1', SourcePath: '/movies/Movie.mkv' },
+    Request: { Id: 'transaction-1', ItemId: 'movie-1', SourcePath: '/movies/Movie.mkv', Source: { Sha256: 'source-1' }, Output: { Sha256: 'output-1' } },
     Phase: 'Restored', LibraryRefreshPending: false,
     RetentionStatus: 'Restauración verificada; copias de cuarentena eliminadas.'
 };
 const job = { Id: 'job-1', ItemId: 'movie-1', SourcePath: '/movies/Movie.mkv', DisplayName: 'Movie',
-    CreatedUtc: '2026-10-03T10:00:00Z', Status: 'Completed', StatusDetail: 'Comprimida; original sujeto al plazo.' };
+    CreatedUtc: '2026-10-03T10:00:00Z', Status: 'Completed', StatusDetail: 'Comprimida; original sujeto al plazo.',
+    Snapshot: { Source: { Sha256: 'source-1' } }, VerifiedOutputIdentity: { Sha256: 'output-1' } };
+
+test('each job uses the transaction for its own source and output at a reused movie path', async () => {
+    const older = { ...job, DisplayName: 'Older encode' };
+    const newer = { ...job, Id: 'job-2', DisplayName: 'Newer encode', CreatedUtc: '2026-10-03T11:00:00Z',
+        Snapshot: { Source: { Sha256: 'source-2' } }, VerifiedOutputIdentity: { Sha256: 'output-2' } };
+    const purged = { ...restored, Phase: 'Purged', CompletedUtc: '2026-10-03T10:00:00Z' };
+    const newest = { ...restored, CompletedUtc: '2026-10-03T11:00:00Z', Request: { ...restored.Request,
+        Source: { Sha256: 'source-2' }, Output: { Sha256: 'output-2' } } };
+    const ui = panel(async route => route === 'Originals' ? [purged, newest] : { Jobs: [older, newer], Paused: false });
+    await ui.refresh();
+    const rendered = text(ui.element('jcJobs'));
+    assert.match(rendered, /Newer encode Original restaurado/);
+    assert.match(rendered, /Older encode Comprimida; original eliminado/);
+});
+
+test('jobs without verified identities retain their historical detail', async () => {
+    const legacy = { ...job, Snapshot: null, VerifiedOutputIdentity: null };
+    const ui = panel(async route => route === 'Originals' ? [restored] : { Jobs: [legacy], Paused: false });
+    await ui.refresh();
+    assert.match(text(ui.element('jcJobs')), /Comprimida; original sujeto al plazo/);
+});
 
 test('restored movies show their current state instead of claiming the compressed file is still installed', async () => {
     const ui = panel(async route => route === 'Originals' ? [restored] : { Jobs: [job], Paused: false });

@@ -73,8 +73,10 @@ originales y resultados con el SHA-256 del archivo completo y se añade una marc
 Un resultado propio se omite después de reiniciar, moverlo, renombrarlo, cambiar de
 perfil, limpiar el historial o eliminar el original vencido. Un original restaurado
 también queda protegido. La v1 no ofrece recompresión forzada. Un intento sin ahorro
-se recuerda para el perfil utilizado; cambiar de perfil permite un nuevo intento
-sobre ese original.
+se recuerda para el perfil y el ahorro mínimo utilizados; cambiar cualquiera permite
+un nuevo intento sobre ese original. Al actualizar a 0.1.12 se permite un intento
+adicional para los registros antiguos sin ahorro, aunque no cambien los ajustes.
+Los originales restaurados y los resultados comprimidos siguen protegidos.
 
 El análisis rápido no calcula SHA-256 y puede mostrar como «apta preliminarmente»
 una película ya procesada. La comprobación completa al encolarla la omite en ese caso;
