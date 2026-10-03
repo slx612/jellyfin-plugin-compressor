@@ -16,11 +16,23 @@ película más 5 GiB; libx265 en CPU puede tardar horas. Se comparan también lo
 Dolby completos extraídos con `dovi_tool`, además del HDR10+ y las verificaciones
 de la ruta de producción. `status.json` y el registro se actualizan cada 30 segundos.
 
+La lectura inicial consulta también un máximo de 64 paquetes de vídeo: en algunos
+MKV, los metadatos HDR10 estáticos aparecen en los fotogramas y no en la cabecera
+del flujo. Se conservan el perfil y los indicadores Dolby de la cabecera, se
+normalizan los valores HDR10 y se rechazan los conflictos entre cabecera y muestra.
+Después sigue siendo obligatorio el análisis completo de todos los fotogramas.
+Este análisis completo compara presencia y cantidades de metadatos; la comparación
+de valores HDR10 estáticos se limita a la muestra inicial. Los valores HDR10+ y RPU
+se comparan completos mediante las herramientas correspondientes.
+
 Solo un `result.json` con `TechnicalChecksPassed`, `OriginalUnchanged` y
 `MinimumSavingsMet` verdaderos acredita la prueba técnica. Siempre conserva
 `ClientPlaybackVerified: false`: aún hay que reproducir el candidato en el cliente
 habitual y confirmar imagen, HDR/Dolby, audio y subtítulos. Si falla o se cancela,
 se guarda `failure.txt`; no se sustituye ni se elimina ningún original.
+Para detener un diagnóstico lanzado en segundo plano se debe enviar SIGTERM a su
+proceso verificado: cancela sus tareas y detiene sus procesos hijos. SIGINT puede
+quedar ignorada al heredar el estado de señales de `nohup`.
 
 Este trabajo **no está publicado ni instalado**. La versión 0.1.11 instalada sigue omitiendo HDR y Dolby Vision. No actives estos interruptores sobre originales hasta completar una prueba de codificación y reproducción real.
 
