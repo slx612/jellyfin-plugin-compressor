@@ -64,9 +64,9 @@ internal static class Trial
         }
         finally
         {
-            await WriteStatus(root);
             cancellation.Cancel();
             try { await heartbeat; } catch (OperationCanceledException) { }
+            await WriteStatus(root);
         }
     }
 
