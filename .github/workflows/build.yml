@@ -29,6 +29,7 @@ jobs:
           if "$app" '/Peliculas/source.mkv' /tmp/hdr-output-must-not-exist /tmp; then exit 1; else test "$?" -eq 2; fi
           test ! -e /tmp/hdr-output-must-not-exist
           bash -n scripts/run-hdr-validation.sh
+          bash scripts/test-hdr-diagnostic.sh
       - name: Smoke-test bundled Linux tools without FUSE
         run: |
           mkdir -p /tmp/jellyfin-compressor-preview
