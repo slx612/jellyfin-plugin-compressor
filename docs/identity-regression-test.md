@@ -57,3 +57,12 @@ se documenta en [validation.md](validation.md).
 Esto cubre las listas y datos servidos por Jellyfin. No sustituye las pruebas
 visuales de cada cliente, las del sistema de archivos del NAS ni las de cortes
 durante la publicación. No se simulan reproducciones activas durante el reemplazo.
+
+## Ejecución en Linux y CI
+
+`bash scripts/verify-library-state-linux.sh` prepara medios sintéticos y ejecuta
+el mismo comparador en la imagen oficial de Jellyfin 10.11.6 fijada por digest.
+Requiere Docker, Python 3, curl, FFmpeg y la DLL Release ya compilada. Solo monta
+la nueva carpeta de la prueba; no acepta datos de un Jellyfin existente.
+Espera las operaciones manuales en segundo plano y también comprueba la limpieza
+manual. El workflow ejecuta esta prueba antes de publicar el paquete de CI.

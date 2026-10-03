@@ -75,6 +75,17 @@ class Api:
         self.token = session["AccessToken"]
         self.user_id = session["User"]["Id"]
 
+    def manual(self, path):
+        operation = self.call(path, "POST")
+
+        def finished():
+            current = self.call("/JellyfinCompressor/Manual/" + operation["Id"])
+            require(current["State"] in ("Running", "Completed"),
+                    f"{path}: {current.get('Error') or current['State']}")
+            return current if current["State"] == "Completed" else None
+
+        return wait_for(finished, "manual operation " + path, 1200)["Result"]
+
 
 def prepare(root, ffmpeg, plugin):
     require(not root.exists(), "Use a NEW fixture directory; refusing to overwrite a prior run.")
@@ -200,7 +211,7 @@ def seed(root, fixture, admin):
     state = {"ServerId": public["Id"], "LibraryId": library["ItemId"]}
     save(root / "state.json", state)
     config.update(IncludedFolders=[str(root / "media")], QuarantineDirectory=str(root / "originals"),
-                  RetentionDays=30, AutomaticCompressionEnabled=False)
+                  RetentionDays=30, AutomaticCompressionEnabled=False, MinMovieSizeGb=0)
     config["Profiles"][0].update(VideoEncoder="libx265", Preset="ultrafast", Crf=28)
     admin.call("/JellyfinCompressor/Configuration", "POST", config)
     return state, items
@@ -244,9 +255,9 @@ def run(root, phase):
             require(sum(d["Played"] for d in states) == 1 and sum(d["PlaybackPositionTicks"] > 0 for d in states) == 1,
                     f"{name}: playback states were not seeded")
         save(root / "baseline.json", baseline)
-        candidates = admin.call("/JellyfinCompressor/Analyze", "POST")
+        candidates = admin.manual("/JellyfinCompressor/Analyze")
         require(len(candidates) == 3 and all(i["Eligible"] for i in candidates), f"Ineligible fixture: {candidates}")
-        admin.call("/JellyfinCompressor/Compress", "POST")
+        admin.manual("/JellyfinCompressor/Compress")
 
         def completed():
             status = admin.call("/JellyfinCompressor/Status")
@@ -276,9 +287,11 @@ def run(root, phase):
         originals = admin.call("/JellyfinCompressor/Originals")
         require(len(originals) == 3, "Expected three restorable originals")
         for record in originals:
-            admin.call("/JellyfinCompressor/Originals/" + record["Request"]["Id"] + "/Restore", "POST")
+            admin.manual("/JellyfinCompressor/Originals/" + record["Request"]["Id"] + "/Restore")
         for file in fixture["Files"]:
             require(digest(Path(file["Path"])) == file["Sha256"], "Restoration changed original bytes")
+        require(admin.manual("/JellyfinCompressor/Originals/Purge")["Deleted"] == 0,
+                "Manual purge unexpectedly removed a retained original")
         compare(root, users, state, "after-restore")
         scan(admin)
         compare(root, users, state, "after-restore-scan")

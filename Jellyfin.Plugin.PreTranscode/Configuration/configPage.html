@@ -210,7 +210,7 @@
     function icon(name) { var node = document.createElement('span'); node.className = 'material-icons'; node.setAttribute('aria-hidden', 'true'); node.textContent = name; return node; }
     function api(path, method, body) {
         var options = {type: method || 'GET', url: ApiClient.getUrl('JellyfinCompressor/' + path)};
-        if (!method || method === 'GET' || path === 'Analyze' || path === 'Compress' || path === 'Configuration' || path.startsWith('Items/') || path.endsWith('/Restore')) options.dataType = 'json';
+        if (!method || method === 'GET' || path === 'Analyze' || path === 'Compress' || path === 'Configuration' || path === 'Originals/Purge' || path.startsWith('Items/') || path.endsWith('/Restore')) options.dataType = 'json';
         if (body) { options.contentType = 'application/json'; options.data = JSON.stringify(body); }
         return ApiClient.ajax(options);
     }
@@ -237,6 +237,7 @@
         el('jcAnalyze').disabled = el('jcCompress').disabled = dirtyState || saving || scanning || queueingMovie || !config;
         el('jcCancelAnalysis').hidden = !(manualOperationId && manualKind === 'Analyze' && scanning);
         el('jcCancelAnalysis').disabled = cancelling;
+        el('jcPurge').disabled = scanning || queueingMovie;
         page.querySelectorAll('button[data-movie-id]').forEach(function(control) { control.disabled = dirtyState || saving || scanning || queueingMovie || !config; });
         updateSelectionWarning();
     }
@@ -446,28 +447,34 @@
                     var p = Math.round(operation.Progress), stage = p < 30 ? 'Verificando el original' : p < 50 ? 'Verificando la película comprimida'
                         : p < 75 ? 'Copiando el original' : p < 90 ? 'Comprobando la copia' : p < 95 ? 'Original colocado; preparando la ficha' : 'Actualizando Jellyfin';
                     message('Restaurando ' + (manualMovieName || 'la película') + ' · ' + stage + ' · '
-                        + Math.floor((Date.now() - manualStartedAt) / 1000) + ' s. Jellyfin sigue trabajando.');
+                        + Math.floor((Date.now() - manualStartedAt) / 1000) + ' s desde el inicio.');
                     return;
                 }
+                if (manualKind === 'Purge') { message('Verificando y limpiando originales vencidos · ' + Math.floor((Date.now() - manualStartedAt) / 1000) + ' s desde el inicio.'); return; }
                 message((manualKind === 'Movie' ? 'Comprobando ' + (manualMovieName || 'la película') : 'Analizando la biblioteca') + ' · ' + Math.round(operation.Progress) + ' %. Puede tardar con archivos grandes…');
                 return;
             }
             manualOperationId = null; lastOperationId = id; scanning = false; queueingMovie = false; cancelling = false; updateControls();
             if (operation.State !== 'Completed') { message(operation.Error || 'La comprobación se canceló.', operation.State !== 'Cancelled'); return; }
             if (manualKind === 'Restore') message('Original restaurado y ficha de Jellyfin actualizada.');
+            else if (manualKind === 'Purge') message('Limpieza terminada: ' + operation.Result.Deleted + ' originales eliminados.');
             else if (manualKind === 'Movie') message((manualMovieName || 'Película') + ': ' + operation.Result.Reason);
             else candidates(operation.Result || [], manualKind);
         }).catch(function(error) {
-            if (id === manualOperationId) { manualOperationId = null; scanning = false; queueingMovie = false; cancelling = false; updateControls(); message(errorText(error), true); }
+            if (id !== manualOperationId) return;
+            if (error && error.status === 404) {
+                manualOperationId = null; lastOperationId = id; scanning = false; queueingMovie = false; cancelling = false; updateControls();
+                message('Jellyfin ya no conserva el seguimiento de esta operación, por ejemplo tras reiniciar. Revisa su estado en Actividad; no se puede confirmar el resultado desde este seguimiento.', true);
+            } else message('Se ha perdido la conexión con Jellyfin. El resultado aún no está confirmado; se reintentará el seguimiento automáticamente.', true);
         }).finally(function() { manualPolling = false; });
     }
     function enumName(value, names) { return typeof value === 'number' ? names[value] : value; }
     function refresh() {
         if (loading || !active) return Promise.resolve(); loading = true;
         return Promise.all([api('Status'), api('Originals')]).then(function(values) {
-            var state = values[0], originals = values[1].filter(function(r) {
+            var state = values[0], records = values[1], originals = records.filter(function(r) {
                 var phase = enumName(r.Phase, replacementPhases);
-                return phase === 'Completed' || phase === 'Restoring';
+                return phase === 'Completed' || phase === 'Restoring' || (phase === 'Restored' && (r.LibraryRefreshPending || /aplazada/i.test(r.RetentionStatus || '')));
             }), allJobs = state.Jobs || [];
             el('jcQueueState').textContent = (state.Paused ? 'Cola pausada. ' : 'Cola activa. ') + (state.Schedule && !state.Schedule.Open ? 'Fuera de horario. ' : '') + (state.Error || '');
             el('jcJobsCount').textContent = String(allJobs.filter(function(j) { var s = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']); return s === 'Pending' || s === 'Processing'; }).length);
@@ -478,7 +485,17 @@
                 if (status === 'Pending' || status === 'Processing') actions.append(button('Cancelar', function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').then(refresh); }));
                 if (status === 'Failed' || status === 'Cancelled') actions.append(button('Reintentar', function() { return api('Jobs/' + j.Id + '/Retry', 'POST').then(function(operation) { return beginManual(operation, j.DisplayName); }); }));
                 var progress = status === 'Processing' && j.StatusDetail === 'Comprimiendo' ? Math.round(j.Progress) + ' %' : '—';
-                return [j.DisplayName, j.ErrorMessage || j.StatusDetail || status, progress, actions];
+                var transaction = records.filter(function(r) { return r.Request.ItemId === j.ItemId && r.Request.SourcePath === j.SourcePath; })
+                    .sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); })[0];
+                var detail = j.ErrorMessage || j.StatusDetail || status;
+                if (status === 'Completed' && transaction) {
+                    var phase = enumName(transaction.Phase, replacementPhases);
+                    if (phase === 'Restored') detail = 'Original restaurado' + (transaction.LibraryRefreshPending ? '; actualización de Jellyfin pendiente' : '')
+                        + (/aplazada/i.test(transaction.RetentionStatus || '') ? '; limpieza de cuarentena pendiente' : '');
+                    else if (phase === 'Restoring') detail = 'Restaurando el original';
+                    else if (phase === 'Purged') detail = 'Comprimida; original eliminado por plazo o límite de tamaño';
+                }
+                return [j.DisplayName, detail, progress, actions];
             }));
             table('jcOriginals', ['Película', 'Estado', 'Vencimiento', 'Acciones'], originals.slice().sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); }).map(function(r) {
                 var phase = enumName(r.Phase, replacementPhases), actions = document.createElement('span');
@@ -539,7 +556,14 @@
     el('jcCancelAnalysis').onclick = function() { if (!manualOperationId || manualKind !== 'Analyze' || cancelling) return;
         cancelling = true; updateControls(); action(function() { return api('Manual/' + encodeURIComponent(manualOperationId) + '/Cancel', 'POST')
             .then(function() { message('Cancelando el análisis…'); }).catch(function(error) { cancelling = false; updateControls(); throw error; }); }); };
-    [['jcPause', 'Pause'], ['jcResume', 'Resume'], ['jcPurge', 'Originals/Purge']].forEach(function(pair) { el(pair[0]).onclick = function() { action(function() { return api(pair[1], 'POST').then(refresh); }); }; });
+    [['jcPause', 'Pause'], ['jcResume', 'Resume']].forEach(function(pair) { el(pair[0]).onclick = function() { action(function() { return api(pair[1], 'POST').then(refresh); }); }; });
+    el('jcPurge').onclick = function() {
+        if (scanning || queueingMovie) return;
+        scanning = true; updateControls(); message('Iniciando limpieza de originales…');
+        return action(function() { return api('Originals/Purge', 'POST').then(beginManual).catch(function(error) {
+            if (!manualOperationId) { scanning = false; updateControls(); } throw error;
+        }); });
+    };
     el('jcClear').onclick = function() { action(function() { return api('History', 'DELETE').then(refresh); }); };
     el('jcRefresh').onclick = function() { action(refresh); };
     setTab(0); updateControls();

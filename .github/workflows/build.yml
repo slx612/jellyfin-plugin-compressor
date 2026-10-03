@@ -9,6 +9,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-dotnet@v6.0.0
@@ -18,9 +19,15 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Test against Jellyfin 10.11.6
         run: dotnet test -c Release --logger "trx;LogFileName=tests.trx"
+      - name: Test configuration page behavior
+        run: node --test scripts/config-page.test.cjs
+      - name: Test live fixture driver contract
+        run: python3 scripts/verify-library-state.test.py
       - name: Package preview
         shell: pwsh
         run: ./build-plugin.ps1
+      - name: Verify identity and user data in disposable Jellyfin 10.11.6
+        run: bash scripts/verify-library-state-linux.sh
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: jellyfin-compressor-preview
