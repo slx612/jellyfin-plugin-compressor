@@ -82,7 +82,7 @@ public sealed class CompressionCoordinator
             return (Result(false, "En cola o en curso."), null);
         var profile = config.Profiles.FirstOrDefault(p => p.Id == config.DefaultProfileId) ?? config.Profiles.FirstOrDefault() ?? throw new InvalidOperationException("Selecciona un perfil.");
         var effective = CompressionPolicy.EffectiveProfile(profile, item.Path);
-        var key = CompressionPolicy.Key(effective);
+        var key = CompressionPolicy.Key(effective, config.MinSavingsPercent);
         if (previewOnly)
         {
             var preview = await prober.ProbeAsync(item.Path, token).ConfigureAwait(false);
