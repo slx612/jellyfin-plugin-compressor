@@ -163,8 +163,34 @@ internal static class Trial
         var result = await FfmpegExecutor.RunAsync(ffmpeg, new[] { "-v", "error", "-xerror", "-i", path, "-map", "0:V:0",
             "-c", "copy", "-bsf:v", "hevc_mp4toannexb", "-f", "hevc", video }, duration, null, token, Started);
         if (result.ExitCode != 0) throw new IOException(result.StdErrTail);
-        await ProcessRunner.RunAsync(dovi, new[] { "extract-rpu", video, "-o", Path.Combine(root, name + ".rpu.bin") }, 3600000, token);
+        await ExtractRpu(dovi, video, Path.Combine(root, name + ".rpu.bin"), token);
         File.Delete(video); // This newly generated diagnostic file only; keep RPU evidence and both MKVs.
+    }
+
+    private static async Task ExtractRpu(string dovi, string video, string output, CancellationToken token)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromHours(1));
+        using var process = new Process { StartInfo = new ProcessStartInfo(dovi)
+        {
+            UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true
+        } };
+        foreach (var argument in new[] { "extract-rpu", video, "-o", output }) process.StartInfo.ArgumentList.Add(argument);
+        process.Start();
+        Started(process);
+        var stdout = process.StandardOutput.ReadToEndAsync(timeout.Token);
+        var stderr = process.StandardError.ReadToEndAsync(timeout.Token);
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+            var text = await stdout + await stderr;
+            if (process.ExitCode != 0) throw new IOException($"dovi_tool exited {process.ExitCode}: {text}");
+        }
+        catch
+        {
+            if (!process.HasExited) process.Kill(true);
+            throw;
+        }
     }
 
     private static void Check(string? error) { if (error is not null) throw new IOException(error); }
