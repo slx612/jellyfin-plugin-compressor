@@ -34,6 +34,14 @@ Para detener un diagnóstico lanzado en segundo plano se debe enviar SIGTERM a s
 proceso verificado: cancela sus tareas y detiene sus procesos hijos. SIGINT puede
 quedar ignorada al heredar el estado de señales de `nohup`.
 
+En Docker/Synology con Jellyfin 10.11.6 se ha comprobado también la disponibilidad
+de NVENC con una RTX 2060, usando el mismo usuario que ejecuta Jellyfin. La prueba
+sintética produjo 24 fotogramas a 1920×1080, HEVC Main 10 y `yuv420p10le`. Esto
+acredita la codificación GPU de 10 bits dentro del contenedor; no demuestra todavía
+la conservación de HDR10+, Dolby Vision ni la reducción de resolución de películas
+con metadatos dinámicos. La prueba completa de Wonka por CPU y a resolución original
+se canceló antes de terminar la codificación y no produjo un candidato validado.
+
 Este trabajo **no está publicado ni instalado**. La versión 0.1.11 instalada sigue omitiendo HDR y Dolby Vision. No actives estos interruptores sobre originales hasta completar una prueba de codificación y reproducción real.
 
 El complemento ofrece tres permisos independientes, apagados por defecto: HDR10 experimental, HDR10+ experimental y Dolby Vision 8.1 experimental. Solo se aplican a una película elegida individualmente; los análisis en lote y la compresión automática omiten HDR incluso si los permisos están activados. Se requiere `libx265` de FFmpeg, que codifica en CPU. No se convierte la imagen a SDR.
