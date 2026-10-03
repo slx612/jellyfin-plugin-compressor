@@ -42,6 +42,54 @@ public class Hdr10PlusToolchainTests
     }
 
     [Fact]
+    public void RemuxReadsIdentificationAfterPinnedAppImageExtractionListing()
+    {
+        const string identify = """
+            /tmp/appimage_extracted_1b7bda20148a14de4f77ea4da77f7e75/.DirIcon
+            /tmp/appimage_extracted_1b7bda20148a14de4f77ea4da77f7e75/usr/bin/mkvmerge
+            {"tracks":[{"type":"video","properties":{"language":"eng","track_name":"Movie"}}]}
+            """;
+        var args = Hdr10PlusToolchain.BuildMuxArguments(identify, "injected.hevc", "encoded.mkv", "final.mkv", "timestamps.txt");
+        Assert.Contains("0:eng", args);
+        Assert.Contains("0:Movie", args);
+    }
+
+    [Fact]
+    public void RemuxHandlesAppImageListingBufferedAroundIdentificationJson()
+    {
+        // Captured on Synology: the extraction runtime's 32 KiB stdout buffer split its last path,
+        // then wrote the JSON between the two path fragments. The JSON can include UTF-8 titles.
+        const string identify = "/tmp/appimage_extracted_1b7bda20148a14de"
+            + "{\"tracks\":[{\"type\":\"video\",\"properties\":{\"language\":\"spa\",\"track_name\":\"Español\"}}]}"
+            + "4f77ea4da77f7e75/usr/share/mkvtoolnix/sounds/finished-3.webm\n";
+        var args = Hdr10PlusToolchain.BuildMuxArguments(identify, "injected.hevc", "encoded.mkv", "final.mkv", "timestamps.txt");
+        Assert.Contains("0:spa", args);
+        Assert.Contains("0:Español", args);
+    }
+
+    [Theory]
+    [InlineData("Warning: incomplete identification\n")]
+    [InlineData("/tmp/unrelated-file\n")]
+    [InlineData("/tmp/appimage_extracted_not-a-verified-runtime-id/usr/bin/mkvmerge\n")]
+    public void RemuxRejectsUnexpectedTextBeforeIdentification(string prefix)
+    {
+        const string json = "{\"tracks\":[{\"type\":\"video\",\"properties\":{}}]}";
+        Assert.Throws<System.Text.Json.JsonException>(() => Hdr10PlusToolchain.BuildMuxArguments(prefix + json,
+            "injected.hevc", "encoded.mkv", "final.mkv", "timestamps.txt"));
+    }
+
+    [Theory]
+    [InlineData("warning: metadata incomplete")]
+    [InlineData("{\"tracks\":[]}")]
+    [InlineData("/tmp/unrelated-file")]
+    public void RemuxRejectsUnexpectedTextAfterIdentification(string suffix)
+    {
+        const string json = "{\"tracks\":[{\"type\":\"video\",\"properties\":{}}]}";
+        Assert.Throws<System.Text.Json.JsonException>(() => Hdr10PlusToolchain.BuildMuxArguments(json + suffix,
+            "injected.hevc", "encoded.mkv", "final.mkv", "timestamps.txt"));
+    }
+
+    [Fact]
     public void VideoTimestampCheckAllowsOnlyContainerRounding()
     {
         var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

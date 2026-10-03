@@ -42,6 +42,16 @@ la conservación de HDR10+, Dolby Vision ni la reducción de resolución de pel�
 con metadatos dinámicos. La prueba completa de Wonka por CPU y a resolución original
 se canceló antes de terminar la codificación y no produjo un candidato validado.
 
+La prueba corta de Wonka con NVENC, CQ20 y máximo 1080p se mantiene aparte del
+complemento instalado. Sus dos primeros intentos se detuvieron antes de codificar:
+el lanzador AppImage de MKVToolNix intercaló su listado de extracción alrededor del
+JSON de identificación, incluso dividiendo una ruta. La lectura reconoce ese
+listado concreto y rechaza otros mensajes fuera del JSON. Se comprobó la corrección
+con los registros reales de ambos intentos y con títulos UTF-8; la suite local
+pasó 414 pruebas con Jellyfin FFmpeg 7.1.3 para Windows. El fragmento GPU todavía
+debe completar sus comprobaciones HDR/Dolby y la reproducción antes de ampliar
+la compatibilidad del complemento.
+
 Este trabajo **no está publicado ni instalado**. La versión 0.1.11 instalada sigue omitiendo HDR y Dolby Vision. No actives estos interruptores sobre originales hasta completar una prueba de codificación y reproducción real.
 
 El complemento ofrece tres permisos independientes, apagados por defecto: HDR10 experimental, HDR10+ experimental y Dolby Vision 8.1 experimental. Solo se aplican a una película elegida individualmente; los análisis en lote y la compresión automática omiten HDR incluso si los permisos están activados. Se requiere `libx265` de FFmpeg, que codifica en CPU. No se convierte la imagen a SDR.

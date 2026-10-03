@@ -115,7 +115,7 @@ internal static class Hdr10PlusToolchain
     internal static IReadOnlyList<string> BuildMuxArguments(string identifyJson, string video, string encoded,
         string output, string timestamps)
     {
-        using var doc = JsonDocument.Parse(identifyJson);
+        using var doc = JsonDocument.Parse(IdentificationJson(identifyJson));
         var track = doc.RootElement.GetProperty("tracks").EnumerateArray()
             .Single(t => t.GetProperty("type").GetString() == "video");
         var props = track.GetProperty("properties");
@@ -140,6 +140,39 @@ internal static class Hdr10PlusToolchain
         args.Add("--no-video");
         args.Add(encoded);
         return args;
+    }
+
+    internal static string IdentificationJson(string output)
+    {
+        var start = output.IndexOf('{');
+        if (start < 0) throw new JsonException("MKVToolNix returned no identification object.");
+        var bytes = System.Text.Encoding.UTF8.GetBytes(output[start..]);
+        var reader = new Utf8JsonReader(bytes);
+        using var document = JsonDocument.ParseValue(ref reader);
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+            throw new JsonException("MKVToolNix identification must be an object.");
+        var suffix = System.Text.Encoding.UTF8.GetString(bytes.AsSpan((int)reader.BytesConsumed));
+        // The pinned AppImage lists extracted files around the JSON; on Synology its buffer
+        // can split the final path at the JSON boundary. Validate the rejoined listing too.
+        const string prefix = "/tmp/appimage_extracted_";
+        var lines = (output[..start] + suffix.TrimStart('\r', '\n'))
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        string? runtimeRoot = null;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            if (line.StartsWith(prefix, StringComparison.Ordinal) && line.Length > prefix.Length + 32
+                && line[prefix.Length + 32] == '/' && line.Substring(prefix.Length, 32).All(char.IsAsciiHexDigit))
+            {
+                runtimeRoot ??= line[..(prefix.Length + 33)];
+                continue;
+            }
+            // An incomplete final root prefix may remain when the rest went to the other stream.
+            if (i == lines.Length - 1 && string.IsNullOrWhiteSpace(suffix) && runtimeRoot is not null
+                && line.StartsWith(prefix, StringComparison.Ordinal) && runtimeRoot.StartsWith(line, StringComparison.Ordinal)) continue;
+            throw new JsonException("Unexpected text around MKVToolNix identification JSON.");
+        }
+        return document.RootElement.GetRawText();
     }
 
     private static async Task NonVideoFrameCrc(string ffmpeg, string input, string output, double duration,

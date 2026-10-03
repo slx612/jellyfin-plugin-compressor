@@ -34,6 +34,7 @@ public class RealFfmpegIntegrationTests
             var (exit, error) = await FfmpegExecutor.RunAsync(ffmpeg, new[]
             {
                 "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=24:duration=1", "-c:v", "libx265", "-pix_fmt", "yuv420p10le",
+                "-vf", "setparams=color_primaries=bt2020:color_trc=smpte2084:colorspace=bt2020nc",
                 "-color_primaries", "bt2020", "-color_trc", "smpte2084", "-colorspace", "bt2020nc",
                 "-x265-params", "pools=1:frame-threads=1:master-display=G(8500,39850)B(6550,2300)R(35400,14600)WP(15635,16450)L(10000000,50):max-cll=1158,394",
                 source
