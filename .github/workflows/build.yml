@@ -21,6 +21,14 @@ jobs:
       - name: Package preview
         shell: pwsh
         run: ./build-plugin.ps1
+      - name: Build diagnostic and verify refusal of unsafe output paths
+        run: |
+          dotnet publish scripts/HdrValidation/HdrValidation.csproj -c Release -r linux-x64 --self-contained true -o artifacts/hdr-validation/app
+          app=artifacts/hdr-validation/app/Jellyfin.Compressor.HdrValidation
+          if "$app"; then exit 1; else test "$?" -eq 2; fi
+          if "$app" '/Peliculas/source.mkv' /tmp/hdr-output-must-not-exist /tmp; then exit 1; else test "$?" -eq 2; fi
+          test ! -e /tmp/hdr-output-must-not-exist
+          bash -n scripts/run-hdr-validation.sh
       - name: Smoke-test bundled Linux tools without FUSE
         run: |
           mkdir -p /tmp/jellyfin-compressor-preview

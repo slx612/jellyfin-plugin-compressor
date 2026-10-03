@@ -1,6 +1,28 @@
 # HDR10, HDR10+ y Dolby Vision 8.1: soporte experimental en desarrollo
 
-Este trabajo **no está publicado ni instalado**. La versión 0.1.10 instalada sigue omitiendo HDR y Dolby Vision. No actives estos interruptores sobre originales hasta completar una prueba de codificación y reproducción real.
+## Prueba completa sin sustituir el original
+
+`scripts/HdrValidation` es un diagnóstico que llama a las funciones de codificación,
+detección y verificación de esta misma rama. Se publica como ejecutable autónomo
+Linux x86-64 y se ejecuta dentro del contenedor Jellyfin existente. No instala
+el complemento ni llama al servicio de sustitución o cuarentena. Requiere un MKV
+en `/Peliculas` y una carpeta nueva bajo
+`/config/data/jellyfin-compressor/hdr-validation`.
+
+`scripts/run-hdr-validation.sh` verifica los SHA-256 del paquete y lo lanza con
+prioridad reducida. Conserva el original, el candidato, el registro y las pruebas
+en una carpeta separada. Necesita espacio libre de cuatro veces el tamaño de la
+película más 5 GiB; libx265 en CPU puede tardar horas. Se comparan también los RPU
+Dolby completos extraídos con `dovi_tool`, además del HDR10+ y las verificaciones
+de la ruta de producción. `status.json` y el registro se actualizan cada 30 segundos.
+
+Solo un `result.json` con `TechnicalChecksPassed`, `OriginalUnchanged` y
+`MinimumSavingsMet` verdaderos acredita la prueba técnica. Siempre conserva
+`ClientPlaybackVerified: false`: aún hay que reproducir el candidato en el cliente
+habitual y confirmar imagen, HDR/Dolby, audio y subtítulos. Si falla o se cancela,
+se guarda `failure.txt`; no se sustituye ni se elimina ningún original.
+
+Este trabajo **no está publicado ni instalado**. La versión 0.1.11 instalada sigue omitiendo HDR y Dolby Vision. No actives estos interruptores sobre originales hasta completar una prueba de codificación y reproducción real.
 
 El complemento ofrece tres permisos independientes, apagados por defecto: HDR10 experimental, HDR10+ experimental y Dolby Vision 8.1 experimental. Solo se aplican a una película elegida individualmente; los análisis en lote y la compresión automática omiten HDR incluso si los permisos están activados. Se requiere `libx265` de FFmpeg, que codifica en CPU. No se convierte la imagen a SDR.
 
