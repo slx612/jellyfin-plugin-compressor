@@ -48,9 +48,9 @@ public class PluginConfiguration : BasePluginConfiguration
     public bool ProcessNewItemsAutomatically { get; set; }
     /// <summary>Opt-in switch covering every automatic entry point.</summary>
     public bool AutomaticCompressionEnabled { get; set; }
-    /// <summary>Allow manual HDR10 compression with libx265 after explicit opt-in.</summary>
+    /// <summary>Allow manual HDR10 compression with libx265 or verified NVENC after explicit opt-in.</summary>
     public bool EnableExperimentalHdr { get; set; }
-    /// <summary>Allow manual Dolby Vision 8.1 compression with libx265 after explicit opt-in.</summary>
+    /// <summary>Allow manual Dolby Vision 8.1 compression after explicit opt-in.</summary>
     public bool EnableExperimentalDolbyVision { get; set; }
     /// <summary>Allow manual HDR10+ MKV compression with metadata reinjection after explicit opt-in.</summary>
     public bool EnableExperimentalHdr10Plus { get; set; }

@@ -16,11 +16,13 @@ namespace Jellyfin.Plugin.PreTranscode.Media;
 
 internal static class Hdr10PlusToolchain
 {
+    private static readonly object ToolLock = new();
     private const string MkvHash = "C66345B30D6D5FD640EA982AB5E202A99B9F541A20E42AA19EDD90F3DDD5DC9B";
     private const string HdrHash = "7845916B549C36E5D7FE9DBB3D24C124466D7C71EC3442E207551B677949D0BE";
     private static readonly string[] WorkNames = { "encoded.mkv", "source.json", "encoded.hevc", "injected.hevc", "timestamps.txt",
         "output.timestamps.txt",
-        "output.json", "source.framecrc", "output.framecrc" };
+        "output.json", "source.framecrc", "output.framecrc", "source.hevc", "source.rpu.bin", "source.level5.json",
+        "source.timestamps.txt", "static-restored.hevc", "dovi-injected.hevc", "output.rpu.bin", "gpu-preflight.mkv" };
 
     internal static bool MetadataMatches(string source, string output)
     {
@@ -52,16 +54,16 @@ internal static class Hdr10PlusToolchain
 
     internal static async Task RunAsync(string source, string encoded, string output, string ffmpeg,
         string dataRoot, string tempRoot, string jobId, double duration, CancellationToken token,
-        Action<Process>? onProcessStarted)
+        Action<Process>? onProcessStarted, bool hasNonVideo = true)
     {
         var (hdr, mkvmerge, mkvextract) = ResolveTools(dataRoot);
         await RunWithToolsAsync(source, encoded, output, ffmpeg, tempRoot, jobId, duration,
-            hdr, mkvmerge, mkvextract, true, token, onProcessStarted).ConfigureAwait(false);
+            hdr, mkvmerge, mkvextract, true, token, onProcessStarted, hasNonVideo).ConfigureAwait(false);
     }
 
     internal static async Task RunWithToolsAsync(string source, string encoded, string output, string ffmpeg,
         string tempRoot, string jobId, double duration, string hdr, string mkvmerge, string mkvextract,
-        bool appImage, CancellationToken token, Action<Process>? onProcessStarted)
+        bool appImage, CancellationToken token, Action<Process>? onProcessStarted, bool hasNonVideo = true)
     {
         var work = Path.Combine(tempRoot, jobId + ".hdr10plus");
         Directory.CreateDirectory(work);
@@ -90,8 +92,8 @@ internal static class Hdr10PlusToolchain
             await RunTool(hdr, new[] { "extract", output, "-o", W("output.json") }, token, onProcessStarted).ConfigureAwait(false);
             if (!File.Exists(W("output.json")) || !MetadataMatches(W("source.json"), W("output.json")))
                 throw new IOException("HDR10+: los metadatos dinámicos de la salida no coinciden con el original.");
-            await NonVideoFrameCrc(ffmpeg, source, W("source.framecrc"), duration, token, onProcessStarted).ConfigureAwait(false);
-            await NonVideoFrameCrc(ffmpeg, output, W("output.framecrc"), duration, token, onProcessStarted).ConfigureAwait(false);
+            await NonVideoFrameCrc(ffmpeg, source, W("source.framecrc"), duration, token, onProcessStarted, hasNonVideo).ConfigureAwait(false);
+            await NonVideoFrameCrc(ffmpeg, output, W("output.framecrc"), duration, token, onProcessStarted, hasNonVideo).ConfigureAwait(false);
             if (!MetadataMatches(W("source.framecrc"), W("output.framecrc")))
                 throw new IOException("HDR10+: audio o subtítulos cambiaron al remontar el vídeo.");
         }
@@ -175,19 +177,28 @@ internal static class Hdr10PlusToolchain
         return document.RootElement.GetRawText();
     }
 
-    private static async Task NonVideoFrameCrc(string ffmpeg, string input, string output, double duration,
-        CancellationToken token, Action<Process>? callback) => await RunFfmpeg(ffmpeg,
-        new[] { "-y", "-v", "error", "-xerror", "-i", input, "-map", "0:a?", "-map", "0:s?",
-            "-c", "copy", "-f", "framecrc", output }, duration, token, callback).ConfigureAwait(false);
+    internal static async Task NonVideoFrameCrc(string ffmpeg, string input, string output, double duration,
+        CancellationToken token, Action<Process>? callback, bool hasNonVideo = true)
+    {
+        if (!hasNonVideo)
+        {
+            // FFmpeg auto-selects video when optional maps find no audio/subtitles.
+            await File.WriteAllTextAsync(output, "# no audio or subtitle packets\n", token).ConfigureAwait(false);
+            return;
+        }
+        await RunFfmpeg(ffmpeg, new[] { "-y", "-v", "error", "-xerror", "-i", input, "-map", "0:a?", "-map", "0:s?",
+            "-vn", "-c", "copy", "-f", "framecrc", output }, duration, token, callback).ConfigureAwait(false);
+    }
 
-    private static async Task RunFfmpeg(string ffmpeg, IReadOnlyList<string> args, double duration,
+    internal static async Task RunFfmpeg(string ffmpeg, IReadOnlyList<string> args, double duration,
         CancellationToken token, Action<Process>? callback)
     {
         var (code, tail) = await FfmpegExecutor.RunAsync(ffmpeg, args, duration, null, token, callback).ConfigureAwait(false);
-        if (code != 0) throw new IOException("HDR10+: FFmpeg terminó con error: " + tail);
+        if (code != 0) throw new IOException("HDR: FFmpeg terminó con error (" + code + ") al comprobar "
+            + Path.GetFileName(args.LastOrDefault() ?? "") + ": " + tail);
     }
 
-    private static async Task<string> RunTool(string executable, IReadOnlyList<string> args, CancellationToken token,
+    internal static async Task<string> RunTool(string executable, IReadOnlyList<string> args, CancellationToken token,
         Action<Process>? callback, bool appImage = false)
     {
         var start = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true,
@@ -204,14 +215,14 @@ internal static class Hdr10PlusToolchain
         try { await process.WaitForExitAsync(deadline.Token).ConfigureAwait(false); }
         catch (OperationCanceledException)
         {
-            if (!process.HasExited) process.Kill(true);
+            if (!process.HasExited) { process.Kill(true); await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false); }
             if (!token.IsCancellationRequested) throw new TimeoutException("HDR10+: la herramienta tardó más de 6 horas.");
             throw;
         }
         var output = await stdout.ConfigureAwait(false);
         var error = await stderr.ConfigureAwait(false);
         if (process.ExitCode != 0)
-            throw new IOException("HDR10+: " + Path.GetFileName(executable) + " terminó con error: " + error[^Math.Min(error.Length, 3000)..]);
+            throw new IOException("HDR: " + Path.GetFileName(executable) + " terminó con error (" + process.ExitCode + "): " + error[^Math.Min(error.Length, 3000)..]);
         return output;
     }
 
@@ -228,6 +239,11 @@ internal static class Hdr10PlusToolchain
     }
 
     private static (string Hdr, string MkvMerge, string MkvExtract) ResolveTools(string dataRoot)
+    {
+        lock (ToolLock) return PrepareTools(dataRoot);
+    }
+
+    private static (string Hdr, string MkvMerge, string MkvExtract) PrepareTools(string dataRoot)
     {
         if (!OperatingSystem.IsLinux() || System.Runtime.InteropServices.RuntimeInformation.OSArchitecture != System.Runtime.InteropServices.Architecture.X64)
             throw new IOException("HDR10+ experimental requiere Linux x86-64 (Docker/Synology).");
@@ -250,10 +266,41 @@ internal static class Hdr10PlusToolchain
         File.SetUnixFileMode(mkv, mode);
         var merge = Path.Combine(target, "mkvmerge");
         var extract = Path.Combine(target, "mkvextract");
-        File.Delete(merge); File.Delete(extract);
-        File.CreateSymbolicLink(merge, mkv);
-        File.CreateSymbolicLink(extract, mkv);
+        LinkTool(merge, mkv);
+        LinkTool(extract, mkv);
         return (hdr, merge, extract);
+    }
+
+    internal static (string Hdr, string MkvMerge, string MkvExtract, string MkvPropedit, string Dovi) ResolveGpuTools(string dataRoot)
+    {
+        lock (ToolLock) return PrepareGpuTools(dataRoot);
+    }
+
+    private static (string Hdr, string MkvMerge, string MkvExtract, string MkvPropedit, string Dovi) PrepareGpuTools(string dataRoot)
+    {
+        if (!OperatingSystem.IsLinux()) throw new IOException("HDR GPU experimental requiere Linux x86-64.");
+        var (hdr, merge, extract) = ResolveTools(dataRoot);
+        var target = Path.GetDirectoryName(hdr)!;
+        var dovi = Path.Combine(target, "dovi_tool");
+        var source = Path.Combine(Path.GetDirectoryName(typeof(Hdr10PlusToolchain).Assembly.Location)!, "tools", "dovi_tool");
+        const string doviHash = "619D4CD4E14781257A3E7F39973332EEDAFD9D155FD7A9B844614E29B2B86FC4";
+        if (!File.Exists(source) || !HashIs(source, doviHash)) throw new IOException("HDR GPU: falta dovi_tool verificado en el paquete.");
+        CopyVerified(source, dovi, doviHash);
+        File.SetUnixFileMode(dovi, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var editor = Path.Combine(target, "mkvpropedit");
+        LinkTool(editor, Path.Combine(target, "mkvtoolnix.AppImage"));
+        return (hdr, merge, extract, editor, dovi);
+    }
+
+    private static void LinkTool(string path, string target)
+    {
+        if (File.Exists(path))
+        {
+            if (new FileInfo(path).ResolveLinkTarget(false)?.FullName != target)
+                throw new IOException("HDR: enlace de herramienta inesperado: " + Path.GetFileName(path));
+            return;
+        }
+        File.CreateSymbolicLink(path, target);
     }
 
     private static void CopyVerified(string source, string target, string hash)

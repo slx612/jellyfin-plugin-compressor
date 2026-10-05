@@ -20,6 +20,31 @@ public class CompressorHdrTests
 
     private static readonly EncodingProfile CpuProfile = new() { VideoEncoder = "libx265" };
 
+    [Fact]
+    public void NvencAllowsManualHdrDolbyResizeWithVerifiedReinjectionOnly()
+    {
+        var source = MediaProber.Parse(DolbyVisionProbe, "movie.mkv");
+        source.HasHdr10Plus = true;
+        var profile = CompressionPolicy.EffectiveProfile(new EncodingProfile { VideoEncoder = "hevc_nvenc",
+            Crf = 20, ResolutionMode = ResolutionMode.CapHeight, MaxHeight = 1080 }, "movie.mkv");
+        var config = new PluginConfiguration { EnableExperimentalDolbyVision = true, EnableExperimentalHdr10Plus = true };
+        Assert.Null(CompressionPolicy.EligibilityError(source, profile, config));
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, profile, config, automatic: true));
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, profile, config, manualSingle: false));
+        Assert.Throws<InvalidOperationException>(() => CompressionPolicy.BuildArguments(profile, source, "in.mkv", "out.mkv"));
+        var args = CompressionPolicy.BuildArguments(profile, source, "in.mkv", "out.mkv", preserveHdr10Plus: true,
+            preserveGpuHdr: true).ToArray();
+        Assert.Equal("main10", args[Array.IndexOf(args, "-profile:v") + 1]);
+        Assert.Equal("p010le", args[Array.IndexOf(args, "-pix_fmt") + 1]);
+        Assert.Equal("p5", args[Array.IndexOf(args, "-preset") + 1]);
+        Assert.Equal("passthrough", args[Array.IndexOf(args, "-fps_mode") + 1]);
+        Assert.DoesNotContain("-dolbyvision", args);
+        Assert.Contains("sidedata=mode=delete:type=DOVI_RPU_BUFFER", args[Array.IndexOf(args, "-vf") + 1]);
+        Assert.Contains("scale=w=1920:h=1080", args[Array.IndexOf(args, "-vf") + 1]);
+        source.Path = "movie.mp4";
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, profile, config));
+    }
+
     private const string FrameOnlyHdrProbe = """
         {"format":{"duration":"120"},"streams":[{"codec_type":"video","codec_name":"hevc","width":3840,"height":1604,
         "pix_fmt":"yuv420p10le","color_primaries":"bt2020","color_transfer":"smpte2084","color_space":"bt2020nc",
@@ -84,14 +109,15 @@ public class CompressorHdrTests
     }
 
     [Fact]
-    public void DolbyVisionRequiresManualOptInCpuAndSupportedProfile()
+    public void DolbyVisionRequiresManualOptInAndSupportedEncoderAndProfile()
     {
         var source = MediaProber.Parse(DolbyVisionProbe, "movie.mkv");
         var config = new PluginConfiguration { EnableExperimentalDolbyVision = true };
         Assert.Null(CompressionPolicy.EligibilityError(source, CpuProfile, config));
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, automatic: true));
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, manualSingle: false));
-        Assert.NotNull(CompressionPolicy.EligibilityError(source, new EncodingProfile { VideoEncoder = "hevc_nvenc" }, config));
+        Assert.Null(CompressionPolicy.EligibilityError(source, new EncodingProfile { VideoEncoder = "hevc_nvenc" }, config));
+        Assert.NotNull(CompressionPolicy.EligibilityError(source, new EncodingProfile { VideoEncoder = "hevc_qsv" }, config));
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, new PluginConfiguration()));
         source.DolbyVisionProfile = 7;
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config));
@@ -285,7 +311,7 @@ public class CompressorHdrTests
             if (filters.Contains("DOVI_RPU_BUFFER", StringComparison.Ordinal))
             {
                 var facts = await DynamicHdrDetector.ScanAsync(ffmpeg, source, directory, 1, default);
-                Assert.Equal(new DynamicHdrFacts(0, 0, 0, 0), facts);
+                Assert.Equal(new DynamicHdrFacts(0, 0, 0, 0, 12), facts);
             }
             else
             {

@@ -55,51 +55,30 @@ internal static class DynamicHdrDetector
         return null;
     }
 
-    // Stream metadata and Jellyfin's catalog can miss side data carried only on decoded frames.
-    // Each filter writes one small framecrc row per matching frame. All frames are decoded, so a
-    // missing type cannot be inferred from a partial sample. -xerror prevents decode errors from
-    // turning a partial scan into a false negative.
+    // Count named showinfo filters without checksum calculation. Empty metadata branches end
+    // at nullsink, so FFmpeg never tries to initialize an encoder for an absent HDR type.
     internal static async Task<DynamicHdrFacts> ScanAsync(string ffmpegPath, string sourcePath, string temporaryDirectory,
-        double durationSeconds, CancellationToken token, Action<Process>? onProcessStarted = null)
+        double durationSeconds, CancellationToken token, Action<Process>? onProcessStarted = null, Action<double>? progress = null)
     {
-        Directory.CreateDirectory(temporaryDirectory);
-        var prefix = Path.Combine(temporaryDirectory, Guid.NewGuid().ToString("N"));
-        var paths = new[] { prefix + "-hdr10plus.framecrc", prefix + "-rpu.framecrc",
-            prefix + "-mastering.framecrc", prefix + "-light.framecrc", prefix + "-all.framecrc" };
-        try
-        {
-            var args = new[] { "-xerror", "-hide_banner", "-loglevel", "error", "-protocol_whitelist", "file", "-i", sourcePath,
-                "-filter_complex", "[0:v:0]split=4[h][d][m][c];"
-                    + "[h]sidedata=mode=select:type=DYNAMIC_HDR_PLUS[ho];"
-                    + "[d]sidedata=mode=select:type=DOVI_RPU_BUFFER[do];"
-                    + "[m]sidedata=mode=select:type=MASTERING_DISPLAY_METADATA[mo];"
-                    + "[c]sidedata=mode=select:type=CONTENT_LIGHT_LEVEL[co]",
-                "-map", "[ho]", "-c:v", "wrapped_avframe", "-f", "framecrc", paths[0],
-                "-map", "[do]", "-c:v", "wrapped_avframe", "-f", "framecrc", paths[1],
-                "-map", "[mo]", "-c:v", "wrapped_avframe", "-f", "framecrc", paths[2],
-                "-map", "[co]", "-c:v", "wrapped_avframe", "-f", "framecrc", paths[3] };
-            var (exitCode, error) = await FfmpegExecutor.RunAsync(ffmpegPath, args, durationSeconds, null,
-                token, onProcessStarted).ConfigureAwait(false);
-            if (exitCode != 0 || paths.Take(4).Any(path => !File.Exists(path)))
-                throw new IOException("No se pudieron comprobar los metadatos HDR de todos los fotogramas (FFmpeg "
-                    + exitCode + ", salidas " + string.Join(',', paths.Take(4).Select(File.Exists)) + "). " + error);
-            var matches = paths.Take(4).Select(path => CountFrames(File.ReadLines(path))).ToArray();
-            long total = 0;
-            if (matches[0] > 0)
+        var names = new[] { "hdrplus", "rpu", "mastering", "light", "total" };
+        var counts = new long[5];
+        var args = new[] { "-xerror", "-hide_banner", "-loglevel", "info", "-protocol_whitelist", "file", "-i", sourcePath,
+            "-filter_complex", "[0:v:0]split=6[h][d][m][c][all][output];"
+                + "[h]sidedata=mode=select:type=DYNAMIC_HDR_PLUS,showinfo@hdrplus=checksum=0,nullsink;"
+                + "[d]sidedata=mode=select:type=DOVI_RPU_BUFFER,showinfo@rpu=checksum=0,nullsink;"
+                + "[m]sidedata=mode=select:type=MASTERING_DISPLAY_METADATA,showinfo@mastering=checksum=0,nullsink;"
+                + "[c]sidedata=mode=select:type=CONTENT_LIGHT_LEVEL,showinfo@light=checksum=0,nullsink;"
+                + "[all]showinfo@total=checksum=0,nullsink",
+            "-map", "[output]", "-c:v", "wrapped_avframe", "-fps_mode", "passthrough", "-f", "null", "-" };
+        var (exit, error) = await FfmpegExecutor.RunAsync(ffmpegPath, args, durationSeconds, progress,
+            token, onProcessStarted, onErrorLine: line =>
             {
-                var countArgs = new[] { "-xerror", "-hide_banner", "-loglevel", "error", "-protocol_whitelist", "file",
-                    "-i", sourcePath, "-map", "0:v:0", "-c:v", "wrapped_avframe", "-f", "framecrc", paths[4] };
-                var (countExit, countError) = await FfmpegExecutor.RunAsync(ffmpegPath, countArgs, durationSeconds, null,
-                    token, onProcessStarted).ConfigureAwait(false);
-                if (countExit != 0 || !File.Exists(paths[4]))
-                    throw new IOException("No se pudieron contar los fotogramas HDR10+: " + countError);
-                total = CountFrames(File.ReadLines(paths[4]));
-            }
-            return new DynamicHdrFacts(matches[0], matches[1], matches[2], matches[3], total);
-        }
-        finally
-        {
-            foreach (var path in paths) if (File.Exists(path)) File.Delete(path);
-        }
+                if (!line.Contains(" n:", StringComparison.Ordinal)) return;
+                for (var i = 0; i < names.Length; i++)
+                    if (line.StartsWith("[showinfo@" + names[i] + " @", StringComparison.Ordinal)) counts[i]++;
+            }).ConfigureAwait(false);
+        if (exit != 0 || counts[4] == 0)
+            throw new IOException("No se pudieron comprobar los metadatos HDR de todos los fotogramas (FFmpeg " + exit + "). " + error);
+        return new DynamicHdrFacts(counts[0], counts[1], counts[2], counts[3], counts[4]);
     }
 }

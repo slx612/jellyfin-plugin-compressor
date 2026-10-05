@@ -31,7 +31,8 @@ internal static class FfmpegExecutor
         CancellationToken cancellationToken,
         Action<Process>? onProcessStarted = null,
         string? outputPath = null,
-        long maxOutputBytes = 0)
+        long maxOutputBytes = 0,
+        Action<string>? onErrorLine = null)
     {
         var startInfo = new ProcessStartInfo
         {
@@ -70,6 +71,7 @@ internal static class FfmpegExecutor
         {
             if (e.Data is not null)
             {
+                onErrorLine?.Invoke(e.Data);
                 lock (stderrLock)
                 {
                     stderr.Enqueue(e.Data);

@@ -97,7 +97,7 @@ internal sealed class TranscodeExecutor
             {
                 Detail(job, "Comprobando metadatos HDR en todos los fotogramas; puede tardar varios minutos");
                 sourceFrameFacts = await DynamicHdrDetector.ScanAsync(FfmpegPaths.ResolveFfmpeg(encoder), job.SourcePath,
-                    tempDirectory, source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
+                    tempDirectory, source.DurationSeconds, token, onProcessStarted, p => job.Progress = p).ConfigureAwait(false);
                 var scanError = DynamicHdrDetector.ApplyFacts(source, sourceFrameFacts);
                 if (scanError is not null) { Finish(job, JobStatus.Skipped, scanError); return; }
                 eligibility = CompressionPolicy.EligibilityError(source, snapshot.Profile, CompressionCoordinator.Config,
@@ -116,7 +116,7 @@ internal sealed class TranscodeExecutor
                 if (sourceFrameFacts is null) return;
                 Detail(job, "Verificando metadatos HDR por fotograma");
                 var outputFrameFacts = await DynamicHdrDetector.ScanAsync(FfmpegPaths.ResolveFfmpeg(encoder), temp!,
-                    tempDirectory, source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
+                    tempDirectory, source.DurationSeconds, token, onProcessStarted, p => job.Progress = p).ConfigureAwait(false);
                 var metadataError = DynamicHdrDetector.PreservationError(sourceFrameFacts, outputFrameFacts);
                 if (metadataError is not null) throw new IOException(metadataError);
             }
@@ -125,8 +125,9 @@ internal sealed class TranscodeExecutor
             if (job.VerifiedOutputIdentity is null || !File.Exists(temp))
             {
                 var hdr10Plus = source.HasHdr10Plus;
-                var encodeTarget = hdr10Plus ? Path.Combine(tempDirectory, job.Id + ".hdr10plus", "encoded.mkv") : temp;
-                if (hdr10Plus)
+                var gpuHdr = source.IsHdr && snapshot.Profile.VideoEncoder == "hevc_nvenc";
+                var encodeTarget = hdr10Plus || gpuHdr ? Path.Combine(tempDirectory, job.Id + ".hdr10plus", "encoded.mkv") : temp;
+                if (hdr10Plus || gpuHdr)
                 {
                     Hdr10PlusToolchain.EnsureAvailable(dataDirectory);
                     Hdr10PlusToolchain.CleanupWork(tempDirectory, job.Id);
@@ -134,12 +135,20 @@ internal sealed class TranscodeExecutor
                 }
                 Detail(job, "Comprimiendo");
                 var args = CompressionPolicy.BuildArguments(snapshot.Profile, source, job.SourcePath, encodeTarget,
-                    preserveHdr10Plus: hdr10Plus);
-                (int ExitCode, string StdErrTail) encode;
+                    preserveHdr10Plus: hdr10Plus, preserveGpuHdr: gpuHdr);
+                async Task EncodeAsync()
+                {
+                    var encode = await FfmpegExecutor.RunAsync(FfmpegPaths.ResolveFfmpeg(encoder), args, source.DurationSeconds,
+                        p => job.Progress = p, token, onProcessStarted, encodeTarget, maxOutputBytes).ConfigureAwait(false);
+                    if (encode.ExitCode != 0) { job.LogExcerpt = encode.StdErrTail; throw new IOException("FFmpeg no terminó correctamente (" + encode.ExitCode + ")."); }
+                }
                 try
                 {
-                    encode = await FfmpegExecutor.RunAsync(FfmpegPaths.ResolveFfmpeg(encoder), args, source.DurationSeconds,
-                        p => job.Progress = p, token, onProcessStarted, encodeTarget, maxOutputBytes).ConfigureAwait(false);
+                    if (gpuHdr)
+                        await GpuHdrToolchain.RunAsync(source, sourceFrameFacts!, encodeTarget, temp,
+                            FfmpegPaths.ResolveFfmpeg(encoder), dataDirectory, Path.GetDirectoryName(encodeTarget)!,
+                            EncodeAsync, text => Detail(job, text), token, onProcessStarted).ConfigureAwait(false);
+                    else await EncodeAsync().ConfigureAwait(false);
                 }
                 catch (OutputSizeLimitExceededException)
                 {
@@ -148,13 +157,13 @@ internal sealed class TranscodeExecutor
                         + snapshot.MinSavingsPercent.ToString("0.#", CultureInfo.InvariantCulture) + " %. Se conserva el original.");
                     return;
                 }
-                if (encode.ExitCode != 0) { job.LogExcerpt = encode.StdErrTail; throw new IOException("FFmpeg no terminó correctamente (" + encode.ExitCode + ")."); }
-                if (hdr10Plus)
+                if (hdr10Plus && !gpuHdr)
                 {
                     Detail(job, "Reinsertando y comprobando metadatos HDR10+; puede tardar varios minutos");
                     await Hdr10PlusToolchain.RunAsync(job.SourcePath, encodeTarget, temp,
                         FfmpegPaths.ResolveFfmpeg(encoder), dataDirectory, tempDirectory, job.Id,
-                        source.DurationSeconds, token, onProcessStarted).ConfigureAwait(false);
+                        source.DurationSeconds, token, onProcessStarted,
+                        hasNonVideo: source.AudioStreams.Count > 0 || source.SubtitleStreams.Count > 0).ConfigureAwait(false);
                 }
                 // The final mux can grow after the last poll. Avoid decoding an output that cannot be published.
                 if (FileSizeOrZero(temp) >= maxOutputBytes)
@@ -168,7 +177,7 @@ internal sealed class TranscodeExecutor
                 if (invalid is not null) throw new IOException(invalid);
                 var (decodeExit, decodeTail) = await FfmpegExecutor.RunAsync(FfmpegPaths.ResolveFfmpeg(encoder),
                     new[] { "-nostdin", "-v", "error", "-xerror", "-i", temp, "-map", "0:V", "-map", "0:a?", "-f", "null", "-" }, source.DurationSeconds,
-                    _ => { }, token, onProcessStarted).ConfigureAwait(false);
+                    p => job.Progress = p, token, onProcessStarted).ConfigureAwait(false);
                 if (decodeExit != 0) { job.LogExcerpt = decodeTail; throw new IOException("La decodificación completa detectó errores."); }
                 await VerifyOutputFrameFactsAsync().ConfigureAwait(false);
                 var identity = await ContentRegistry.IdentifyAsync(temp, token).ConfigureAwait(false);
@@ -247,7 +256,7 @@ internal sealed class TranscodeExecutor
             { logger.LogWarning(ex, "Could not remove HDR10+ temporary files for {JobId}", job.Id); }
         }
     }
-    private void Detail(TranscodeJob job, string text) { job.StatusDetail = text; queue.Update(job); }
+    private void Detail(TranscodeJob job, string text) { job.StatusDetail = text; job.Progress = 0; queue.Update(job); }
     private void Hold(TranscodeJob job, string text)
     { job.Status = JobStatus.Pending; job.NotBeforeUtc = DateTime.UtcNow.AddMinutes(1); Detail(job, text); }
     private void Finish(TranscodeJob job, JobStatus status, string text)

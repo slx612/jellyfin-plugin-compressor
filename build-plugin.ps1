@@ -1,5 +1,5 @@
 <# Build an experimental package; does not install the plugin or modify any media. #>
-param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.12.0")
+param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.13.0")
 $ErrorActionPreference = "Stop"
 $taskRoot = $PSScriptRoot
 $taskProject = Join-Path $taskRoot "Jellyfin.Plugin.PreTranscode/Jellyfin.Plugin.PreTranscode.csproj"
@@ -33,13 +33,19 @@ $taskHdrArchive = Get-PinnedTool "hdr10plus_tool-1.7.2-x86_64-unknown-linux-musl
 tar -xzf $taskHdrArchive -C $taskTools ./hdr10plus_tool
 if ($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath (Join-Path $taskTools "hdr10plus_tool") -Algorithm SHA256).Hash -ne
     "7845916B549C36E5D7FE9DBB3D24C124466D7C71EC3442E207551B677949D0BE") { throw "Invalid hdr10plus_tool binary" }
+$taskDoviArchive = Get-PinnedTool "dovi_tool-2.3.4-x86_64-unknown-linux-musl.tar.gz" `
+    "https://github.com/quietvoid/dovi_tool/releases/download/2.3.4/dovi_tool-2.3.4-x86_64-unknown-linux-musl.tar.gz" `
+    "1844258E13C26607B32224BF1FA82B595D3B35949F5467405FDA560DAAD32B3F"
+tar -xzf $taskDoviArchive -C $taskTools ./dovi_tool
+if ($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath (Join-Path $taskTools "dovi_tool") -Algorithm SHA256).Hash -ne
+    "619D4CD4E14781257A3E7F39973332EEDAFD9D155FD7A9B844614E29B2B86FC4") { throw "Invalid dovi_tool binary" }
 Copy-Item -LiteralPath (Join-Path $taskRoot "THIRD_PARTY_NOTICES.md") -Destination $taskStage
 $taskLicenses = Join-Path $taskStage "licenses"
 New-Item -ItemType Directory -Path $taskLicenses -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $taskRoot "licenses/hdr10plus_tool-MIT.txt"), (Join-Path $taskRoot "licenses/MKVToolNix-GPL-2.0.txt") -Destination $taskLicenses
+Copy-Item -LiteralPath (Join-Path $taskRoot "licenses/hdr10plus_tool-MIT.txt"), (Join-Path $taskRoot "licenses/MKVToolNix-GPL-2.0.txt"), (Join-Path $taskRoot "licenses/dovi_tool-MIT.txt") -Destination $taskLicenses
 $taskMeta = [ordered]@{
     category = "General"
-    changelog = "Experimental preview: reconnect operation tracking, show restored movies and deferred cleanup, background manual purge, and retry after changing minimum savings. Automatic compression stays off by default."
+    changelog = "Experimental manual HDR10/HDR10+/Dolby Vision 8.1 compression with NVIDIA NVENC Main10 on Linux x86-64. Verified metadata reinjection and optional downscaling; HDR and automatic compression remain disabled by default."
     description = "Compress movies while retaining originals temporarily and preserving Jellyfin item identity."
     guid = "274af2b7-724c-41e9-82e7-56c3e80139c1"
     name = "Jellyfin Compressor"
