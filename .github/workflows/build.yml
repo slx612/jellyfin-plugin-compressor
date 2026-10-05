@@ -38,7 +38,7 @@ jobs:
       - name: Smoke-test bundled Linux tools without FUSE
         run: |
           mkdir -p /tmp/jellyfin-compressor-preview
-          unzip -q artifacts/jellyfin-compressor-0.1.13.0.zip -d /tmp/jellyfin-compressor-preview
+          unzip -q artifacts/jellyfin-compressor-0.1.14.0.zip -d /tmp/jellyfin-compressor-preview
           chmod +x /tmp/jellyfin-compressor-preview/tools/*
           ln -s mkvtoolnix.AppImage /tmp/jellyfin-compressor-preview/tools/mkvmerge
           ln -s mkvtoolnix.AppImage /tmp/jellyfin-compressor-preview/tools/mkvextract
