@@ -86,6 +86,19 @@ public class MediaProbeInfo
     /// </summary>
     public bool IsDolbyVision { get; set; }
 
+    public string ColorPrimaries { get; set; } = string.Empty;
+    public string ColorTransfer { get; set; } = string.Empty;
+    public string ColorSpace { get; set; } = string.Empty;
+    public string ColorRange { get; set; } = string.Empty;
+    public string MasteringDisplayMetadata { get; set; } = string.Empty;
+    public string ContentLightMetadata { get; set; } = string.Empty;
+    public int DolbyVisionProfile { get; set; }
+    public int DolbyVisionCompatibilityId { get; set; }
+    public bool DolbyVisionHasRpu { get; set; }
+    public bool DolbyVisionHasEnhancementLayer { get; set; }
+    public bool DolbyVisionHasBaseLayer { get; set; }
+    public bool HasHdr10Plus { get; set; }
+
     /// <summary>
     /// Gets or sets the primary audio stream codec (e.g. <c>truehd</c>).
     /// </summary>

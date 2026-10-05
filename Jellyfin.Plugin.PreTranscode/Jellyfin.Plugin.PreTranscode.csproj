@@ -39,6 +39,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Jellyfin.Plugin.PreTranscode.Tests" />
+    <InternalsVisibleTo Include="Jellyfin.Compressor.HdrValidation" />
   </ItemGroup>
 
 </Project>

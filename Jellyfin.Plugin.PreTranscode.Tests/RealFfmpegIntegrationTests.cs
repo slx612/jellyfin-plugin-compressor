@@ -21,6 +21,73 @@ namespace Jellyfin.Plugin.PreTranscode.Tests;
 public class RealFfmpegIntegrationTests
 {
     [Fact]
+    public async Task HdrFrameScanCountsDecodedFramesWithoutResamplingTimestamps()
+    {
+        var ffmpeg = FfmpegTestBinaries.Find("ffmpeg");
+        Assert.NotNull(ffmpeg);
+        var work = Directory.CreateTempSubdirectory("compressor-hdr-timing-").FullName;
+        try
+        {
+            var source = Path.Combine(work, "source.mkv");
+            var (exit, error) = await FfmpegExecutor.RunAsync(ffmpeg, new[]
+            {
+                "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=24:duration=2",
+                "-vf", "setpts=0.5*PTS,setparams=color_primaries=bt2020:color_trc=smpte2084:colorspace=bt2020nc",
+                "-fps_mode", "passthrough", "-c:v", "libx265", "-pix_fmt", "yuv420p10le",
+                "-x265-params", "pools=1:frame-threads=1:master-display=G(8500,39850)B(6550,2300)R(35400,14600)WP(15635,16450)L(10000000,50):max-cll=1158,394",
+                source
+            }, 2, null, CancellationToken.None);
+            Assert.True(exit == 0, error);
+            var filters = await ProcessRunner.RunAsync(ffmpeg, new[] { "-hide_banner", "-h", "filter=sidedata" }, 60_000, default);
+            if (!filters.Contains("DOVI_RPU_BUFFER", StringComparison.Ordinal))
+            {
+                // Older system FFmpeg cannot validate Dolby frame data and must refuse this scan.
+                await Assert.ThrowsAsync<IOException>(() => DynamicHdrDetector.ScanAsync(ffmpeg, source, work, 2, default));
+                return;
+            }
+            var facts = await DynamicHdrDetector.ScanAsync(ffmpeg, source, work, 2, CancellationToken.None);
+            Assert.Equal(48, facts.TotalFrames);
+            Assert.Equal(48, facts.MasteringDisplayFrames);
+            Assert.Equal(48, facts.ContentLightFrames);
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Fact]
+    public async Task HdrStaticMetadataInFramesIsCapturedByTheActualProber()
+    {
+        var ffmpeg = FfmpegTestBinaries.Find("ffmpeg");
+        var ffprobe = FfmpegTestBinaries.Find("ffprobe");
+        if (ffmpeg is null || ffprobe is null) return;
+        var work = Path.Combine(Path.GetTempPath(), "compressor-hdr-probe-" + Path.GetRandomFileName());
+        Directory.CreateDirectory(work);
+        try
+        {
+            var source = Path.Combine(work, "source.mkv");
+            var (exit, error) = await FfmpegExecutor.RunAsync(ffmpeg, new[]
+            {
+                "-f", "lavfi", "-i", "testsrc2=size=64x64:rate=24:duration=1", "-c:v", "libx265", "-pix_fmt", "yuv420p10le",
+                "-vf", "setparams=color_primaries=bt2020:color_trc=smpte2084:colorspace=bt2020nc",
+                "-color_primaries", "bt2020", "-color_trc", "smpte2084", "-colorspace", "bt2020nc",
+                "-x265-params", "pools=1:frame-threads=1:master-display=G(8500,39850)B(6550,2300)R(35400,14600)WP(15635,16450)L(10000000,50):max-cll=1158,394",
+                source
+            }, 1, null, CancellationToken.None);
+            Assert.True(exit == 0, error);
+            var encoder = new Mock<IMediaEncoder>();
+            encoder.SetupGet(x => x.EncoderPath).Returns(ffmpeg);
+            encoder.SetupGet(x => x.ProbePath).Returns(ffprobe);
+            var prober = new MediaProber(encoder.Object, NullLogger<MediaProber>.Instance);
+            var info = await prober.ProbeAsync(source, CancellationToken.None);
+            Assert.NotNull(info);
+            Assert.True(info.IsHdr);
+            Assert.Contains("max_luminance=1000", info.MasteringDisplayMetadata);
+            Assert.Contains("max_content=1158", info.ContentLightMetadata);
+            Assert.Contains("max_average=394", info.ContentLightMetadata);
+        }
+        finally { Directory.Delete(work, recursive: true); }
+    }
+
+    [Fact]
     public async Task EncodeStopsOnceTemporaryFileExceedsSavingsBudget()
     {
         var ffmpeg = FfmpegTestBinaries.Find("ffmpeg");

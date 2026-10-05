@@ -26,6 +26,30 @@ jobs:
       - name: Package preview
         shell: pwsh
         run: ./build-plugin.ps1
+      - name: Build diagnostic and verify refusal of unsafe output paths
+        run: |
+          dotnet publish scripts/HdrValidation/HdrValidation.csproj -c Release -r linux-x64 --self-contained true -o artifacts/hdr-validation/app
+          app=artifacts/hdr-validation/app/Jellyfin.Compressor.HdrValidation
+          if "$app"; then exit 1; else test "$?" -eq 2; fi
+          if "$app" '/Peliculas/source.mkv' /tmp/hdr-output-must-not-exist /tmp; then exit 1; else test "$?" -eq 2; fi
+          test ! -e /tmp/hdr-output-must-not-exist
+          bash -n scripts/run-hdr-validation.sh
+          bash scripts/test-hdr-diagnostic.sh
+      - name: Smoke-test bundled Linux tools without FUSE
+        run: |
+          mkdir -p /tmp/jellyfin-compressor-preview
+          unzip -q artifacts/jellyfin-compressor-0.1.13.0.zip -d /tmp/jellyfin-compressor-preview
+          chmod +x /tmp/jellyfin-compressor-preview/tools/*
+          ln -s mkvtoolnix.AppImage /tmp/jellyfin-compressor-preview/tools/mkvmerge
+          ln -s mkvtoolnix.AppImage /tmp/jellyfin-compressor-preview/tools/mkvextract
+          ln -s mkvtoolnix.AppImage /tmp/jellyfin-compressor-preview/tools/mkvpropedit
+          /tmp/jellyfin-compressor-preview/tools/hdr10plus_tool --version
+          /tmp/jellyfin-compressor-preview/tools/dovi_tool --version
+          APPIMAGE_EXTRACT_AND_RUN=1 /tmp/jellyfin-compressor-preview/tools/mkvmerge --version
+          APPIMAGE_EXTRACT_AND_RUN=1 /tmp/jellyfin-compressor-preview/tools/mkvextract --version
+          APPIMAGE_EXTRACT_AND_RUN=1 /tmp/jellyfin-compressor-preview/tools/mkvpropedit --version
+          cp -r /tmp/jellyfin-compressor-preview/tools Jellyfin.Plugin.PreTranscode.Tests/bin/Release/net9.0/
+          JELLYFIN_HDR_BUNDLED_TEST=1 dotnet test -c Release --no-build --filter FullyQualifiedName~BundledToolsCanBePreparedConcurrently
       - name: Verify identity and user data in disposable Jellyfin 10.11.6
         run: bash scripts/verify-library-state-linux.sh
       - uses: actions/upload-artifact@v7.0.1

@@ -81,6 +81,14 @@ test('jobs without verified identities retain their historical detail', async ()
     assert.match(text(ui.element('jcJobs')), /Comprimida; original sujeto al plazo/);
 });
 
+test('HDR verification shows its own percentage and keeps cancellation available', async () => {
+    const processing = { ...job, Status: 'Processing', StatusDetail: 'Verificando metadatos HDR por fotograma', Progress: 42 };
+    const ui = panel(async route => route === 'Originals' ? [] : { Jobs: [processing], Paused: false });
+    await ui.refresh();
+    assert.match(text(ui.element('jcJobs')), /42 % de esta fase/);
+    assert.match(text(ui.element('jcJobs')), /Cancelar/);
+});
+
 test('restored movies show their current state instead of claiming the compressed file is still installed', async () => {
     const ui = panel(async route => route === 'Originals' ? [restored] : { Jobs: [job], Paused: false });
     await ui.refresh();

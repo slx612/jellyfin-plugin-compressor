@@ -5,6 +5,18 @@ namespace Jellyfin.Plugin.PreTranscode.Tests;
 
 public class MediaProberTests
 {
+    [Fact]
+    public void FrameProbeIsBoundedAndPassesTheCompletePathAsOneToken()
+    {
+        const string path = "/movies/a movie \" -o /elsewhere.json.mkv";
+        var arguments = MediaProber.BuildFrameProbeArguments(path).ToArray();
+        Assert.Equal(path, arguments[^1]);
+        Assert.Equal(1, arguments.Count(argument => argument == path));
+        Assert.Contains("%+#64", arguments);
+        Assert.Contains("-protocol_whitelist", arguments);
+        Assert.Contains("file,crypto,data", arguments);
+    }
+
     // Matroska stores no per-stream bitrate, so ffprobe omits bit_rate on the video stream; the total
     // format bitrate includes the audio and must NOT be attributed to the video figure.
     private const string MkvJson = @"{

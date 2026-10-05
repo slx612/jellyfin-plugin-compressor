@@ -3,7 +3,7 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.12 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.13 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
@@ -12,6 +12,11 @@ una película real en el NAS: se recuperó el original por SHA-256 y se conserv�
 la identidad y fecha de la ficha. Las operaciones de cuota y caducidad, los
 cortes durante el reemplazo y la comparación completa de datos de usuario con
 la versión actual aún necesitan validación en ese servidor.
+
+Esta versión incorpora compresión experimental de HDR10, HDR10+ y Dolby Vision
+8.1 con NVIDIA NVENC Main10 en Docker/Linux x86-64. Está apagada por defecto y
+limitada a películas elegidas individualmente; consulta
+[su alcance y las pruebas pendientes](docs/hdr-experimental.md).
 
 ## Funcionamiento
 
@@ -36,7 +41,9 @@ la versión actual aún necesitan validación en ese servidor.
 - HEVC con resolución original o límite de 2160p, 1080p, 720p o 480p.
   El límite solo reduce: una película de 720p nunca se amplía a 1080p.
   Se conservan profundidad de color, audio, subtítulos y capítulos.
-  Se omiten HDR, Dolby Vision y estructuras no admitidas por esta v1.
+  HDR y Dolby Vision requieren activar sus opciones experimentales y elegir una
+  sola película. NVENC admite reducir HEVC MKV compatibles; libx265 conserva la
+  resolución para HDR10+ y Dolby Vision. Los formatos no compatibles se omiten.
 - MKV, MP4 y M4V conservan **ruta, nombre y extensión completos**. No se convierte
   MP4 a MKV ni se crea una segunda película. Se conservan las fechas del archivo
   y la fecha de incorporación de la ficha; se actualiza la información de medios
@@ -95,6 +102,15 @@ que otras aplicaciones hagan sobre los archivos.
 2. Abre el **Catálogo** de complementos, instala **Jellyfin Compressor** y reinicia Jellyfin.
 3. Abre su configuración. Elige carpetas, destino de originales, retención y
    codificador. Comienza con una carpeta de películas prescindibles.
+
+Para probar HDR con NVIDIA, selecciona **hevc_nvenc**, la calidad y resolución
+máximas que quieras, y activa únicamente los formatos experimentales presentes
+en la película. Busca y encola una sola película en Resumen. La GPU debe admitir
+HEVC de 10 bits y estar disponible dentro del contenedor. El panel muestra las
+fases de análisis, codificación, reinserción y verificación; su porcentaje se
+refiere a la fase actual. El análisis y las comprobaciones usan CPU y pueden
+tardar más que la codificación GPU. Si NVENC o una comprobación falla, se conserva
+el original y se informa del motivo; no se cambia automáticamente a CPU.
 
 El panel tiene cuatro pestañas: **Resumen** para analizar, buscar y encolar una película,
 **Carpetas** para recorrer bibliotecas y marcar inclusiones o exclusiones, **Ajustes**

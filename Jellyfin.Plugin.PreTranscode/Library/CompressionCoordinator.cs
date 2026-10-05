@@ -13,6 +13,7 @@ using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Entities.Movies;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Session;
+using MediaBrowser.Model.Entities;
 
 namespace Jellyfin.Plugin.PreTranscode.Library;
 
@@ -25,11 +26,29 @@ public sealed class CompressionCoordinator
     private readonly IJobQueue queue;
     private readonly IMediaProber prober;
     private readonly ILibraryManager library;
+    private readonly IMediaSourceManager mediaSources;
     private readonly ISessionManager sessions;
     private readonly ContentRegistry registry;
     private readonly SemaphoreSlim analysis = new(1, 1);
-    public CompressionCoordinator(IJobQueue queue, IMediaProber prober, ILibraryManager library, ISessionManager sessions, ContentRegistry registry)
-    { this.queue = queue; this.prober = prober; this.library = library; this.sessions = sessions; this.registry = registry; }
+    public CompressionCoordinator(IJobQueue queue, IMediaProber prober, ILibraryManager library, ISessionManager sessions,
+        ContentRegistry registry, IMediaSourceManager mediaSources)
+    { this.queue = queue; this.prober = prober; this.library = library; this.sessions = sessions; this.registry = registry; this.mediaSources = mediaSources; }
+    internal static void MergeLibraryHdrFacts(MediaProbeInfo info, IEnumerable<MediaStream> streams)
+    {
+        foreach (var stream in streams.Where(s => s.Type == MediaStreamType.Video))
+        {
+            info.HasHdr10Plus |= stream.Hdr10PlusPresentFlag == true;
+            info.IsDolbyVision |= stream.DvProfile is > 0;
+            info.IsHdr |= stream.ColorTransfer is "smpte2084" or "arib-std-b67";
+        }
+    }
+    internal void MergeLibraryHdrFacts(Guid itemId, MediaProbeInfo info)
+    {
+        if (!info.IsHdr && !info.IsDolbyVision && info.BitDepth < 10) return;
+        var streams = mediaSources.GetMediaStreams(itemId)
+            ?? throw new InvalidOperationException("No se pueden verificar los metadatos HDR de Jellyfin.");
+        MergeLibraryHdrFacts(info, streams);
+    }
     public string[] Roots() => library.GetVirtualFolders().SelectMany(f => f.Locations).Distinct().ToArray();
     public static PluginConfiguration Config => Plugin.Instance?.Configuration ?? throw new InvalidOperationException("Configuración no disponible.");
     private List<BaseItem> SelectedMovies(PluginConfiguration config, IReadOnlyList<string> roots) =>
@@ -86,7 +105,8 @@ public sealed class CompressionCoordinator
         if (previewOnly)
         {
             var preview = await prober.ProbeAsync(item.Path, token).ConfigureAwait(false);
-            var previewError = preview is null ? "No se puede leer el vídeo." : CompressionPolicy.EligibilityError(preview);
+            if (preview is not null) MergeLibraryHdrFacts(item.Id, preview);
+            var previewError = preview is null ? "No se puede leer el vídeo." : CompressionPolicy.EligibilityError(preview, effective, config, automatic, !applyMinimumSize);
             return (Result(previewError is null, previewError ?? "Apta preliminarmente; se verificará antes de encolar.", size), null);
         }
         var identity = await ContentRegistry.IdentifyAsync(item.Path, token).ConfigureAwait(false);
@@ -97,10 +117,11 @@ public sealed class CompressionCoordinator
             if (prior.Kind != "no-savings" || prior.ProfileKey == key) return (Result(false, prior.Kind == "no-savings" ? "Sin ahorro con este perfil." : "Ya procesada; no se recomprime.", identity.Length), null);
         }
         var probe = await prober.ProbeAsync(item.Path, token).ConfigureAwait(false);
-        var error = probe is null ? "No se puede leer el vídeo." : CompressionPolicy.EligibilityError(probe);
+        if (probe is not null) MergeLibraryHdrFacts(item.Id, probe);
+        var error = probe is null ? "No se puede leer el vídeo." : CompressionPolicy.EligibilityError(probe, effective, config, automatic, !applyMinimumSize);
         if (error is not null) return (Result(false, error, identity.Length), null);
-        return (Result(true, "Lista para comprimir", identity.Length), new(effective, identity, decision.Root!, config.QuarantineDirectory,
-            config.RetentionDays, config.MinSavingsPercent, key, item.DateCreated));
+        return (Result(true, "Lista para comprimir", identity.Length), new CompressionSnapshot(effective, identity, decision.Root!, config.QuarantineDirectory,
+            config.RetentionDays, config.MinSavingsPercent, key, item.DateCreated) { SingleMovieSelection = !automatic && !applyMinimumSize });
     }
     public async Task<Candidate> EnqueueAsync(BaseItem item, bool automatic, CancellationToken token, bool applyMinimumSize = false)
     {
