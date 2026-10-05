@@ -1,5 +1,5 @@
 <# Build an experimental package; does not install the plugin or modify any media. #>
-param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.11.0")
+param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.12.0")
 $ErrorActionPreference = "Stop"
 $taskRoot = $PSScriptRoot
 $taskProject = Join-Path $taskRoot "Jellyfin.Plugin.PreTranscode/Jellyfin.Plugin.PreTranscode.csproj"
@@ -39,7 +39,7 @@ New-Item -ItemType Directory -Path $taskLicenses -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $taskRoot "licenses/hdr10plus_tool-MIT.txt"), (Join-Path $taskRoot "licenses/MKVToolNix-GPL-2.0.txt") -Destination $taskLicenses
 $taskMeta = [ordered]@{
     category = "General"
-    changelog = "Experimental manual HDR10+ preservation for MKV on Linux x86-64, disabled by default. Automatic compression stays off by default."
+    changelog = "Experimental preview: reconnect operation tracking, show restored movies and deferred cleanup, background manual purge, and retry after changing minimum savings. Automatic compression stays off by default."
     description = "Compress movies while retaining originals temporarily and preserving Jellyfin item identity."
     guid = "274af2b7-724c-41e9-82e7-56c3e80139c1"
     name = "Jellyfin Compressor"

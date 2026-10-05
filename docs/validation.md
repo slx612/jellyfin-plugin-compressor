@@ -1,6 +1,35 @@
 # Validación de la versión preliminar
 
-Actualizado: 2026-09-24. Objetivo: Jellyfin 10.11.6, .NET 9.
+Actualizado: 2026-10-03. Objetivo: Jellyfin 10.11.6, .NET 9.
+
+## Resultado vigente: 0.1.12
+
+La [CI del commit b794983](https://github.com/slx612/jellyfin-plugin-compressor/actions/runs/37122039001)
+pasó 378 pruebas .NET, 7 pruebas del JavaScript real del panel y 3 del contrato del
+comprobador. También ejecutó de principio a fin el comparador en un contenedor
+oficial Jellyfin 10.11.6 nuevo, con tres películas sintéticas MKV/MP4/M4V y dos
+usuarios. Conservó exactamente identidad, fecha, visto, progreso, favoritos y
+listas de recién añadidas/continuar viendo tras comprimir, escanear, reiniciar,
+restaurar y volver a escanear. La restauración recuperó el SHA-256 original.
+La instalación inicial mantuvo la automatización apagada y las carpetas vacías.
+
+El panel se comprueba con su propio código, incluyendo fallos transitorios del
+seguimiento, pérdida de la operación tras reiniciar, restauración, limpieza
+aplazada, purga en segundo plano y varias compresiones de contenidos distintos
+en una misma ruta. La revisión independiente no detectó problemas pendientes
+en estas correcciones.
+
+En el NAS se restauró Anora el 2026-09-27: volvió su original de 11.254.141.863
+bytes, con el mismo SHA-256, identificador y fecha de añadido. Tras verificarlo,
+se eliminaron las copias de cuarentena. No se tomó una instantánea previa completa
+de los datos de todos sus usuarios; esa restauración real no prueba por sí sola
+la igualdad de todo el visto/progreso. El ensayo sintético anterior sí compara
+esos estados antes y después para ambos usuarios.
+
+La purga manual del ensayo se ejecuta tras restaurar los tres originales, por lo
+que prueba su contrato asíncrono. No prueba el vencimiento real ni la expulsión
+por cuota de un original en el NAS. HDR/Dolby sigue en una rama experimental
+separada, pendiente de película completa y cliente.
 
 ## Pruebas automatizadas
 
@@ -109,9 +138,10 @@ La prueba real de Jellyfin descrita arriba corresponde a la DLL de `v0.1.0-alpha
 La cuota configurable y la limpieza tras restaurar son posteriores: sus pruebas de
 servicio comprueban orden de eliminación, archivos ajenos, bloqueo por actualización
 pendiente, reducción del límite sin nuevas compresiones y limpieza después de
-verificar la restauración. **Las operaciones de cuota y limpieza ampliadas aún no
-se han ejecutado dentro de un servidor Jellyfin ni en el NAS.**
+verificar la restauración. **El vencimiento y la expulsión por cuota aún no se han
+probado con medios reales en el NAS.** La limpieza tras restaurar sí se ha
+verificado en Anora y en la CI vigente descrita al principio.
 
-La política de control de aplicaciones de este Windows impide cargar la DLL nueva
-en el proceso de pruebas local, aunque su compilación y el empaquetado finalizan
-correctamente. La ejecución de la batería ampliada se comprueba en la CI de Linux.
+En la ejecución local de 0.1.12, Windows bloqueó una de las pruebas que invocan
+FFmpeg mediante su política de control de aplicaciones. La batería completa pasó
+en Linux sin desactivar esa protección.

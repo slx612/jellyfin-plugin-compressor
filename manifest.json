@@ -8,6 +8,22 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.1.12.0",
+        "changelog": "Experimental preview: reconnect operation tracking, correctly show restored movies and deferred cleanup, background manual purge, and retry after changing minimum savings. Automatic compression remains disabled by default.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.12-alpha.13/jellyfin-compressor-0.1.12.0.zip",
+        "checksum": "7ad7313e8aefe3340d430b7a89af70e8",
+        "timestamp": "2026-10-03T12:22:55Z"
+      },
+      {
+        "version": "0.1.11.0",
+        "changelog": "Experimental preview: original restoration runs in the background with visible stages and errors. Automatic compression remains disabled by default.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.11-alpha.12/jellyfin-compressor-0.1.11.0.zip",
+        "checksum": "ed72f20346f74ac0fdef98a5098f1932",
+        "timestamp": "2026-09-27T12:24:09Z"
+      },
+      {
         "version": "0.1.10.0",
         "changelog": "Experimental preview: the resolution selector now shows the saved limit correctly after reopening the dashboard. Automatic compression remains disabled by default.",
         "targetAbi": "10.11.6.0",

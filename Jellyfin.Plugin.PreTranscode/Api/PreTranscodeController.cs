@@ -154,7 +154,12 @@ public class PreTranscodeController : ControllerBase
     [HttpGet("Originals")]
     public IActionResult Originals() => Ok(replacement.List());
     [HttpPost("Originals/Purge")]
-    public async Task<IActionResult> Purge(CancellationToken token) => Ok(new { Deleted = await replacement.PurgeExpiredAsync(DateTimeOffset.UtcNow, token).ConfigureAwait(false) });
+    public IActionResult Purge()
+    {
+        try { return Accepted(manual.Start("Purge", async (_, token) =>
+            new { Deleted = await replacement.PurgeExpiredAsync(DateTimeOffset.UtcNow, token).ConfigureAwait(false) })); }
+        catch (InvalidOperationException ex) { return BadRequest(new { Message = ex.Message }); }
+    }
     [HttpPost("Originals/{id}/Restore")]
     public IActionResult Restore(string id)
     {

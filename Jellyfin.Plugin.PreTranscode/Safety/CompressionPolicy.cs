@@ -46,7 +46,8 @@ public static class CompressionPolicy
             ResolutionMode = profile.ResolutionMode, MaxWidth = width, MaxHeight = profile.ResolutionMode == ResolutionMode.CapHeight ? profile.MaxHeight : 0,
             PixelFormatMode = PixelFormatMode.KeepSourceBitDepth };
     }
-    public static string Key(EncodingProfile profile) => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(profile)))).ToLowerInvariant();
+    public static string Key(EncodingProfile profile, double minSavingsPercent = 15) => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+        JsonSerializer.Serialize(new { Profile = profile, MinSavingsPercent = minSavingsPercent })))).ToLowerInvariant();
     public static string? EligibilityError(MediaProbeInfo info, EncodingProfile? profile = null, PluginConfiguration? config = null,
         bool automatic = false, bool manualSingle = true)
     {

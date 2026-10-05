@@ -3,13 +3,15 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.10 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.12 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
-destino tras instalar y reiniciar. **No se ha sustituido ni restaurado ningún
-medio real en el servidor de destino**; las operaciones de cuota y retención
-ampliadas aún no se han probado dentro de ese servidor.
+destino tras instalar y reiniciar. El 27 de septiembre se comprimió y restauró
+una película real en el NAS: se recuperó el original por SHA-256 y se conservó
+la identidad y fecha de la ficha. Las operaciones de cuota y caducidad, los
+cortes durante el reemplazo y la comparación completa de datos de usuario con
+la versión actual aún necesitan validación en ese servidor.
 
 La rama de desarrollo incorpora una prueba aún no publicada de HDR10, HDR10+ y Dolby Vision
 8.1. Está apagada por defecto y limitada a películas elegidas individualmente;
@@ -76,8 +78,10 @@ originales y resultados con el SHA-256 del archivo completo y se añade una marc
 Un resultado propio se omite después de reiniciar, moverlo, renombrarlo, cambiar de
 perfil, limpiar el historial o eliminar el original vencido. Un original restaurado
 también queda protegido. La v1 no ofrece recompresión forzada. Un intento sin ahorro
-se recuerda para el perfil utilizado; cambiar de perfil permite un nuevo intento
-sobre ese original.
+se recuerda para el perfil y el ahorro mínimo utilizados; cambiar cualquiera permite
+un nuevo intento sobre ese original. Al actualizar a 0.1.12 se permite un intento
+adicional para los registros antiguos sin ahorro, aunque no cambien los ajustes.
+Los originales restaurados y los resultados comprimidos siguen protegidos.
 
 El análisis rápido no calcula SHA-256 y puede mostrar como «apta preliminarmente»
 una película ya procesada. La comprobación completa al encolarla la omite en ese caso;
@@ -158,7 +162,7 @@ Requiere .NET SDK 9 y FFmpeg/ffprobe en `PATH` para las pruebas de integración.
 
 ```powershell
 dotnet test -c Release
-./build-plugin.ps1 -Version 0.1.10.0
+./build-plugin.ps1 -Version 0.1.12.0
 ```
 
 El ZIP y su SHA-256 quedan en `artifacts/`. Las dependencias de Jellyfin se

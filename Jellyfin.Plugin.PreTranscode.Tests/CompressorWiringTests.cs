@@ -194,6 +194,38 @@ public sealed class CompressorWiringTests : IDisposable
     }
 
     [Fact]
+    public async Task LoweringSavingsMinimumAllowsRetryButNeverRecompressesProcessedContent()
+    {
+        var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
+        var source = Path.Combine(movieRoot, "movie.mkv");
+        await File.WriteAllBytesAsync(source, new byte[1024]);
+        File.SetLastWriteTimeUtc(source, DateTime.UtcNow.AddMinutes(-2));
+        plugin.Configuration.IncludedFolders.Add(movieRoot);
+        plugin.Configuration.QuarantineDirectory = Path.Combine(root, "originals");
+        plugin.Configuration.RetentionDays = 7;
+        var registry = new ContentRegistry(Path.Combine(root, "identities"));
+        var library = new Mock<ILibraryManager>();
+        library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Locations = [movieRoot] }]);
+        var probe = new Mock<IMediaProber>();
+        probe.Setup(p => p.ProbeAsync(source, It.IsAny<CancellationToken>())).ReturnsAsync(new MediaProbeInfo
+        { VideoStreamCount = 1, Width = 1920, Height = 1080, DurationSeconds = 60, PixelFormat = "yuv420p" });
+        var coordinator = new CompressionCoordinator(Mock.Of<IJobQueue>(q => q.GetJobs() == Array.Empty<TranscodeJob>()),
+            probe.Object, library.Object, Mock.Of<ISessionManager>(), registry, Mock.Of<IMediaSourceManager>());
+        var movie = new Movie { Path = source, Name = "Movie" };
+        var first = (await coordinator.InspectAsync(movie, false, default)).Snapshot!;
+        registry.Save(new(first.Source.Sha256, first.Source.Length, "no-savings", first.ProfileKey, null, source));
+
+        Assert.False((await coordinator.InspectAsync(movie, false, default)).Candidate.Eligible);
+        plugin.Configuration.MinSavingsPercent = 5;
+        Assert.True((await coordinator.InspectAsync(movie, false, default)).Candidate.Eligible);
+        foreach (var kind in new[] { "original", "compressed" })
+        {
+            registry.Save(new(first.Source.Sha256, first.Source.Length, kind, first.ProfileKey, null, source));
+            Assert.False((await coordinator.InspectAsync(movie, false, default)).Candidate.Eligible);
+        }
+    }
+
+    [Fact]
     public void DisabledAutomaticJobsCannotStarveManualJobsAndSnapshotsSurviveReload()
     {
         var snapshot = new CompressionSnapshot(new EncodingProfile { Crf = 25 }, new(new string('a', 64), 1000), root, root + "-originals", 7, 15, "p", DateTime.UtcNow);
