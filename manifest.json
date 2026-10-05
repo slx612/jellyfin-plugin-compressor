@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.1.14.0",
+        "changelog": "Experimental preview: fixes configuration page scrolling in Jellyfin 10.11.6, allowing the mouse wheel to reach HDR controls and the save bar. Compression behavior and existing settings are unchanged; automatic compression and HDR options remain disabled by default.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.14-alpha.15/jellyfin-compressor-0.1.14.0.zip",
+        "checksum": "ff67cfe5622b57819643b759ad908be1",
+        "timestamp": "2026-10-05T23:05:20Z"
+      },
+      {
         "version": "0.1.13.0",
         "changelog": "Experimental preview: manual NVIDIA NVENC Main10 compression preserving compatible HDR10, HDR10+ and Dolby Vision 8.1 on Linux x86-64, with bundled tools, visible processing phases and no upscaling. Automatic compression and HDR options remain disabled by default.",
         "targetAbi": "10.11.6.0",
