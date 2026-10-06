@@ -311,3 +311,32 @@ test('completed summary uses actual output facts and shows separate phase durati
     ui.element('jcHistoryFilter').value = 'Failed'; ui.element('jcHistoryFilter').onchange();
     assert.doesNotMatch(text(ui.element('jcHistory')), /Movie/);
 });
+
+test('an older status response cannot undo an acknowledged pause', async () => {
+    let stale, reads = 0;
+    const ui = panel(async route => route === 'Originals' ? [] : route === 'Pause' ? undefined
+        : ++reads === 1 ? { Jobs: [], Paused: false } : new Promise(resolve => { stale = resolve; }));
+    await ui.refresh();
+    const inFlight = ui.refresh();
+    await ui.element('jcPause').onclick();
+    stale({ Jobs: [], Paused: false }); await inFlight;
+    assert.match(ui.element('jcQueueState').textContent, /Cola pausada/);
+    assert.equal(ui.element('jcResume').hidden, false);
+});
+
+test('a lost refresh after acknowledging cancel keeps the pending state until a terminal result arrives', async () => {
+    let failRefresh = false, status = 'Processing';
+    const ui = panel(async route => {
+        if (route.endsWith('/Cancel')) { failRefresh = true; return; }
+        if (route === 'Originals') return [];
+        if (failRefresh) throw new Error('connection lost');
+        return { Jobs: [{ ...job, Status: status }], Paused: false };
+    });
+    await ui.refresh();
+    await find(ui.element('jcRunning'), node => node.textContent === 'Cancelar').onclick();
+    assert.match(text(ui.element('jcRunning')), /Cancelando/);
+    const pending = find(ui.element('jcRunning'), node => node.textContent === 'Cancelando…');
+    assert.equal(pending.disabled, true);
+    failRefresh = false; status = 'Cancelled'; await ui.refresh();
+    assert.match(ui.element('jcMessage').textContent, /Cancelada/);
+});

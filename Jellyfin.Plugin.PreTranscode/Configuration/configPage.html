@@ -264,7 +264,7 @@
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0, folderCounts = null, folderCountsError = false, folderCountsRequest = 0;
     var movieEntries = [], movieRequest = 0, queueingMovie = false, originalFolderState, originalRequest = 0;
     var selectedMovies = new Set(), movieResults = {}, reviewedIds = [], moviePage = 0, visibleMovies = [], catalogFolders = [], catalogLoading = false, currentTab = 0;
-    var queueState = {Jobs: []}, queueRecords = [], queueAction = '', pendingCancels = new Set(), expandedPhases = new Set(), historyPage = 0, serverNow = Date.now(), serverReadAt = Date.now();
+    var queueState = {Jobs: []}, queueRecords = [], queueAction = '', queueRevision = 0, pendingCancels = new Set(), expandedPhases = new Set(), historyPage = 0, serverNow = Date.now(), serverReadAt = Date.now();
     var replacementPhases = ['Prepared', 'BackupVerified', 'Publishing', 'Completed', 'Purging', 'Purged', 'Restoring', 'Restored', 'Aborted'];
     function el(id) { return page.querySelector('#' + id); }
     function message(text, error) { el('jcMessage').textContent = text; el('jcMessage').style.borderColor = error ? '#e99a9a' : 'var(--jc-accent)'; }
@@ -659,15 +659,15 @@
         if (queueAction) return Promise.resolve();
         queueAction = command; queueControls(); message(command === 'Pause' ? 'Pausando la cola…' : 'Continuando la cola…');
         return action(function() { return api(command, 'POST').then(function() {
-            queueState.Paused = command === 'Pause'; message(queueState.Paused ? 'Cola pausada.' : 'Cola reanudada.');
+            queueRevision++; queueState.Paused = command === 'Pause'; message(queueState.Paused ? 'Cola pausada.' : 'Cola reanudada.');
         }); }).finally(function() { queueAction = ''; queueControls(); action(refresh); });
     }
     function cancelJob(j, control) {
         if (pendingCancels.has(j.Id)) return Promise.resolve();
         pendingCancels.add(j.Id); control.disabled = true; control.textContent = 'Cancelando…'; message('Cancelando ' + j.DisplayName + '…');
-        return action(function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').then(refresh).catch(function(error) {
+        return action(function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').catch(function(error) {
             pendingCancels.delete(j.Id); renderQueue(); throw error;
-        }); });
+        }).then(refresh); });
     }
     function jobCard(j, position) {
         var status = jobStatus(j), card = document.createElement('article'), body = document.createElement('div'), heading = document.createElement('div'), title = document.createElement('h3'), badge = document.createElement('span');
@@ -756,11 +756,13 @@
     function jobStart(j) { return j.CompletedPhases && j.CompletedPhases.length ? j.CompletedPhases[0].StartedUtc : j.StartedUtc; }
     function refresh() {
         if (loading || !active) return Promise.resolve(); loading = true;
+        var controlRevision = queueRevision;
         return Promise.all([api('Status'), api('Originals')]).then(function(values) {
             var state = values[0], records = values[1], originals = records.filter(function(r) {
                 var phase = enumName(r.Phase, replacementPhases);
                 return phase === 'Completed' || phase === 'Restoring' || (phase === 'Restored' && (r.LibraryRefreshPending || /aplazada/i.test(r.RetentionStatus || '')));
             }), allJobs = state.Jobs || [];
+            if (controlRevision !== queueRevision) state.Paused = queueState.Paused;
             queueState = state; queueRecords = records; serverNow = state.NowUtc ? new Date(state.NowUtc).getTime() : Date.now(); serverReadAt = Date.now();
             renderQueue(); el('jcQueueConnection').textContent = 'Estado actualizado · ' + new Date(serverNow).toLocaleTimeString();
             el('jcJobsCount').textContent = String(allJobs.filter(function(j) { var s = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']); return s === 'Pending' || s === 'Processing'; }).length);
