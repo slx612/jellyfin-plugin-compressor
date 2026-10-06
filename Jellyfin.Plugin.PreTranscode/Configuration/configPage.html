@@ -425,7 +425,7 @@
         filtered.sort(el('jcMovieSort').value === 'name' ? function(a, b) { return a.Name.localeCompare(b.Name); } : function(a, b) { return b.Size - a.Size || a.Name.localeCompare(b.Name); });
         var pages = Math.max(1, Math.ceil(filtered.length / 12)); moviePage = Math.min(moviePage, pages - 1);
         visibleMovies = filtered.slice(moviePage * 12, moviePage * 12 + 12);
-        el('jcCatalogSummary').textContent = filtered.length + ' películas' + (filtered.length !== movieEntries.length ? ' de ' + movieEntries.length : '') + ' · ' + selectedMovies.size + ' seleccionadas';
+        el('jcCatalogSummary').textContent = filtered.length + (filtered.length === 1 ? ' película' : ' películas') + (filtered.length !== movieEntries.length ? ' de ' + movieEntries.length : '') + ' · ' + selectedMovies.size + (selectedMovies.size === 1 ? ' seleccionada' : ' seleccionadas');
         el('jcMoviePage').textContent = 'Página ' + (moviePage + 1) + ' de ' + pages;
         el('jcMoviePrevious').disabled = moviePage === 0; el('jcMovieNext').disabled = moviePage + 1 >= pages;
         if (!visibleMovies.length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = 'No hay películas con estos filtros. Prueba a quitar el tamaño mínimo o cambiar la biblioteca.'; box.append(empty); }
