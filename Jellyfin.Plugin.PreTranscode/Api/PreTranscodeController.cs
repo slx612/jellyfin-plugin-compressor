@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -97,6 +98,40 @@ public class PreTranscodeController : ControllerBase
         return Ok(items.Where(item => !string.IsNullOrEmpty(item.Path) && ItemSearch.Matches(item.Name, item.Path, tokens))
             .OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase).Take(30)
             .Select(item => new { Id = item.Id, item.Name, item.Path }).ToArray());
+    }
+    [HttpGet("Catalog")]
+    public IActionResult Catalog() => Ok(coordinator.MovieCatalog());
+
+    [HttpPost("Selection/Review")]
+    public IActionResult ReviewSelection([FromBody] Guid[] ids) => Selection(ids, false);
+    [HttpPost("Selection/Queue")]
+    public IActionResult QueueSelection([FromBody] Guid[] ids) => Selection(ids, true);
+    private IActionResult Selection(Guid[] ids, bool enqueue)
+    {
+        if (ids.Length is < 1 or > 100 || ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length)
+            return BadRequest(new { Message = "Elige entre 1 y 100 películas diferentes." });
+        try
+        {
+            return Accepted(manual.Start(enqueue ? "Selection" : "Review", async (progress, token) =>
+            {
+                var results = new List<Candidate>();
+                foreach (var id in ids)
+                {
+                    token.ThrowIfCancellationRequested();
+                    var item = library.GetItemById(id);
+                    if (item is null) results.Add(new(id.ToString("N"), "Película no disponible", "", false, "Jellyfin ya no encuentra esta película.", 0));
+                    else
+                    {
+                        try { results.Add(enqueue ? await coordinator.EnqueueAsync(item, false, token, ids.Length > 1).ConfigureAwait(false)
+                            : (await coordinator.InspectAsync(item, false, token, ids.Length > 1, previewOnly: true).ConfigureAwait(false)).Candidate); }
+                        catch (Exception ex) when (ex is not OperationCanceledException) { results.Add(new(id.ToString("N"), item.Name, item.Path ?? "", false, ex.Message, 0)); }
+                    }
+                    progress.Report(results.Count * 100d / ids.Length);
+                }
+                return results;
+            }));
+        }
+        catch (InvalidOperationException ex) { return BadRequest(new { Message = ex.Message }); }
     }
     [HttpGet("Capabilities")]
     public async Task<IActionResult> Capabilities(CancellationToken token)
