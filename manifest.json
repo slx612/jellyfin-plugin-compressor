@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.1.15.0",
+        "changelog": "Experimental movie selection rework: browse posters and media facts, filter and mark movies, review without compressing, then add compatible selections to the queue with per-movie results. Sticky actions and cancellable review. Existing settings are preserved; automatic compression and HDR options remain disabled by default.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.15-alpha.16/jellyfin-compressor-0.1.15.0.zip",
+        "checksum": "4aacd92ba937d96c597b162ff0dff976",
+        "timestamp": "2026-10-06T14:11:31Z"
+      },
+      {
         "version": "0.1.14.0",
         "changelog": "Experimental preview: fixes configuration page scrolling in Jellyfin 10.11.6, allowing the mouse wheel to reach HDR controls and the save bar. Compression behavior and existing settings are unchanged; automatic compression and HDR options remain disabled by default.",
         "targetAbi": "10.11.6.0",
