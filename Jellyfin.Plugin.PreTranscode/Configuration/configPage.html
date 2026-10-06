@@ -8,19 +8,19 @@
 #CompressorPage {--jc-accent:var(--primary-accent-color,#00a4dc);--jc-line:rgba(128,128,128,.28);--jc-surface:rgba(128,128,128,.09);--jc-surface-strong:rgba(128,128,128,.15);font-family:Roboto,"Helvetica Neue",Arial,sans-serif}
 #CompressorPage .jc-shell {max-width:1120px;padding-bottom:5rem}
 #CompressorPage * {box-sizing:border-box}
-#CompressorPage .jc-hero {display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem;padding:1.5rem 0 1.1rem}
+#CompressorPage .jc-hero {display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem;padding:.75rem 0 .65rem}
 #CompressorPage h1,#CompressorPage h2,#CompressorPage h3,#CompressorPage p {margin-top:0}
-#CompressorPage h1 {font-size:2rem;line-height:1.2;margin-bottom:.45rem}
+#CompressorPage h1 {font-size:1.6rem;line-height:1.2;margin-bottom:.3rem}
 #CompressorPage h2 {font-size:1.35rem;margin-bottom:.4rem}
 #CompressorPage h3 {font-size:1.05rem;margin-bottom:.4rem}
 #CompressorPage p,#CompressorPage .jc-help {line-height:1.55}
 #CompressorPage .jc-eyebrow {display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem;color:var(--jc-accent);font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 #CompressorPage .jc-badge {display:inline-flex;align-items:center;gap:.35rem;padding:.32rem .65rem;border:1px solid var(--jc-line);border-radius:100px;background:var(--jc-surface);color:inherit;font-size:.74rem;font-weight:700;letter-spacing:0;text-transform:none}
-#CompressorPage .jc-hero p {max-width:680px;margin-bottom:0;opacity:.78}
+#CompressorPage .jc-hero p {max-width:680px;margin-bottom:0;opacity:.78;font-size:.9rem}
 #CompressorPage .jc-hero-icon {display:grid;place-items:center;flex:none;width:64px;height:64px;border-radius:18px;color:var(--jc-accent);background:var(--jc-surface-strong)}
 #CompressorPage .jc-hero-icon .material-icons {font-size:34px}
-#CompressorPage .jc-tabs {display:flex;gap:.25rem;overflow-x:auto;border-bottom:1px solid var(--jc-line);margin-bottom:1.5rem}
-#CompressorPage .jc-tab {display:inline-flex;align-items:center;gap:.45rem;flex:none;padding:.9rem 1rem;border:0;border-bottom:3px solid transparent;background:none;color:inherit;opacity:.72;font:inherit;font-weight:600;cursor:pointer}
+#CompressorPage .jc-tabs {display:flex;gap:.25rem;overflow-x:auto;border-bottom:1px solid var(--jc-line);margin-bottom:1rem}
+#CompressorPage .jc-tab {display:inline-flex;align-items:center;gap:.45rem;flex:none;padding:.65rem 1rem;border:0;border-bottom:3px solid transparent;background:none;color:inherit;opacity:.72;font:inherit;font-weight:600;cursor:pointer}
 #CompressorPage .jc-tab[aria-selected="true"] {color:var(--jc-accent);border-bottom-color:var(--jc-accent);opacity:1}
 #CompressorPage .jc-tab:hover {background:var(--jc-surface);opacity:1}
 #CompressorPage .jc-tab .material-icons {font-size:1.15rem}
@@ -115,6 +115,7 @@
 #CompressorPage .jc-picker-path {overflow-wrap:anywhere;font-size:.83rem;opacity:.75}
 #CompressorPage .jc-catalog-toolbar {display:grid;grid-template-columns:2fr 1fr 1fr;gap:.75rem;margin-bottom:.75rem}
 #CompressorPage .jc-catalog-toolbar .jc-field {margin:0}
+#CompressorPage .jc-catalog-more > summary {cursor:pointer;font-size:.85rem;color:var(--jc-accent);margin:.75rem 0}
 #CompressorPage .jc-catalog-tools {display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin:1rem 0}
 #CompressorPage .jc-movies {border:1px solid var(--jc-line);border-radius:12px;overflow:hidden}
 #CompressorPage .jc-movie {display:grid;grid-template-columns:24px 54px minmax(0,1fr) 115px;align-items:center;gap:1rem;padding:1rem;border-bottom:1px solid var(--jc-line);background:var(--jc-surface)}
@@ -135,7 +136,6 @@
 #CompressorPage .jc-selectionbar[hidden],#CompressorPage .jc-savebar[hidden] {display:none}
 #CompressorPage .jc-stats[hidden] {display:none}
 #CompressorPage .jc-progress {margin-top:.7rem;accent-color:var(--jc-accent);width:100%}
-#CompressorPage .jc-queue-link {display:flex;align-items:center;gap:.75rem;justify-content:space-between;padding:.85rem 1rem;border:1px solid var(--jc-line);border-radius:10px;margin-bottom:1rem;background:var(--jc-surface)}
 @media (max-width:700px) {#CompressorPage .jc-catalog-toolbar {grid-template-columns:1fr 1fr}#CompressorPage .jc-catalog-toolbar .jc-field:first-child {grid-column:1/-1}#CompressorPage .jc-movie {grid-template-columns:22px 42px minmax(0,1fr);gap:.65rem;padding:.8rem}#CompressorPage .jc-poster {width:42px;height:63px}#CompressorPage .jc-movie-size {grid-column:3;text-align:left;font-size:.85rem}#CompressorPage .jc-selectionbar {align-items:stretch;flex-direction:column}}
 @media (max-width:850px) {#CompressorPage .jc-browser {grid-template-columns:1fr}#CompressorPage .jc-browser-list {max-height:350px}}
 @media (max-width:620px) {#CompressorPage .jc-hero-icon {display:none}#CompressorPage .jc-stats {grid-template-columns:1fr}#CompressorPage .jc-folder {flex-wrap:wrap}#CompressorPage .jc-folder-actions {margin-left:2rem}#CompressorPage .jc-card {padding:1rem}#CompressorPage .jc-tabs {justify-content:space-between}#CompressorPage .jc-tab {padding:.75rem .45rem}#CompressorPage .jc-tab .material-icons {display:none}#CompressorPage .jc-savebar {border-radius:0}}
@@ -167,16 +167,17 @@
     <div class="jc-stat"><span class="material-icons" aria-hidden="true">folder_special</span><strong id="jcFolderCount">0</strong><span>Carpetas incluidas</span></div>
     <div class="jc-stat"><span class="material-icons" aria-hidden="true">playlist_play</span><strong id="jcJobsCount">0</strong><span>Trabajos pendientes o en curso</span></div>
   </div>
-  <div class="jc-queue-link"><span id="jcNowPlaying">No hay películas en la cola.</span><button class="jc-button" type="button" id="jcOpenQueue">Ver cola</button></div>
-  <div class="jc-card-head"><div><h2>Tu biblioteca</h2><p>Marca una o varias películas. Revisarlas no inicia ninguna compresión.</p></div><button class="jc-button" type="button" id="jcCatalogRefresh">Actualizar</button></div>
+  <div class="jc-card-head"><div><h2>Tu biblioteca</h2><p id="jcNowPlaying">No hay películas en la cola.</p></div><div class="jc-actions"><button class="jc-button" type="button" id="jcOpenQueue">Ver cola</button><button class="jc-button" type="button" id="jcCatalogRefresh">Actualizar</button></div></div>
   <div class="jc-catalog-toolbar">
     <label class="jc-field"><span>Buscar película o carpeta</span><input id="jcMovieSearch" type="search" placeholder="Título o nombre del archivo" autocomplete="off"></label>
     <label class="jc-field"><span>Biblioteca</span><select id="jcMovieLibrary"><option value="">Todas las bibliotecas</option></select></label>
     <label class="jc-field"><span>Formato</span><select id="jcMovieFormat"><option value="">Todos los formatos</option><option>SDR</option><option>HDR10</option><option>HDR10+</option><option>Dolby Vision</option></select></label>
+  </div>
+  <details class="jc-catalog-more"><summary>Más filtros y orden</summary><div class="jc-catalog-toolbar">
     <label class="jc-field"><span>Carpeta</span><select id="jcMovieFolder"><option value="">Todas las carpetas</option></select></label>
     <label class="jc-field"><span>Tamaño mínimo (GB)</span><input type="number" id="jcMovieMin" min="0" value="0" step="1"></label>
     <label class="jc-field"><span>Ordenar por</span><select id="jcMovieSort"><option value="size">Más pesadas primero</option><option value="name">Título A–Z</option></select></label>
-  </div>
+  </div></details>
   <div class="jc-catalog-tools"><span id="jcCatalogSummary" role="status">Cargando películas…</span><div class="jc-actions"><button class="jc-button" type="button" id="jcSelectVisible">Seleccionar esta página</button><button class="jc-button" type="button" id="jcClearSelection">Quitar selección</button><button class="jc-button" type="button" id="jcConfigureFolders">Configurar carpetas</button></div></div>
   <div id="jcMovieResults" class="jc-movies" aria-live="polite"><div class="jc-empty">Leyendo la biblioteca de Jellyfin…</div></div>
   <div class="jc-catalog-tools"><button class="jc-button" type="button" id="jcMoviePrevious">Anterior</button><span id="jcMoviePage"></span><button class="jc-button" type="button" id="jcMovieNext">Siguiente</button></div>
