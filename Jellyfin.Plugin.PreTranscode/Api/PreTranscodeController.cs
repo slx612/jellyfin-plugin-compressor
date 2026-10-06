@@ -169,7 +169,12 @@ public class PreTranscodeController : ControllerBase
     [HttpPost("Manual/{id}/Cancel")]
     public IActionResult CancelAnalysis(Guid id) => manual.Cancel(id) ? Ok() : Conflict(new { Message = "No hay un análisis activo con ese identificador." });
     [HttpGet("Status")]
-    public IActionResult Status() => Ok(new { Jobs = queue.GetJobs(), Paused = queue.IsPaused, Schedule = control.GetScheduleState(), Error = coordinator.MaintenanceError });
+    public IActionResult Status()
+    {
+        var overview = JobQuery.Overview(queue.GetJobs(), int.MaxValue, int.MaxValue);
+        return Ok(new { Jobs = overview.Processing.Concat(overview.UpNext).Concat(overview.Recent).ToArray(),
+            Paused = queue.IsPaused, Schedule = control.GetScheduleState(), Error = coordinator.MaintenanceError, NowUtc = DateTime.UtcNow });
+    }
     [HttpPost("Pause")]
     public IActionResult Pause() { control.Pause(); return Ok(); }
     [HttpPost("Resume")]

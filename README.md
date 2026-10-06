@@ -3,7 +3,7 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.15 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.16 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
@@ -118,6 +118,16 @@ fases de análisis, codificación, reinserción y verificación; su porcentaje s
 refiere a la fase actual. El análisis y las comprobaciones usan CPU y pueden
 tardar más que la codificación GPU. Si NVENC o una comprobación falla, se conserva
 el original y se informa del motivo; no se cambia automáticamente a CPU.
+
+La cola distingue **En curso**, **A continuación** e **Historial**, con filtros y páginas
+para los resultados. Cada porcentaje pertenece exclusivamente a la fase indicada;
+si una herramienta no ofrece un progreso fiable, se muestra «En ejecución» y el
+tiempo transcurrido. Llegar al 100 % de compresión no significa que hayan terminado
+las verificaciones o la sustitución. Pausar y cancelar muestran la petición pendiente
+hasta que se confirma el estado. El resumen incluye tamaños, ahorro y, para trabajos
+nuevos, resolución real, formato verificado y tiempo por fase. Los tiempos son de
+reloj e incluyen las pausas; no estiman cuándo terminará el trabajo. Los registros de
+versiones anteriores no inventan porcentajes, tiempos de fases ni datos del vídeo.
 
 El panel tiene cuatro pestañas: **Películas** para explorar, revisar y encolar una selección,
 **Carpetas** para recorrer bibliotecas y marcar inclusiones o exclusiones, **Ajustes**

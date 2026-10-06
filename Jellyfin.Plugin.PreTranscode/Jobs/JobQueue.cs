@@ -289,6 +289,7 @@ internal sealed class JobQueue : IJobQueue, IDisposable
 
             job.Status = JobStatus.Pending;
             job.Progress = 0;
+            job.ResetPhases();
             job.ErrorMessage = string.Empty;
             job.LogExcerpt = string.Empty;
             job.StatusDetail = string.Empty;
@@ -399,6 +400,7 @@ internal sealed class JobQueue : IJobQueue, IDisposable
             {
                 job.Status = JobStatus.Pending;
                 job.Progress = 0;
+                job.ResetPhases();
                 job.StatusDetail = string.Empty;
             }
 

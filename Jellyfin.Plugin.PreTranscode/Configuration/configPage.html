@@ -137,6 +137,24 @@
 #CompressorPage .jc-selectionbar[hidden],#CompressorPage .jc-savebar[hidden] {display:none}
 #CompressorPage .jc-stats[hidden] {display:none}
 #CompressorPage .jc-progress {margin-top:.7rem;accent-color:var(--jc-accent);width:100%}
+#CompressorPage .jc-queue-section {margin-top:1.5rem}
+#CompressorPage .jc-queue-list {display:grid;gap:.7rem}
+#CompressorPage .jc-job {display:grid;grid-template-columns:54px minmax(0,1fr);gap:1rem;padding:1rem;border:1px solid var(--jc-line);border-radius:12px;background:var(--jc-surface)}
+#CompressorPage .jc-job[data-status="Processing"] {border-left:3px solid var(--jc-accent)}
+#CompressorPage .jc-job[data-status="Failed"] {border-left:3px solid #e99a9a}
+#CompressorPage .jc-job[data-status="Completed"] {border-left:3px solid #73dab0}
+#CompressorPage .jc-job-body {min-width:0}
+#CompressorPage .jc-job-heading {display:flex;gap:.7rem;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;margin-bottom:.5rem}
+#CompressorPage .jc-job-heading h3 {margin:0;overflow-wrap:anywhere}
+#CompressorPage .jc-job p {margin:.4rem 0;overflow-wrap:anywhere}
+#CompressorPage .jc-job .jc-actions {margin-top:.8rem}
+#CompressorPage .jc-job details {margin-top:.7rem;font-size:.85rem}
+#CompressorPage .jc-job summary {cursor:pointer;color:var(--jc-accent)}
+#CompressorPage .jc-phase-times {padding-left:1.2rem;line-height:1.7}
+#CompressorPage .jc-history-tools {display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin:.8rem 0}
+#CompressorPage .jc-history-tools select {width:auto}
+#CompressorPage .jc-queue-note {opacity:.7;font-size:.83rem}
+@media (max-width:620px) {#CompressorPage .jc-job {grid-template-columns:42px minmax(0,1fr);gap:.65rem;padding:.8rem}#CompressorPage .jc-job .jc-poster {width:42px;height:63px}}
 @media (max-width:700px) {#CompressorPage .jc-catalog-toolbar {grid-template-columns:1fr 1fr}#CompressorPage .jc-catalog-toolbar .jc-field:first-child {grid-column:1/-1}#CompressorPage .jc-movie {grid-template-columns:22px 42px minmax(0,1fr);gap:.65rem;padding:.8rem}#CompressorPage .jc-poster {width:42px;height:63px}#CompressorPage .jc-movie-size {grid-column:3;text-align:left;font-size:.85rem}#CompressorPage .jc-selectionbar {align-items:stretch;flex-direction:column}}
 @media (max-width:850px) {#CompressorPage .jc-browser {grid-template-columns:1fr}#CompressorPage .jc-browser-list {max-height:350px}}
 @media (max-width:620px) {#CompressorPage .jc-hero-icon {display:none}#CompressorPage .jc-stats {grid-template-columns:1fr}#CompressorPage .jc-folder {flex-wrap:wrap}#CompressorPage .jc-folder-actions {margin-left:2rem}#CompressorPage .jc-card {padding:1rem}#CompressorPage .jc-tabs {justify-content:space-between}#CompressorPage .jc-tab {padding:.75rem .45rem}#CompressorPage .jc-tab .material-icons {display:none}#CompressorPage .jc-savebar {border-radius:0}}
@@ -218,9 +236,18 @@
 </section>
 
 <section id="jcActivity" class="jc-panel" role="tabpanel" aria-labelledby="jcTabActivity" hidden>
-  <div class="jc-card"><div class="jc-card-head"><div><h2>Cola e historial</h2><p id="jcQueueState">Cargando estado…</p></div><span class="material-icons" aria-hidden="true">format_list_bulleted</span></div>
+  <div class="jc-card"><div class="jc-card-head"><div><h2>Cola de compresión</h2><p id="jcQueueState" role="status">Cargando estado…</p></div><span class="material-icons" aria-hidden="true">playlist_play</span></div>
     <div class="jc-actions"><button class="jc-button" type="button" id="jcPause"><span class="material-icons" aria-hidden="true">pause</span> Pausar</button><button class="jc-button" type="button" id="jcResume"><span class="material-icons" aria-hidden="true">play_arrow</span> Continuar</button><button class="jc-button" type="button" id="jcRefresh"><span class="material-icons" aria-hidden="true">refresh</span> Actualizar</button><button class="jc-button jc-danger" type="button" id="jcClear">Limpiar historial terminado</button></div>
-    <p class="jc-subtle" style="margin:1rem 0">Limpiar el historial no permite volver a comprimir una película ya procesada.</p><div id="jcJobs" class="jc-scroll"></div>
+    <p id="jcQueueConnection" class="jc-queue-note" role="status"></p>
+    <div id="jcJobs">
+      <section class="jc-queue-section"><h3>En curso <span id="jcRunningCount" class="jc-badge">0</span></h3><p class="jc-queue-note">El porcentaje corresponde a la fase indicada. La compresión puede terminar antes que las verificaciones.</p><div id="jcRunning" class="jc-queue-list"></div></section>
+      <section class="jc-queue-section"><h3>A continuación <span id="jcPendingCount" class="jc-badge">0</span></h3><p class="jc-queue-note">Orden de llegada. Las películas aplazadas esperan a que se cumplan sus condiciones.</p><div id="jcPending" class="jc-queue-list"></div></section>
+      <section class="jc-queue-section"><h3>Historial <span id="jcHistoryCount" class="jc-badge">0</span></h3>
+        <div class="jc-history-tools"><label for="jcHistoryFilter">Mostrar</label><select id="jcHistoryFilter"><option value="">Todos los resultados</option><option value="Completed">Comprimidas</option><option value="Skipped">Omitidas</option><option value="Failed">Con errores</option><option value="Cancelled">Canceladas</option></select><span id="jcHistoryRange" class="jc-subtle"></span></div>
+        <div id="jcHistory" class="jc-queue-list"></div><div class="jc-actions" style="margin-top:1rem"><button id="jcHistoryPrevious" class="jc-button" type="button">Anterior</button><button id="jcHistoryNext" class="jc-button" type="button">Siguiente</button></div>
+        <p class="jc-queue-note" style="margin-top:1rem">Limpiar el historial no permite volver a comprimir una película ya procesada. HDR/Dolby indica verificación de metadatos; la reproducción en un dispositivo compatible se comprueba aparte.</p>
+      </section>
+    </div>
   </div>
   <div class="jc-card"><div class="jc-card-head"><div><h2>Originales recuperables <span id="jcOriginalsCount" class="jc-badge">0</span></h2><p>Restaura una película durante su plazo de retención. Tras verificarla en Jellyfin se eliminan las copias de cuarentena.</p></div><span class="material-icons" aria-hidden="true">restore</span></div>
     <button class="jc-button" type="button" id="jcPurge">Limpiar originales vencidos</button><p class="jc-subtle" style="margin:1rem 0">Un original vencido solo se elimina si la copia comprimida sigue disponible y coincide con el registro.</p><div id="jcOriginals" class="jc-scroll"></div>
@@ -237,6 +264,7 @@
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0, folderCounts = null, folderCountsError = false, folderCountsRequest = 0;
     var movieEntries = [], movieRequest = 0, queueingMovie = false, originalFolderState, originalRequest = 0;
     var selectedMovies = new Set(), movieResults = {}, reviewedIds = [], moviePage = 0, visibleMovies = [], catalogFolders = [], catalogLoading = false, currentTab = 0;
+    var queueState = {Jobs: []}, queueRecords = [], queueAction = '', queueRevision = 0, pendingCancels = new Set(), expandedPhases = new Set(), historyPage = 0, serverNow = Date.now(), serverReadAt = Date.now();
     var replacementPhases = ['Prepared', 'BackupVerified', 'Publishing', 'Completed', 'Purging', 'Purged', 'Restoring', 'Restored', 'Aborted'];
     function el(id) { return page.querySelector('#' + id); }
     function message(text, error) { el('jcMessage').textContent = text; el('jcMessage').style.borderColor = error ? '#e99a9a' : 'var(--jc-accent)'; }
@@ -605,40 +633,142 @@
         }).finally(function() { manualPolling = false; });
     }
     function enumName(value, names) { return typeof value === 'number' ? names[value] : value; }
+    function jobStatus(job) { return enumName(job.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']); }
+    function elapsed(start, end) {
+        if (!start) return '';
+        var seconds = Math.max(0, Math.floor(((end ? new Date(end).getTime() : serverNow + Date.now() - serverReadAt) - new Date(start).getTime()) / 1000));
+        if (!Number.isFinite(seconds)) return '';
+        return (seconds >= 3600 ? Math.floor(seconds / 3600) + ' h ' : '') + (seconds >= 60 ? Math.floor(seconds % 3600 / 60) + ' min ' : '') + seconds % 60 + ' s';
+    }
+    function jobTransaction(j) {
+        var sourceHash = j.Snapshot && j.Snapshot.Source && j.Snapshot.Source.Sha256,
+            outputHash = j.VerifiedOutputIdentity && j.VerifiedOutputIdentity.Sha256;
+        return queueRecords.filter(function(r) { return sourceHash && outputHash && r.Request.ItemId === j.ItemId && r.Request.SourcePath === j.SourcePath
+            && r.Request.Source && r.Request.Source.Sha256 === sourceHash && r.Request.Output && r.Request.Output.Sha256 === outputHash; })
+            .sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); })[0];
+    }
+    function queueControls() {
+        el('jcPause').hidden = !!queueState.Paused; el('jcResume').hidden = !queueState.Paused;
+        el('jcPause').disabled = el('jcResume').disabled = !!queueAction;
+        el('jcPause').textContent = queueAction === 'Pause' ? 'Pausando…' : 'Pausar cola';
+        el('jcResume').textContent = queueAction === 'Resume' ? 'Continuando…' : 'Continuar cola';
+        el('jcQueueState').textContent = queueAction ? (queueAction === 'Pause' ? 'Pausando…' : 'Continuando…')
+            : (queueState.Paused ? 'Cola pausada. ' : 'Cola activa. ') + (queueState.Schedule && !queueState.Schedule.Open ? 'Fuera de horario. ' : '') + (queueState.Error || '');
+    }
+    function queueCommand(command) {
+        if (queueAction) return Promise.resolve();
+        queueAction = command; queueControls(); message(command === 'Pause' ? 'Pausando la cola…' : 'Continuando la cola…');
+        return action(function() { return api(command, 'POST').then(function() {
+            queueRevision++; queueState.Paused = command === 'Pause'; message(queueState.Paused ? 'Cola pausada.' : 'Cola reanudada.');
+        }); }).finally(function() { queueAction = ''; queueControls(); action(refresh); });
+    }
+    function cancelJob(j, control) {
+        if (pendingCancels.has(j.Id)) return Promise.resolve();
+        pendingCancels.add(j.Id); control.disabled = true; control.textContent = 'Cancelando…'; message('Cancelando ' + j.DisplayName + '…');
+        return action(function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').catch(function(error) {
+            pendingCancels.delete(j.Id); renderQueue(); throw error;
+        }).then(refresh); });
+    }
+    function jobCard(j, position) {
+        var status = jobStatus(j), card = document.createElement('article'), body = document.createElement('div'), heading = document.createElement('div'), title = document.createElement('h3'), badge = document.createElement('span');
+        card.className = 'jc-job'; card.dataset.status = status; body.className = 'jc-job-body'; heading.className = 'jc-job-heading'; badge.className = 'jc-badge';
+        title.textContent = j.DisplayName;
+        badge.textContent = {Pending: 'En espera', Processing: queueState.Paused ? 'Pausada' : 'En curso', Completed: 'Comprimida', Failed: 'Error', Cancelled: 'Cancelada', Skipped: 'Omitida'}[status] || status;
+        if (position) badge.textContent = '#' + position + ' · ' + badge.textContent;
+        var movie = movieEntries.find(function(item) { return item.Id === j.ItemId; }), poster = document.createElement(movie && movie.HasImage ? 'img' : 'div');
+        poster.className = 'jc-poster';
+        if (movie && movie.HasImage) { poster.src = ApiClient.getImageUrl(j.ItemId, {type: 'Primary', maxHeight: 160, quality: 80}); poster.alt = ''; poster.loading = 'lazy'; }
+        else poster.append(icon('movie'));
+        heading.append(title, badge); body.append(heading);
+        function line(text, className) { var p = document.createElement('p'); p.textContent = text; p.className = className || ''; body.append(p); }
+        var transaction = jobTransaction(j), detail = status === 'Processing' && j.Phase ? j.Phase.Name : j.ErrorMessage || j.StatusDetail || badge.textContent;
+        if (status === 'Completed' && transaction) {
+            var phase = enumName(transaction.Phase, replacementPhases);
+            if (phase === 'Restored') { badge.textContent = 'Original restaurado'; detail = 'Original restaurado' + (transaction.LibraryRefreshPending ? '; actualización de Jellyfin pendiente' : '')
+                + (/aplazada/i.test(transaction.RetentionStatus || '') ? '; limpieza de cuarentena pendiente' : ''); }
+            else if (phase === 'Restoring') detail = 'Restaurando el original';
+            else if (phase === 'Purged') detail = 'Comprimida; original eliminado por plazo o límite de tamaño';
+        }
+        line(pendingCancels.has(j.Id) ? 'Cancelando… Esperando a que termine el proceso de forma segura.' : detail);
+        if (status === 'Processing') {
+            var current = j.Phase, progress = document.createElement('progress'); progress.className = 'jc-progress'; progress.max = 100;
+            progress.setAttribute('aria-label', current && current.Name || detail);
+            if (current && typeof current.Progress === 'number' && Number.isFinite(current.Progress)) {
+                progress.value = Math.min(100, Math.max(0, current.Progress));
+                line(Math.round(progress.value) + ' % de esta fase' + (queueState.Paused ? ' · Pausada' : ''));
+            } else line(queueState.Paused ? 'Pausada' : 'En ejecución · esta fase no ofrece un porcentaje fiable');
+            body.append(progress);
+            line((current ? 'En esta fase: ' + elapsed(current.StartedUtc) + ' · ' : '') + 'Tiempo transcurrido: ' + (elapsed(jobStart(j)) || '—'), 'jc-subtle');
+        } else if (status === 'Pending' && j.NotBeforeUtc) line('Próxima comprobación: ' + new Date(j.NotBeforeUtc).toLocaleString(), 'jc-subtle');
+        if (status === 'Completed' && j.OutputSizeBytes > 0 && j.Snapshot && j.Snapshot.Source && j.Snapshot.Source.Length > 0) {
+            var initial = j.Snapshot.Source.Length, savings = 100 * (initial - j.OutputSizeBytes) / initial;
+            line((transaction && enumName(transaction.Phase, replacementPhases) === 'Restored' ? 'Compresión anterior: ' : '')
+                + bytes(initial) + ' → ' + bytes(j.OutputSizeBytes) + ' · ' + savings.toFixed(1) + ' % de ahorro', 'jc-job-result');
+            if (j.OutputWidth && j.OutputHeight) line(j.OutputWidth + ' × ' + j.OutputHeight + (j.VerifiedFormat ? ' · ' + j.VerifiedFormat + ' · metadatos verificados' : ''), 'jc-subtle');
+        }
+        if (status !== 'Pending' && status !== 'Processing' && j.StartedUtc && j.FinishedUtc) line('Tiempo total: ' + elapsed(jobStart(j), j.FinishedUtc), 'jc-subtle');
+        if (transaction && enumName(transaction.Phase, replacementPhases) === 'Completed') line('Original recuperable hasta ' + (transaction.ExpiresUtc ? new Date(transaction.ExpiresUtc).toLocaleString() : 'su eliminación por límite de tamaño') + '. También sujeto al límite de la carpeta.', 'jc-subtle');
+        if (j.CompletedPhases && j.CompletedPhases.length) {
+            var timings = document.createElement('details'), summary = document.createElement('summary'), list = document.createElement('ol');
+            summary.textContent = 'Tiempo por fase'; list.className = 'jc-phase-times'; timings.open = expandedPhases.has(j.Id);
+            timings.ontoggle = function() { if (timings.isConnected) { if (timings.open) expandedPhases.add(j.Id); else expandedPhases.delete(j.Id); } };
+            j.CompletedPhases.forEach(function(phase) { var item = document.createElement('li'); item.textContent = phase.Name + ' · ' + elapsed(phase.StartedUtc, phase.FinishedUtc); list.append(item); });
+            timings.append(summary, list); body.append(timings);
+        }
+        var actions = document.createElement('div'); actions.className = 'jc-actions';
+        if (status === 'Processing' || status === 'Pending') {
+            var cancel = button('Cancelar', function() {}); cancel.dataset.queueKey = j.Id + '-cancel'; cancel.disabled = pendingCancels.has(j.Id);
+            if (cancel.disabled) cancel.textContent = 'Cancelando…';
+            cancel.onclick = function() { return cancelJob(j, cancel); }; actions.append(cancel);
+        }
+        if (status === 'Failed' || status === 'Cancelled') actions.append(button('Reintentar', function() { return api('Jobs/' + j.Id + '/Retry', 'POST').then(function(operation) { return beginManual(operation, j.DisplayName); }); }));
+        body.append(actions); card.append(poster, body); return card;
+    }
+    function renderQueue() {
+        queueControls();
+        var jobs = queueState.Jobs || [], current = jobs.filter(function(j) { return jobStatus(j) === 'Processing'; }),
+            pending = jobs.filter(function(j) { return jobStatus(j) === 'Pending'; }).sort(function(a, b) { return String(a.CreatedUtc).localeCompare(String(b.CreatedUtc)); }),
+            history = jobs.filter(function(j) { return jobStatus(j) !== 'Processing' && jobStatus(j) !== 'Pending'; })
+                .sort(function(a, b) { return String(b.FinishedUtc || b.CreatedUtc).localeCompare(String(a.FinishedUtc || a.CreatedUtc)); });
+        pendingCancels.forEach(function(id) { var j = jobs.find(function(job) { return job.Id === id; });
+            if (!j || (jobStatus(j) !== 'Processing' && jobStatus(j) !== 'Pending')) {
+                pendingCancels.delete(id);
+                if (!j) message('El trabajo ya no aparece en la cola. No se puede confirmar aquí el resultado de la cancelación.', true);
+                else message(jobStatus(j) === 'Cancelled' ? 'Cancelada: ' + j.DisplayName + '.'
+                    : 'La cancelación no detuvo el trabajo antes de que terminara: ' + j.DisplayName + '. Resultado: ' + (j.ErrorMessage || j.StatusDetail || jobStatus(j)), jobStatus(j) === 'Failed');
+            }
+        });
+        el('jcRunningCount').textContent = String(current.length); el('jcPendingCount').textContent = String(pending.length); el('jcHistoryCount').textContent = String(history.length);
+        function list(id, items, empty, numbered) { var box = el(id); box.replaceChildren(); if (!items.length) { var p = document.createElement('p'); p.className = 'jc-empty'; p.textContent = empty; box.append(p); }
+            else items.forEach(function(j, i) { box.append(jobCard(j, numbered ? i + 1 : 0)); }); }
+        var focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.queueKey;
+        list('jcRunning', current, queueState.Paused ? 'La cola está pausada.' : 'No hay ninguna película procesándose.');
+        list('jcPending', pending, 'No hay películas esperando. Selecciónalas en Películas y añádelas a la cola.', true);
+        var filter = el('jcHistoryFilter').value;
+        if (filter) history = history.filter(function(j) { return jobStatus(j) === filter; });
+        historyPage = Math.min(historyPage, Math.max(0, Math.ceil(history.length / 10) - 1));
+        var start = historyPage * 10;
+        list('jcHistory', history.slice(start, start + 10), 'No hay resultados con este filtro.');
+        el('jcHistoryRange').textContent = history.length ? (start + 1) + '–' + Math.min(start + 10, history.length) + ' de ' + history.length : '0 resultados';
+        el('jcHistoryPrevious').disabled = historyPage === 0; el('jcHistoryNext').disabled = start + 10 >= history.length;
+        if (focused) page.querySelectorAll('[data-queue-key]').forEach(function(control) { if (control.dataset.queueKey === focused) control.focus({preventScroll: true}); });
+    }
+    function jobStart(j) { return j.CompletedPhases && j.CompletedPhases.length ? j.CompletedPhases[0].StartedUtc : j.StartedUtc; }
     function refresh() {
         if (loading || !active) return Promise.resolve(); loading = true;
+        var controlRevision = queueRevision;
         return Promise.all([api('Status'), api('Originals')]).then(function(values) {
             var state = values[0], records = values[1], originals = records.filter(function(r) {
                 var phase = enumName(r.Phase, replacementPhases);
                 return phase === 'Completed' || phase === 'Restoring' || (phase === 'Restored' && (r.LibraryRefreshPending || /aplazada/i.test(r.RetentionStatus || '')));
             }), allJobs = state.Jobs || [];
-            el('jcQueueState').textContent = (state.Paused ? 'Cola pausada. ' : 'Cola activa. ') + (state.Schedule && !state.Schedule.Open ? 'Fuera de horario. ' : '') + (state.Error || '');
+            if (controlRevision !== queueRevision) state.Paused = queueState.Paused;
+            queueState = state; queueRecords = records; serverNow = state.NowUtc ? new Date(state.NowUtc).getTime() : Date.now(); serverReadAt = Date.now();
+            renderQueue(); el('jcQueueConnection').textContent = 'Estado actualizado · ' + new Date(serverNow).toLocaleTimeString();
             el('jcJobsCount').textContent = String(allJobs.filter(function(j) { var s = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']); return s === 'Pending' || s === 'Processing'; }).length);
             var running = allJobs.find(function(job) { return enumName(job.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']) === 'Processing'; });
             el('jcNowPlaying').textContent = running ? running.DisplayName + ' · ' + (running.StatusDetail || 'En curso') : el('jcJobsCount').textContent + ' películas en la cola';
             el('jcOriginalsCount').textContent = String(originals.filter(function(r) { return enumName(r.Phase, replacementPhases) === 'Completed'; }).length);
-            var jobs = allJobs.slice().sort(function(a, b) { return b.CreatedUtc.localeCompare(a.CreatedUtc); }).slice(0, 100);
-            table('jcJobs', ['Película', 'Estado', 'Progreso', 'Acciones'], jobs.map(function(j) {
-                var status = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']), actions = document.createElement('span');
-                if (status === 'Pending' || status === 'Processing') actions.append(button('Cancelar', function() { return api('Jobs/' + j.Id + '/Cancel', 'POST').then(refresh); }));
-                if (status === 'Failed' || status === 'Cancelled') actions.append(button('Reintentar', function() { return api('Jobs/' + j.Id + '/Retry', 'POST').then(function(operation) { return beginManual(operation, j.DisplayName); }); }));
-                var measuredPhase = j.StatusDetail === 'Comprimiendo' || /^Comprobando metadatos HDR en todos|^Verificando metadatos HDR por fotograma|^Verificando pistas, capítulos/.test(j.StatusDetail || '');
-                var progress = status === 'Processing' && measuredPhase ? Math.round(j.Progress) + ' % de esta fase' : '—';
-                var sourceHash = j.Snapshot && j.Snapshot.Source && j.Snapshot.Source.Sha256,
-                    outputHash = j.VerifiedOutputIdentity && j.VerifiedOutputIdentity.Sha256;
-                var transaction = records.filter(function(r) { return sourceHash && outputHash && r.Request.ItemId === j.ItemId && r.Request.SourcePath === j.SourcePath
-                    && r.Request.Source && r.Request.Source.Sha256 === sourceHash && r.Request.Output && r.Request.Output.Sha256 === outputHash; })
-                    .sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); })[0];
-                var detail = j.ErrorMessage || j.StatusDetail || status;
-                if (status === 'Completed' && transaction) {
-                    var phase = enumName(transaction.Phase, replacementPhases);
-                    if (phase === 'Restored') detail = 'Original restaurado' + (transaction.LibraryRefreshPending ? '; actualización de Jellyfin pendiente' : '')
-                        + (/aplazada/i.test(transaction.RetentionStatus || '') ? '; limpieza de cuarentena pendiente' : '');
-                    else if (phase === 'Restoring') detail = 'Restaurando el original';
-                    else if (phase === 'Purged') detail = 'Comprimida; original eliminado por plazo o límite de tamaño';
-                }
-                return [j.DisplayName, detail, progress, actions];
-            }));
             table('jcOriginals', ['Película', 'Estado', 'Vencimiento', 'Acciones'], originals.slice().sort(function(a, b) { return String(b.CompletedUtc || '').localeCompare(String(a.CompletedUtc || '')); }).map(function(r) {
                 var phase = enumName(r.Phase, replacementPhases), actions = document.createElement('span');
                 if (phase === 'Completed') {
@@ -648,7 +778,7 @@
                 }
                 return [r.Request.SourcePath, r.RetentionStatus || (phase === 'Restoring' ? 'Restauración en curso' : r.LibraryRefreshPending ? 'Actualización de Jellyfin pendiente' : phase), r.ExpiresUtc ? new Date(r.ExpiresUtc).toLocaleString() : 'Sin vencimiento', actions];
             }));
-        }).then(pollManual).finally(function() { loading = false; });
+        }).then(pollManual).catch(function(error) { el('jcQueueConnection').textContent = 'No se puede actualizar el estado. Los datos visibles son de la última conexión; se reintentará automáticamente.'; throw error; }).finally(function() { loading = false; });
     }
     function setTab(index) {
         currentTab = index; page.scrollTop = 0;
@@ -710,7 +840,10 @@
     el('jcCancelAnalysis').onclick = el('jcCancelReview').onclick = function() { if (!manualOperationId || (manualKind !== 'Analyze' && manualKind !== 'Review') || cancelling) return;
         cancelling = true; updateControls(); action(function() { return api('Manual/' + encodeURIComponent(manualOperationId) + '/Cancel', 'POST')
             .then(function() { message('Cancelando el análisis…'); }).catch(function(error) { cancelling = false; updateControls(); throw error; }); }); };
-    [['jcPause', 'Pause'], ['jcResume', 'Resume']].forEach(function(pair) { el(pair[0]).onclick = function() { action(function() { return api(pair[1], 'POST').then(refresh); }); }; });
+    [['jcPause', 'Pause'], ['jcResume', 'Resume']].forEach(function(pair) { el(pair[0]).onclick = function() { return queueCommand(pair[1]); }; });
+    el('jcHistoryFilter').onchange = function() { historyPage = 0; renderQueue(); };
+    el('jcHistoryPrevious').onclick = function() { if (historyPage > 0) { historyPage--; renderQueue(); } };
+    el('jcHistoryNext').onclick = function() { if (!el('jcHistoryNext').disabled) { historyPage++; renderQueue(); } };
     el('jcPurge').onclick = function() {
         if (scanning || queueingMovie) return;
         scanning = true; updateControls(); message('Iniciando limpieza de originales…');
