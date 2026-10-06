@@ -36,6 +36,7 @@ function panel(request) {
     return { ...context.testPanel, get id() { return context.testPanel.id; }, element };
 }
 function text(node) { return [node.textContent, ...node.children.map(text)].join(' '); }
+function find(node, predicate) { if (predicate(node)) return node; for (const child of node.children) { const found = find(child, predicate); if (found) return found; } }
 
 const catalogMovie = { Id: 'movie-1', Name: 'Wonka', Path: '/movies/Wonka.mkv', Year: 2023,
     Size: 22226034037, Height: 2160, Format: 'Dolby Vision', Selectable: true, Reason: '', HasImage: false };
@@ -167,31 +168,32 @@ test('each job uses the transaction for its own source and output at a reused mo
         Source: { Sha256: 'source-2' }, Output: { Sha256: 'output-2' } } };
     const ui = panel(async route => route === 'Originals' ? [purged, newest] : { Jobs: [older, newer], Paused: false });
     await ui.refresh();
-    const rendered = text(ui.element('jcJobs'));
-    assert.match(rendered, /Newer encode Original restaurado/);
-    assert.match(rendered, /Older encode Comprimida; original eliminado/);
+    const rendered = text(ui.element('jcHistory'));
+    assert.match(rendered, /Newer encode.*Original restaurado/);
+    assert.match(rendered, /Older encode.*Comprimida; original eliminado/);
 });
 
 test('jobs without verified identities retain their historical detail', async () => {
     const legacy = { ...job, Snapshot: null, VerifiedOutputIdentity: null };
     const ui = panel(async route => route === 'Originals' ? [restored] : { Jobs: [legacy], Paused: false });
     await ui.refresh();
-    assert.match(text(ui.element('jcJobs')), /Comprimida; original sujeto al plazo/);
+    assert.match(text(ui.element('jcHistory')), /Comprimida; original sujeto al plazo/);
 });
 
 test('HDR verification shows its own percentage and keeps cancellation available', async () => {
-    const processing = { ...job, Status: 'Processing', StatusDetail: 'Verificando metadatos HDR por fotograma', Progress: 42 };
+    const processing = { ...job, Status: 'Processing', StatusDetail: 'Verificando metadatos HDR por fotograma', Progress: 42,
+        Phase: { Name: 'Verificando metadatos HDR por fotograma', Progress: 42, StartedUtc: '2026-10-03T10:00:00Z' } };
     const ui = panel(async route => route === 'Originals' ? [] : { Jobs: [processing], Paused: false });
     await ui.refresh();
-    assert.match(text(ui.element('jcJobs')), /42 % de esta fase/);
-    assert.match(text(ui.element('jcJobs')), /Cancelar/);
+    assert.match(text(ui.element('jcRunning')), /42 % de esta fase/);
+    assert.match(text(ui.element('jcRunning')), /Cancelar/);
 });
 
 test('restored movies show their current state instead of claiming the compressed file is still installed', async () => {
     const ui = panel(async route => route === 'Originals' ? [restored] : { Jobs: [job], Paused: false });
     await ui.refresh();
-    assert.match(text(ui.element('jcJobs')), /Original restaurado/i);
-    assert.doesNotMatch(text(ui.element('jcJobs')), /Comprimida; original sujeto/);
+    assert.match(text(ui.element('jcHistory')), /Original restaurado/i);
+    assert.doesNotMatch(text(ui.element('jcHistory')), /Comprimida; original sujeto/);
 });
 
 test('a deferred quarantine cleanup remains visible after restoration', async () => {
@@ -230,4 +232,81 @@ test('loss of the operation after a server restart is reported without claiming 
     assert.equal(ui.id, null);
     assert.match(ui.element('jcMessage').textContent, /Cola/);
     assert.doesNotMatch(ui.element('jcMessage').textContent, /operación falló/);
+});
+
+test('active work remains visible beside a long history and pending films keep FIFO order', async () => {
+    const jobs = Array.from({ length: 105 }, (_, i) => ({ ...job, Id: 'done-' + i, DisplayName: 'Finished ' + i }));
+    jobs.push({ ...job, Id: 'running', DisplayName: 'Running movie', Status: 'Processing' },
+        { ...job, Id: 'later', DisplayName: 'Later movie', Status: 'Pending', CreatedUtc: '2026-10-03T12:00:00Z' },
+        { ...job, Id: 'first', DisplayName: 'First movie', Status: 'Pending', CreatedUtc: '2026-10-03T11:00:00Z' });
+    const ui = panel(async route => route === 'Originals' ? [] : { Jobs: jobs, Paused: false });
+    await ui.refresh();
+    assert.match(text(ui.element('jcRunning')), /Running movie/);
+    const pending = text(ui.element('jcPending'));
+    assert.ok(pending.indexOf('First movie') < pending.indexOf('Later movie'));
+    assert.doesNotMatch(pending, /Finished|Running movie/);
+    assert.equal(ui.element('jcHistoryCount').textContent, '105');
+    assert.equal(ui.element('jcHistoryNext').disabled, false);
+});
+
+test('legacy and unmeasured phases never show a stale encode percentage', async () => {
+    let phase = null;
+    const ui = panel(async route => route === 'Originals' ? [] : { Jobs: [{ ...job, Status: 'Processing',
+        Progress: 100, StatusDetail: 'Comprimiendo', Phase: phase }], Paused: false });
+    await ui.refresh();
+    assert.match(text(ui.element('jcRunning')), /En ejecución/);
+    assert.doesNotMatch(text(ui.element('jcRunning')), /100 %/);
+    phase = { Name: 'Reinsertando Dolby Vision 8.1', Progress: null, StartedUtc: '2026-10-03T10:00:00Z' };
+    await ui.refresh();
+    assert.match(text(ui.element('jcRunning')), /Reinsertando Dolby Vision.*En ejecución/);
+    assert.doesNotMatch(text(ui.element('jcRunning')), /100 %|0 %/);
+});
+
+test('cancel immediately shows pending feedback, survives polling, and does not claim completion on acknowledgement', async () => {
+    let acknowledge, status = 'Processing';
+    const ui = panel(async route => route.endsWith('/Cancel') ? new Promise(resolve => { acknowledge = resolve; })
+        : route === 'Originals' ? [] : { Jobs: [{ ...job, Status: status }], Paused: false });
+    await ui.refresh();
+    const cancel = find(ui.element('jcRunning'), node => node.textContent === 'Cancelar');
+    const request = cancel.onclick();
+    assert.equal(cancel.disabled, true);
+    assert.match(text(cancel), /Cancelando/);
+    await Promise.resolve();
+    await ui.refresh();
+    assert.match(text(ui.element('jcRunning')), /Cancelando/);
+    acknowledge(); await request;
+    assert.match(text(ui.element('jcRunning')), /Cancelando/);
+    status = 'Cancelled'; await ui.refresh();
+    assert.match(text(ui.element('jcHistory')), /Cancelada/);
+    assert.doesNotMatch(text(ui.element('jcRunning')), /Cancelando/);
+});
+
+test('pause displays its request immediately and a failed request makes controls usable again', async () => {
+    let reject;
+    const ui = panel(async route => route === 'Pause' ? new Promise((_, fail) => { reject = fail; })
+        : route === 'Originals' ? [] : { Jobs: [], Paused: false });
+    await ui.refresh();
+    const request = ui.element('jcPause').onclick();
+    assert.equal(ui.element('jcPause').disabled, true);
+    assert.match(ui.element('jcQueueState').textContent, /Pausando/);
+    await Promise.resolve(); reject(new Error('no connection')); await request;
+    assert.match(ui.element('jcMessage').textContent, /no connection/);
+    assert.equal(ui.element('jcPause').disabled, false);
+});
+
+test('completed summary uses actual output facts and shows separate phase durations', async () => {
+    const completed = { ...job, Snapshot: { Source: { Length: 10737418240 } }, OutputSizeBytes: 5368709120,
+        OutputWidth: 1920, OutputHeight: 902, VerifiedFormat: 'HDR10 · HDR10+',
+        StartedUtc: '2026-10-03T10:00:00Z', FinishedUtc: '2026-10-03T10:07:00Z',
+        CompletedPhases: [{ Name: 'Comprimiendo', StartedUtc: '2026-10-03T10:00:00Z', FinishedUtc: '2026-10-03T10:05:00Z' },
+            { Name: 'Verificando el vídeo', StartedUtc: '2026-10-03T10:05:00Z', FinishedUtc: '2026-10-03T10:07:00Z' }] };
+    const ui = panel(async route => route === 'Originals' ? [] : { Jobs: [completed], Paused: false });
+    await ui.refresh();
+    const summary = text(ui.element('jcHistory'));
+    assert.match(summary, /10\.00 GB.*5\.00 GB.*50\.0 %/);
+    assert.match(summary, /1920 × 902/);
+    assert.match(summary, /HDR10 · HDR10\+/);
+    assert.match(summary, /Comprimiendo.*5 min.*Verificando el vídeo.*2 min/);
+    ui.element('jcHistoryFilter').value = 'Failed'; ui.element('jcHistoryFilter').onchange();
+    assert.doesNotMatch(text(ui.element('jcHistory')), /Movie/);
 });

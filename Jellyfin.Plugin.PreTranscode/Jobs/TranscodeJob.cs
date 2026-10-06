@@ -47,6 +47,48 @@ public class TranscodeJob
     /// </summary>
     public double Progress { get; set; }
 
+    // Immutable snapshots keep the dashboard/queue serializer from observing half a phase change.
+    public JobPhase? Phase { get; set; }
+    public JobPhase[] CompletedPhases { get; set; } = Array.Empty<JobPhase>();
+    public int OutputWidth { get; set; }
+    public int OutputHeight { get; set; }
+    public string VerifiedFormat { get; set; } = string.Empty;
+
+    internal void StartPhase(string name, bool measured = false, DateTime? utc = null)
+    {
+        var now = utc ?? DateTime.UtcNow;
+        FinishPhase(now);
+        StatusDetail = name;
+        Progress = 0;
+        Phase = new(name, now, null, measured ? 0d : null);
+    }
+
+    internal void ReportProgress(double value)
+    {
+        var phase = Phase;
+        if (phase?.Progress is not { } previous || !double.IsFinite(value)) return;
+        var progress = Math.Max(previous, Math.Clamp(value, 0, 100));
+        Phase = phase with { Progress = progress };
+        Progress = progress; // legacy clients; the dashboard uses Phase.Progress exclusively
+    }
+
+    internal void FinishPhase(DateTime? utc = null)
+    {
+        if (Phase is not { } phase) return;
+        var now = utc ?? DateTime.UtcNow;
+        var phases = new JobPhase[CompletedPhases.Length + 1];
+        CompletedPhases.CopyTo(phases, 0);
+        phases[^1] = phase with { FinishedUtc = now < phase.StartedUtc ? phase.StartedUtc : now };
+        CompletedPhases = phases;
+        Phase = null;
+    }
+
+    internal void ResetPhases()
+    {
+        Phase = null;
+        CompletedPhases = Array.Empty<JobPhase>();
+    }
+
     /// <summary>
     /// Gets or sets a short human-readable status detail (e.g. "probing", "verifying").
     /// </summary>
@@ -94,3 +136,6 @@ public class TranscodeJob
     /// </summary>
     public DateTime? FinishedUtc { get; set; }
 }
+
+/// <summary>A measured percentage belongs to this phase only; null means no reliable denominator.</summary>
+public sealed record JobPhase(string Name, DateTime StartedUtc, DateTime? FinishedUtc, double? Progress);
