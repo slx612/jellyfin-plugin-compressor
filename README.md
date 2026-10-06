@@ -3,7 +3,7 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.14 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.15 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
@@ -33,8 +33,15 @@ limitada a películas elegidas individualmente; consulta
   Un resultado «apta preliminarmente» no garantiza que se vaya a encolar: al pulsar
   **Comprimir** se vuelve a comprobar el archivo, incluida su identidad SHA-256,
   para impedir recomprimir películas ya procesadas. **Comprimir** crea trabajos manuales.
-  La búsqueda permite encolar una sola película; se aplican las mismas reglas
-  de carpeta, estabilidad, reproducción y prevención de recompresión.
+  En **Películas** se muestra la biblioteca con carátulas, tamaño, resolución y
+  formato HDR conocidos por Jellyfin, sin analizar los archivos completos.
+  Busca, filtra, marca hasta 100 películas y pulsa **Revisar selección**. La revisión
+  es cancelable y no comprime nada. Después **Añadir a la cola** comprueba los archivos
+  completos y muestra el resultado junto a cada película. Filtrar conserva la selección;
+  cambiarla obliga a revisarla otra vez. Se mantienen las reglas de carpeta, estabilidad,
+  reproducción y prevención de recompresión. HDR solo admite selección individual.
+  Si reabres el panel tras una revisión, se recupera la selección y se pide revisarla
+  con los ajustes actuales. Un lote sigue siendo un lote aunque solo quede una apta.
   Los análisis y las comprobaciones manuales continúan en segundo plano aunque
   se cierre la petición del navegador; el panel consulta su progreso y resultado.
 - Una película cada vez, pausa y horario opcional según la hora del servidor.
@@ -105,20 +112,20 @@ que otras aplicaciones hagan sobre los archivos.
 
 Para probar HDR con NVIDIA, selecciona **hevc_nvenc**, la calidad y resolución
 máximas que quieras, y activa únicamente los formatos experimentales presentes
-en la película. Busca y encola una sola película en Resumen. La GPU debe admitir
+en la película. Busca, revisa y encola una sola película en Películas. La GPU debe admitir
 HEVC de 10 bits y estar disponible dentro del contenedor. El panel muestra las
 fases de análisis, codificación, reinserción y verificación; su porcentaje se
 refiere a la fase actual. El análisis y las comprobaciones usan CPU y pueden
 tardar más que la codificación GPU. Si NVENC o una comprobación falla, se conserva
 el original y se informa del motivo; no se cambia automáticamente a CPU.
 
-El panel tiene cuatro pestañas: **Resumen** para analizar, buscar y encolar una película,
+El panel tiene cuatro pestañas: **Películas** para explorar, revisar y encolar una selección,
 **Carpetas** para recorrer bibliotecas y marcar inclusiones o exclusiones, **Ajustes**
-para automatización, originales y calidad, y **Actividad** para cola y restauración.
+para automatización, originales y calidad, y **Cola** para trabajos y restauración.
 La carpeta de originales se puede buscar en el explorador del servidor. Este
 solo permite elegir carpetas fuera de las bibliotecas; la ruta manual sigue disponible.
 Los cambios en carpetas y ajustes se aplican al pulsar **Guardar cambios**. Las
-acciones de Resumen se desactivan mientras haya cambios pendientes, para evitar
+acciones de Películas se desactivan mientras haya cambios pendientes, para evitar
 analizar o encolar películas con una selección de carpetas anterior.
 
 El catálogo descarga el ZIP publicado en [Releases](https://github.com/slx612/jellyfin-plugin-compressor/releases).

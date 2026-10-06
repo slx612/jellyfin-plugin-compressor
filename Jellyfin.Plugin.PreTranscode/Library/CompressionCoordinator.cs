@@ -19,6 +19,9 @@ namespace Jellyfin.Plugin.PreTranscode.Library;
 
 public sealed record Candidate(string ItemId, string Name, string Path, bool Eligible, string Reason, long Size);
 public sealed record FolderMovieCount(string Path, int Movies);
+public sealed record CatalogFolder(string Name, string Path);
+public sealed record CatalogMovie(string Id, string Name, string Path, int? Year, long Size, int? Height, string Format, bool HasImage, bool Selectable, string Reason);
+public sealed record MovieCatalogInfo(IReadOnlyList<CatalogMovie> Items, IReadOnlyList<CatalogFolder> Folders);
 
 public sealed class CompressionCoordinator
 {
@@ -50,6 +53,47 @@ public sealed class CompressionCoordinator
         MergeLibraryHdrFacts(info, streams);
     }
     public string[] Roots() => library.GetVirtualFolders().SelectMany(f => f.Locations).Distinct().ToArray();
+    public MovieCatalogInfo MovieCatalog()
+    {
+        var config = Config;
+        var folders = library.GetVirtualFolders().SelectMany(f => f.Locations.Select(path => new CatalogFolder(f.Name ?? path, path))).DistinctBy(f => f.Path).ToArray();
+        var roots = folders.Select(f => f.Path).ToArray();
+        var jobs = queue.GetJobs();
+        var result = new List<CatalogMovie>();
+        foreach (var movie in library.GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, IsVirtualItem = false, Recursive = true }))
+        {
+            if (string.IsNullOrEmpty(movie.Path) || !Path.IsPathFullyQualified(movie.Path) || !roots.Any(root => FolderPolicy.Contains(root, movie.Path))) continue;
+            long size = 0;
+            string reason = "";
+            MediaStream? video = null;
+            var format = "Sin datos";
+            try
+            {
+                size = new FileInfo(movie.Path).Length;
+                var decision = FolderPolicy.Evaluate(movie.Path, config, roots);
+                if (!decision.Allowed) reason = decision.Reason;
+                video = mediaSources.GetMediaStreams(movie.Id)?.FirstOrDefault(stream => stream.Type == MediaStreamType.Video);
+                if (video is not null)
+                {
+                    var tags = new List<string>();
+                    if (video.ColorTransfer == "smpte2084") tags.Add("HDR10");
+                    else if (video.ColorTransfer == "arib-std-b67") tags.Add("HLG");
+                    if (video.Hdr10PlusPresentFlag == true) tags.Add("HDR10+");
+                    if (video.DvProfile is > 0) tags.Add("Dolby Vision");
+                    format = tags.Count == 0 ? "SDR" : string.Join(" · ", tags);
+                    if (reason.Length == 0 && ((video.DvProfile is not > 0 && tags.Count > 0 && !config.EnableExperimentalHdr)
+                        || (video.DvProfile is > 0 && !config.EnableExperimentalDolbyVision)
+                        || (video.Hdr10PlusPresentFlag == true && !config.EnableExperimentalHdr10Plus)))
+                        reason = "Opciones HDR desactivadas. Actívalas en Ajustes para una prueba individual.";
+                }
+                if (jobs.Any(job => job.ItemId == movie.Id.ToString("N") && job.Status is JobStatus.Pending or JobStatus.Processing)) reason = "Ya está en la cola.";
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException) { reason = ex.Message; }
+            result.Add(new(movie.Id.ToString("N"), movie.Name, movie.Path, movie.ProductionYear, size, video?.Height, format,
+                movie.ImageInfos.Any(image => image.Type == ImageType.Primary), reason.Length == 0, reason));
+        }
+        return new(result.OrderByDescending(movie => movie.Size).ThenBy(movie => movie.Name, StringComparer.OrdinalIgnoreCase).ToArray(), folders);
+    }
     public static PluginConfiguration Config => Plugin.Instance?.Configuration ?? throw new InvalidOperationException("Configuración no disponible.");
     private List<BaseItem> SelectedMovies(PluginConfiguration config, IReadOnlyList<string> roots) =>
         library.GetItemList(new InternalItemsQuery { IncludeItemTypes = new[] { BaseItemKind.Movie }, IsVirtualItem = false, Recursive = true })

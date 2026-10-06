@@ -1,4 +1,5 @@
 using Jellyfin.Plugin.PreTranscode.Configuration;
+using Jellyfin.Plugin.PreTranscode.Api;
 using Jellyfin.Plugin.PreTranscode.Jobs;
 using Jellyfin.Plugin.PreTranscode.Library;
 using Jellyfin.Plugin.PreTranscode.Media;
@@ -12,6 +13,7 @@ using MediaBrowser.Controller.Session;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Serialization;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.AspNetCore.Mvc;
 using Moq;
 
 namespace Jellyfin.Plugin.PreTranscode.Tests;
@@ -49,6 +51,45 @@ public sealed class CompressorWiringTests : IDisposable
         Assert.False(await evaluator.EvaluateAndEnqueueAsync(new Folder(), default));
         Assert.Empty(await coordinator.ScanAsync(true, true, null, default));
         queue.VerifyNoOtherCalls(); library.VerifyNoOtherCalls(); probe.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(2, false)]
+    public async Task SelectionReviewKeepsTheSingleMovieExceptionAndTheBatchMinimum(int count, bool eligible)
+    {
+        var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
+        plugin.Configuration.IncludedFolders.Add(movieRoot);
+        plugin.Configuration.QuarantineDirectory = Path.Combine(root, "originals");
+        plugin.Configuration.RetentionDays = 7;
+        var movies = Enumerable.Range(0, count).Select(i => new Movie { Id = Guid.NewGuid(), Name = $"Movie {i}", Path = Path.Combine(movieRoot, $"{i}.mkv") }).ToArray();
+        foreach (var movie in movies) { File.WriteAllBytes(movie.Path, new byte[1024]); File.SetLastWriteTimeUtc(movie.Path, DateTime.UtcNow.AddMinutes(-2)); }
+        var library = new Mock<ILibraryManager>();
+        library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Locations = [movieRoot] }]);
+        library.Setup(l => l.GetItemById(It.IsAny<Guid>())).Returns((Guid id) => movies.Single(m => m.Id == id));
+        var queue = new Mock<IJobQueue>(); queue.Setup(q => q.GetJobs()).Returns(Array.Empty<TranscodeJob>());
+        var probe = new Mock<IMediaProber>(); probe.Setup(p => p.ProbeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new MediaProbeInfo
+        { VideoStreamCount = 1, Width = 1920, Height = 1080, DurationSeconds = 60, PixelFormat = "yuv420p" });
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(), new ContentRegistry(Path.Combine(root, "identities")), Mock.Of<IMediaSourceManager>());
+        var runner = new ManualOperationRunner(default, NullLogger<ManualOperationRunner>.Instance);
+        var controller = new PreTranscodeController(coordinator, queue.Object, null!, null!, library.Object, null!, null!, null!, runner);
+        var ids = movies.Select(m => m.Id).ToArray();
+        Assert.IsType<BadRequestObjectResult>(controller.ReviewSelection([]));
+        Assert.IsType<BadRequestObjectResult>(controller.QueueSelection([ids[0], ids[0]]));
+        var operation = Assert.IsType<ManualOperationInfo>(Assert.IsType<AcceptedResult>(controller.ReviewSelection(ids)).Value);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (runner.Get(operation.Id)!.State == "Running") await Task.Delay(10, timeout.Token);
+        var finished = runner.Get(operation.Id)!;
+        Assert.Equal("Completed", finished.State);
+        var results = Assert.IsAssignableFrom<IEnumerable<Candidate>>(finished.Result).ToArray();
+        Assert.Equal(count, results.Length);
+        Assert.All(results, result => Assert.Equal(eligible, result.Eligible));
+        var batch = Assert.IsType<ManualOperationInfo>(Assert.IsType<AcceptedResult>(controller.QueueSelection([ids[0]], batch: true)).Value);
+        while (runner.Get(batch.Id)!.State == "Running") await Task.Delay(10, timeout.Token);
+        var refused = Assert.Single(Assert.IsAssignableFrom<IEnumerable<Candidate>>(runner.Get(batch.Id)!.Result));
+        Assert.False(refused.Eligible);
+        Assert.Contains("10 GB", refused.Reason);
+        queue.Verify(q => q.Enqueue(It.IsAny<TranscodeJob>(), It.IsAny<Func<IReadOnlyList<TranscodeJob>, bool>>()), Times.Never);
     }
 
     [Fact]
@@ -254,5 +295,45 @@ public sealed class CompressorWiringTests : IDisposable
     {
         typeof(Plugin).GetProperty(nameof(Plugin.Instance))!.SetValue(null, previous);
         Directory.Delete(root, true);
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public void CatalogUsesLibraryMetadataWithoutProbingOrEnqueueing(bool dolby, bool hdr10plus, bool selectable)
+    {
+        var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
+        var source = Path.Combine(movieRoot, "movie.mkv");
+        File.WriteAllBytes(source, new byte[1234]);
+        plugin.Configuration.IncludedFolders.Add(movieRoot);
+        plugin.Configuration.EnableExperimentalDolbyVision = dolby;
+        plugin.Configuration.EnableExperimentalHdr10Plus = hdr10plus;
+        var movie = new Movie { Id = Guid.NewGuid(), Name = "Wonka", Path = source, ProductionYear = 2023 };
+        var library = new Mock<ILibraryManager>();
+        library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Name = "Películas", Locations = [movieRoot] }]);
+        library.Setup(l => l.GetItemList(It.IsAny<InternalItemsQuery>())).Returns([movie]);
+        var sources = new Mock<IMediaSourceManager>();
+        sources.Setup(s => s.GetMediaStreams(movie.Id)).Returns([new MediaStream { Type = MediaStreamType.Video, Height = 2160,
+            ColorTransfer = "smpte2084", DvProfile = 8, Hdr10PlusPresentFlag = true }]);
+        var queue = new Mock<IJobQueue>(MockBehavior.Strict);
+        queue.Setup(q => q.GetJobs()).Returns(Array.Empty<TranscodeJob>());
+        var probe = new Mock<IMediaProber>(MockBehavior.Strict);
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(),
+            new ContentRegistry(Path.Combine(root, "identities")), sources.Object);
+
+        var catalog = coordinator.MovieCatalog();
+
+        var entry = Assert.Single(catalog.Items);
+        Assert.Equal(1234, entry.Size);
+        Assert.Equal(2160, entry.Height);
+        Assert.Contains("Dolby Vision", entry.Format);
+        Assert.Contains("HDR10+", entry.Format);
+        Assert.Equal(selectable, entry.Selectable);
+        if (!selectable) Assert.Contains("HDR", entry.Reason);
+        Assert.Equal("Películas", Assert.Single(catalog.Folders).Name);
+        probe.VerifyNoOtherCalls();
+        queue.Verify(q => q.GetJobs(), Times.Once);
+        queue.VerifyNoOtherCalls();
     }
 }

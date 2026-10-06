@@ -82,13 +82,13 @@ public sealed class ManualOperationRunner
         CancellationTokenSource cancellation;
         lock (sync)
         {
-            if (operations.GetValueOrDefault(id) is not { Kind: "Analyze" } operation) return false;
+            if (operations.GetValueOrDefault(id) is not { Kind: "Analyze" or "Review" } operation) return false;
             if (operation.State != "Running") return true;
             if (active != id || activeCancellation is null) return false;
             cancellation = activeCancellation;
         }
         try { cancellation.Cancel(); return true; }
-        catch (ObjectDisposedException) { return Get(id) is { Kind: "Analyze", State: not "Running" }; }
+        catch (ObjectDisposedException) { return Get(id) is { Kind: "Analyze" or "Review", State: not "Running" }; }
     }
 
     public ManualOperationInfo? Latest()

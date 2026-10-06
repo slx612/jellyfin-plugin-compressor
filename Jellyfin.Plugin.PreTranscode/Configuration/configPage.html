@@ -6,21 +6,22 @@
 <div data-role="content"><div class="content-primary jc-shell">
 <style>
 #CompressorPage {--jc-accent:var(--primary-accent-color,#00a4dc);--jc-line:rgba(128,128,128,.28);--jc-surface:rgba(128,128,128,.09);--jc-surface-strong:rgba(128,128,128,.15);font-family:Roboto,"Helvetica Neue",Arial,sans-serif}
+#CompressorPage > [data-role="content"] {overflow:visible}
 #CompressorPage .jc-shell {max-width:1120px;padding-bottom:5rem}
 #CompressorPage * {box-sizing:border-box}
-#CompressorPage .jc-hero {display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem;padding:1.5rem 0 1.1rem}
+#CompressorPage .jc-hero {display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem;padding:.75rem 0 .65rem}
 #CompressorPage h1,#CompressorPage h2,#CompressorPage h3,#CompressorPage p {margin-top:0}
-#CompressorPage h1 {font-size:2rem;line-height:1.2;margin-bottom:.45rem}
+#CompressorPage h1 {font-size:1.6rem;line-height:1.2;margin-bottom:.3rem}
 #CompressorPage h2 {font-size:1.35rem;margin-bottom:.4rem}
 #CompressorPage h3 {font-size:1.05rem;margin-bottom:.4rem}
 #CompressorPage p,#CompressorPage .jc-help {line-height:1.55}
 #CompressorPage .jc-eyebrow {display:flex;align-items:center;gap:.6rem;margin-bottom:.65rem;color:var(--jc-accent);font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 #CompressorPage .jc-badge {display:inline-flex;align-items:center;gap:.35rem;padding:.32rem .65rem;border:1px solid var(--jc-line);border-radius:100px;background:var(--jc-surface);color:inherit;font-size:.74rem;font-weight:700;letter-spacing:0;text-transform:none}
-#CompressorPage .jc-hero p {max-width:680px;margin-bottom:0;opacity:.78}
+#CompressorPage .jc-hero p {max-width:680px;margin-bottom:0;opacity:.78;font-size:.9rem}
 #CompressorPage .jc-hero-icon {display:grid;place-items:center;flex:none;width:64px;height:64px;border-radius:18px;color:var(--jc-accent);background:var(--jc-surface-strong)}
 #CompressorPage .jc-hero-icon .material-icons {font-size:34px}
-#CompressorPage .jc-tabs {display:flex;gap:.25rem;overflow-x:auto;border-bottom:1px solid var(--jc-line);margin-bottom:1.5rem}
-#CompressorPage .jc-tab {display:inline-flex;align-items:center;gap:.45rem;flex:none;padding:.9rem 1rem;border:0;border-bottom:3px solid transparent;background:none;color:inherit;opacity:.72;font:inherit;font-weight:600;cursor:pointer}
+#CompressorPage .jc-tabs {display:flex;gap:.25rem;overflow-x:auto;border-bottom:1px solid var(--jc-line);margin-bottom:1rem}
+#CompressorPage .jc-tab {display:inline-flex;align-items:center;gap:.45rem;flex:none;padding:.65rem 1rem;border:0;border-bottom:3px solid transparent;background:none;color:inherit;opacity:.72;font:inherit;font-weight:600;cursor:pointer}
 #CompressorPage .jc-tab[aria-selected="true"] {color:var(--jc-accent);border-bottom-color:var(--jc-accent);opacity:1}
 #CompressorPage .jc-tab:hover {background:var(--jc-surface);opacity:1}
 #CompressorPage .jc-tab .material-icons {font-size:1.15rem}
@@ -87,10 +88,8 @@
 #CompressorPage .jc-folder-name {display:block;font-weight:600;overflow-wrap:anywhere}
 #CompressorPage .jc-folder-path {display:block;margin-top:.2rem;font-size:.75rem;opacity:.62;overflow-wrap:anywhere}
 #CompressorPage .jc-folder-actions {display:flex;gap:.35rem;flex:none}
-#CompressorPage .jc-icon-button {display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--jc-line);border-radius:7px;background:var(--jc-surface);color:inherit;cursor:pointer}
-#CompressorPage .jc-icon-button .material-icons {font-size:1.1rem}
-#CompressorPage .jc-icon-button:hover,#CompressorPage .jc-icon-button[aria-pressed="true"] {color:var(--jc-accent);border-color:var(--jc-accent)}
-#CompressorPage .jc-icon-button.jc-exclude[aria-pressed="true"] {color:#e99a9a;border-color:#e99a9a}
+#CompressorPage .jc-folder-actions .jc-button[aria-pressed="true"] {color:var(--jc-accent);border-color:var(--jc-accent)}
+#CompressorPage .jc-folder-actions .jc-exclude[aria-pressed="true"] {color:#e99a9a;border-color:#e99a9a}
 #CompressorPage .jc-rule-group {padding:1rem}
 #CompressorPage .jc-rule-group + .jc-rule-group {border-top:1px solid var(--jc-line)}
 #CompressorPage .jc-rule-title {display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:0 0 .7rem;font-size:.9rem;font-weight:700}
@@ -115,6 +114,30 @@
 #CompressorPage .jc-picker-body {padding-top:.9rem}
 #CompressorPage .jc-picker-list {max-height:270px;overflow:auto;border:1px solid var(--jc-line);border-radius:8px;margin-top:.7rem}
 #CompressorPage .jc-picker-path {overflow-wrap:anywhere;font-size:.83rem;opacity:.75}
+#CompressorPage .jc-catalog-toolbar {display:grid;grid-template-columns:2fr 1fr 1fr;gap:.75rem;margin-bottom:.75rem}
+#CompressorPage .jc-catalog-toolbar .jc-field {margin:0}
+#CompressorPage .jc-catalog-more > summary {cursor:pointer;font-size:.85rem;color:var(--jc-accent);margin:.75rem 0}
+#CompressorPage .jc-catalog-tools {display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin:1rem 0}
+#CompressorPage .jc-movies {border:1px solid var(--jc-line);border-radius:12px;overflow:hidden}
+#CompressorPage .jc-movie {display:grid;grid-template-columns:24px 54px minmax(0,1fr) 115px;align-items:center;gap:1rem;padding:1rem;border-bottom:1px solid var(--jc-line);background:var(--jc-surface)}
+#CompressorPage .jc-movie:last-child {border-bottom:0}
+#CompressorPage .jc-movie[data-selected="true"] {background:color-mix(in srgb,var(--jc-accent) 12%,transparent);box-shadow:inset 3px 0 var(--jc-accent)}
+#CompressorPage .jc-movie input[type=checkbox] {width:20px;height:20px;accent-color:var(--jc-accent);cursor:pointer}
+#CompressorPage .jc-poster {width:54px;height:80px;border-radius:6px;object-fit:cover;background:var(--jc-surface-strong);display:grid;place-items:center;color:var(--jc-accent)}
+#CompressorPage .jc-movie-title {font-size:1rem;display:block;margin-bottom:.4rem;cursor:pointer}
+#CompressorPage .jc-movie-facts {display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.4rem}
+#CompressorPage .jc-movie-status {font-size:.85rem;line-height:1.4;color:#c1c7ce}
+#CompressorPage .jc-movie-status[data-kind="ready"] {color:#73dab0}
+#CompressorPage .jc-movie-status[data-kind="blocked"] {color:#e7b778}
+#CompressorPage .jc-movie-size {font-size:1.05rem;font-weight:700;text-align:right}
+#CompressorPage .jc-movie-path {margin-top:.4rem;font-size:.75rem;opacity:.65;overflow-wrap:anywhere}
+#CompressorPage .jc-movie-path summary {cursor:pointer}
+#CompressorPage .jc-selectionbar {position:sticky;bottom:0;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem;margin-top:1rem;border:1px solid var(--jc-accent);border-radius:12px;background:#202b32;box-shadow:0 -5px 20px #0004}
+#CompressorPage .jc-selectionbar small {display:block;margin-top:.25rem;color:#c1c7ce;line-height:1.4}
+#CompressorPage .jc-selectionbar[hidden],#CompressorPage .jc-savebar[hidden] {display:none}
+#CompressorPage .jc-stats[hidden] {display:none}
+#CompressorPage .jc-progress {margin-top:.7rem;accent-color:var(--jc-accent);width:100%}
+@media (max-width:700px) {#CompressorPage .jc-catalog-toolbar {grid-template-columns:1fr 1fr}#CompressorPage .jc-catalog-toolbar .jc-field:first-child {grid-column:1/-1}#CompressorPage .jc-movie {grid-template-columns:22px 42px minmax(0,1fr);gap:.65rem;padding:.8rem}#CompressorPage .jc-poster {width:42px;height:63px}#CompressorPage .jc-movie-size {grid-column:3;text-align:left;font-size:.85rem}#CompressorPage .jc-selectionbar {align-items:stretch;flex-direction:column}}
 @media (max-width:850px) {#CompressorPage .jc-browser {grid-template-columns:1fr}#CompressorPage .jc-browser-list {max-height:350px}}
 @media (max-width:620px) {#CompressorPage .jc-hero-icon {display:none}#CompressorPage .jc-stats {grid-template-columns:1fr}#CompressorPage .jc-folder {flex-wrap:wrap}#CompressorPage .jc-folder-actions {margin-left:2rem}#CompressorPage .jc-card {padding:1rem}#CompressorPage .jc-tabs {justify-content:space-between}#CompressorPage .jc-tab {padding:.75rem .45rem}#CompressorPage .jc-tab .material-icons {display:none}#CompressorPage .jc-savebar {border-radius:0}}
 </style>
@@ -123,38 +146,43 @@
   <div>
     <div class="jc-eyebrow"><span class="material-icons" aria-hidden="true">movie_filter</span> Complemento para Jellyfin <span class="jc-badge">Experimental</span></div>
     <h1>Jellyfin Compressor</h1>
-    <p>Comprime tus películas conservando su nombre, ficha y progreso. Tú decides qué carpetas entran y cuánto tiempo guardar los originales.</p>
+    <p>Elige tus películas, revisa la selección y sigue la compresión desde la cola.</p>
   </div>
   <div class="jc-hero-icon" aria-hidden="true"><span class="material-icons">compress</span></div>
 </header>
 <div id="jcMessage" role="status" aria-live="polite">Cargando configuración…</div>
+<button class="jc-button" type="button" id="jcCancelAnalysis" hidden>Cancelar análisis</button>
 <div id="jcSelectionWarning" class="jc-callout jc-warning" role="status" aria-live="polite" hidden><span class="material-icons" aria-hidden="true">warning_amber</span><p id="jcSelectionWarningText"></p></div>
 
 <form id="jcForm" novalidate>
 <nav class="jc-tabs" role="tablist" aria-label="Secciones de Jellyfin Compressor">
-  <button class="jc-tab" type="button" id="jcTabOverview" role="tab" aria-selected="true" aria-controls="jcOverview"><span class="material-icons" aria-hidden="true">dashboard</span> Resumen</button>
+  <button class="jc-tab" type="button" id="jcTabOverview" role="tab" aria-selected="true" aria-controls="jcOverview"><span class="material-icons" aria-hidden="true">movie</span> Películas</button>
   <button class="jc-tab" type="button" id="jcTabFolders" role="tab" aria-selected="false" aria-controls="jcFolderPanel"><span class="material-icons" aria-hidden="true">folder_open</span> Carpetas</button>
   <button class="jc-tab" type="button" id="jcTabSettings" role="tab" aria-selected="false" aria-controls="jcSettings"><span class="material-icons" aria-hidden="true">tune</span> Ajustes</button>
-  <button class="jc-tab" type="button" id="jcTabActivity" role="tab" aria-selected="false" aria-controls="jcActivity"><span class="material-icons" aria-hidden="true">history</span> Actividad</button>
+  <button class="jc-tab" type="button" id="jcTabActivity" role="tab" aria-selected="false" aria-controls="jcActivity"><span class="material-icons" aria-hidden="true">playlist_play</span> Cola</button>
 </nav>
 
 <section id="jcOverview" class="jc-panel" role="tabpanel" aria-labelledby="jcTabOverview">
-  <div class="jc-stats" aria-label="Estado del complemento">
+  <div class="jc-stats" aria-label="Estado del complemento" hidden>
     <div class="jc-stat"><span class="material-icons" aria-hidden="true">autorenew</span><strong id="jcAutoState">Apagada</strong><span>Compresión automática</span></div>
     <div class="jc-stat"><span class="material-icons" aria-hidden="true">folder_special</span><strong id="jcFolderCount">0</strong><span>Carpetas incluidas</span></div>
     <div class="jc-stat"><span class="material-icons" aria-hidden="true">playlist_play</span><strong id="jcJobsCount">0</strong><span>Trabajos pendientes o en curso</span></div>
   </div>
-  <div class="jc-card" style="margin-top:1.15rem">
-    <div class="jc-card-head"><div><h2>Analiza tu biblioteca</h2><p>Revisa las películas de las carpetas seleccionadas antes de crear trabajos.</p></div><span class="material-icons" aria-hidden="true">manage_search</span></div>
-    <div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze" disabled><span class="material-icons" aria-hidden="true">search</span> Analizar</button><button class="jc-button" type="button" id="jcCancelAnalysis" hidden>Cancelar análisis</button><button class="jc-button jc-primary" type="button" id="jcCompress" disabled><span class="material-icons" aria-hidden="true">play_arrow</span> Comprimir carpetas seleccionadas</button></div>
-    <p class="jc-subtle" style="margin:1rem 0 0">Estas acciones utilizan la configuración guardada y se desactivan si hay cambios pendientes. El análisis es preliminar y no lee el archivo completo; al comprimir se verifica su identidad para no recomprimir películas ya procesadas.</p>
+  <div class="jc-card-head"><div><h2>Tu biblioteca</h2><p id="jcNowPlaying">No hay películas en la cola.</p></div><div class="jc-actions"><button class="jc-button" type="button" id="jcOpenQueue">Ver cola</button><button class="jc-button" type="button" id="jcCatalogRefresh">Actualizar</button></div></div>
+  <div class="jc-catalog-toolbar">
+    <label class="jc-field"><span>Buscar película o carpeta</span><input id="jcMovieSearch" type="search" placeholder="Título o nombre del archivo" autocomplete="off"></label>
+    <label class="jc-field"><span>Biblioteca</span><select id="jcMovieLibrary"><option value="">Todas las bibliotecas</option></select></label>
+    <label class="jc-field"><span>Formato</span><select id="jcMovieFormat"><option value="">Todos los formatos</option><option>SDR</option><option>HDR10</option><option>HDR10+</option><option>Dolby Vision</option></select></label>
   </div>
-  <div class="jc-card"><div class="jc-card-head"><div><h2>Una sola película</h2><p>Busca por título o por nombre del archivo y añade únicamente la que elijas. Se respetan las carpetas, exclusiones y comprobaciones de seguridad guardadas; esta acción manual permite probar una película por debajo del tamaño mínimo.</p></div><span class="material-icons" aria-hidden="true">movie</span></div>
-    <label class="jc-field"><span>Buscar película</span><input id="jcMovieSearch" type="search" placeholder="Escribe al menos dos caracteres" autocomplete="off"></label>
-    <div id="jcMovieResults" class="jc-picker-list" aria-live="polite"><div class="jc-empty">Escribe un título para buscar.</div></div>
-  </div>
-  <div class="jc-callout"><span class="material-icons" aria-hidden="true">info</span><p><strong>Empieza con una carpeta pequeña.</strong> La compresión automática está apagada de fábrica. Las películas ya procesadas no se vuelven a comprimir y puedes recuperar el original durante el plazo configurado.</p></div>
-  <div class="jc-card" style="margin-top:1.15rem"><div class="jc-card-head"><div><h2>Resultado del último análisis</h2><p id="jcCandidatesSummary">Todavía no se ha analizado ninguna película en esta sesión.</p></div></div><div id="jcCandidates" class="jc-scroll"></div></div>
+  <details class="jc-catalog-more"><summary>Más filtros y orden</summary><div class="jc-catalog-toolbar">
+    <label class="jc-field"><span>Carpeta</span><select id="jcMovieFolder"><option value="">Todas las carpetas</option></select></label>
+    <label class="jc-field"><span>Tamaño mínimo (GB)</span><input type="number" id="jcMovieMin" min="0" value="0" step="1"></label>
+    <label class="jc-field"><span>Ordenar por</span><select id="jcMovieSort"><option value="size">Más pesadas primero</option><option value="name">Título A–Z</option></select></label>
+  </div></details>
+  <div class="jc-catalog-tools"><span id="jcCatalogSummary" role="status">Cargando películas…</span><div class="jc-actions"><button class="jc-button" type="button" id="jcSelectVisible">Seleccionar esta página</button><button class="jc-button" type="button" id="jcClearSelection">Quitar selección</button><button class="jc-button" type="button" id="jcConfigureFolders">Configurar carpetas</button></div></div>
+  <div id="jcMovieResults" class="jc-movies" aria-live="polite"><div class="jc-empty">Leyendo la biblioteca de Jellyfin…</div></div>
+  <div class="jc-catalog-tools"><button class="jc-button" type="button" id="jcMoviePrevious">Anterior</button><span id="jcMoviePage"></span><button class="jc-button" type="button" id="jcMovieNext">Siguiente</button></div>
+  <div id="jcSelectionBar" class="jc-selectionbar" hidden><div><strong id="jcSelectionSummary"></strong><small id="jcSelectionHelp"></small><progress id="jcSelectionProgress" class="jc-progress" max="100" value="0" hidden></progress></div><div class="jc-actions"><button class="jc-button" type="button" id="jcCancelReview" hidden>Cancelar revisión</button><button class="jc-button jc-primary" type="button" id="jcReviewSelection">Revisar selección</button><button class="jc-button jc-primary" type="button" id="jcQueueSelection" hidden>Añadir a la cola</button></div></div>
 </section>
 
 <section id="jcFolderPanel" class="jc-panel" role="tabpanel" aria-labelledby="jcTabFolders" hidden>
@@ -163,7 +191,8 @@
     <div class="jc-browser-pane"><div class="jc-browser-toolbar"><div id="jcBreadcrumbs" class="jc-breadcrumbs" aria-label="Ruta actual"></div><div id="jcCurrentActions" class="jc-actions jc-current-actions"></div><label class="jc-field" style="margin:0"><span class="jc-subtle">Buscar en esta carpeta</span><input id="jcFolderSearch" type="search" placeholder="Filtrar carpetas visibles"></label></div><div id="jcFolders" class="jc-browser-list" aria-live="polite"><div class="jc-empty">Cargando bibliotecas…</div></div></div>
     <div class="jc-browser-pane"><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">check_circle</span> Incluidas</span><span id="jcIncludeCount" class="jc-badge">0</span></h3><div id="jcIncludes" tabindex="-1"></div></div><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">block</span> Excluidas</span><span id="jcExcludeCount" class="jc-badge">0</span></h3><div id="jcExcludes" tabindex="-1"></div></div></div>
   </div>
-  <p class="jc-subtle" style="margin-top:.8rem">El explorador muestra las carpetas de tus bibliotecas; solo se procesan películas. Abre una carpeta para ver sus subcarpetas; usa ✓ para incluirla o ⊘ para excluirla.</p>
+  <p class="jc-subtle" style="margin-top:.8rem">Las exclusiones protegen las películas incluso si se eligen a mano. Guarda los cambios para aplicar estas reglas.</p>
+  <details class="jc-picker"><summary>Revisar todas las carpetas incluidas</summary><div class="jc-picker-body"><p>Este análisis usa el tamaño mínimo de Ajustes. HDR se revisa eligiendo una película individual en Películas.</p><div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze" disabled>Analizar carpetas</button><button class="jc-button jc-primary" type="button" id="jcCompress" disabled>Añadir películas de estas carpetas</button></div><p id="jcCandidatesSummary"></p><div id="jcCandidates" class="jc-scroll"></div></div></details>
 </section>
 
 <section id="jcSettings" class="jc-panel" role="tabpanel" aria-labelledby="jcTabSettings" hidden>
@@ -184,7 +213,7 @@
     <label class="jc-toggle"><span class="jc-toggle-copy"><strong>HDR10 experimental</strong><small>Solo películas elegidas a mano. NVIDIA NVENC conserva los 10 bits y los metadatos HDR10 originales; también se admite libx265.</small></span><input type="checkbox" id="jcHdr"><span class="jc-switch" aria-hidden="true"></span></label>
     <label class="jc-toggle"><span class="jc-toggle-copy"><strong>Dolby Vision 8.1 experimental</strong><small>Solo Dolby Vision 8.1 con base HDR10 y RPU, sin capa de mejora. NVENC permite reducir resolución tras comprobar las áreas activas; libx265 conserva la resolución. La reproducción Dolby Vision sigue pendiente de validar en un dispositivo compatible.</small></span><input type="checkbox" id="jcDolby"><span class="jc-switch" aria-hidden="true"></span></label>
     <label class="jc-toggle"><span class="jc-toggle-copy"><strong>HDR10+ experimental</strong><small>Solo películas MKV elegidas a mano. NVENC permite reducir resolución con metadatos de una ventana verificados. Las herramientas para Docker/Linux x86‑64 vienen incluidas.</small></span><input type="checkbox" id="jcHdr10Plus"><span class="jc-switch" aria-hidden="true"></span></label>
-    <p id="jcFfmpeg" class="jc-subtle">Leyendo FFmpeg del servidor…</p><p class="jc-subtle">La calidad elegida no garantiza un archivo menor. Si el temporal supera el tamaño permitido por el ahorro mínimo, se detiene y se conserva el original.</p><p class="jc-subtle" style="margin-bottom:0">HDR con NVENC requiere NVIDIA de 10 bits, HEVC en MKV y Docker/Linux x86‑64. La codificación usa GPU; el análisis y la verificación usan CPU y pueden tardar más. Actividad muestra cada fase. Si falla cualquier comprobación, se conserva el original. La automatización nunca añade películas HDR.</p>
+    <p id="jcFfmpeg" class="jc-subtle">Leyendo FFmpeg del servidor…</p><p class="jc-subtle">La calidad elegida no garantiza un archivo menor. Si el temporal supera el tamaño permitido por el ahorro mínimo, se detiene y se conserva el original.</p><p class="jc-subtle" style="margin-bottom:0">HDR con NVENC requiere NVIDIA de 10 bits, HEVC en MKV y Docker/Linux x86‑64. La codificación usa GPU; el análisis y la verificación usan CPU y pueden tardar más. Cola muestra cada fase. Si falla cualquier comprobación, se conserva el original. La automatización nunca añade películas HDR.</p>
   </div>
 </section>
 
@@ -198,22 +227,23 @@
   </div>
 </section>
 
-<div class="jc-savebar"><span id="jcSaveState">Configuración cargando…</span><button class="jc-button jc-primary" id="jcSave" type="submit" disabled><span class="material-icons" aria-hidden="true">save</span> Guardar cambios</button></div>
+<div id="jcSaveBar" class="jc-savebar"><span id="jcSaveState">Configuración cargando…</span><button class="jc-button jc-primary" id="jcSave" type="submit" disabled><span class="material-icons" aria-hidden="true">save</span> Guardar cambios</button></div>
 </form>
 <script>
 (function () {
     'use strict';
     var page = document.querySelector('#CompressorPage'), config, timer, loading = false, active = false;
-    var dirtyState = false, revision = 0, saving = false, scanning = false, cancelling = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, manualStartedAt = 0, lastOperationId;
+    var dirtyState = false, revision = 0, saving = false, scanning = false, cancelling = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, manualRecovering = false, manualStartedAt = 0, lastOperationId;
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0, folderCounts = null, folderCountsError = false, folderCountsRequest = 0;
-    var movieEntries = [], movieRequest = 0, movieTimer, queueingMovie = false, originalFolderState, originalRequest = 0;
+    var movieEntries = [], movieRequest = 0, queueingMovie = false, originalFolderState, originalRequest = 0;
+    var selectedMovies = new Set(), movieResults = {}, reviewedIds = [], moviePage = 0, visibleMovies = [], catalogFolders = [], catalogLoading = false, currentTab = 0;
     var replacementPhases = ['Prepared', 'BackupVerified', 'Publishing', 'Completed', 'Purging', 'Purged', 'Restoring', 'Restored', 'Aborted'];
     function el(id) { return page.querySelector('#' + id); }
     function message(text, error) { el('jcMessage').textContent = text; el('jcMessage').style.borderColor = error ? '#e99a9a' : 'var(--jc-accent)'; }
     function icon(name) { var node = document.createElement('span'); node.className = 'material-icons'; node.setAttribute('aria-hidden', 'true'); node.textContent = name; return node; }
     function api(path, method, body) {
         var options = {type: method || 'GET', url: ApiClient.getUrl('JellyfinCompressor/' + path)};
-        if (!method || method === 'GET' || path === 'Analyze' || path === 'Compress' || path === 'Configuration' || path === 'Originals/Purge' || path.startsWith('Items/') || path.endsWith('/Restore')) options.dataType = 'json';
+        if (!method || method === 'GET' || path === 'Analyze' || path === 'Compress' || path === 'Configuration' || path === 'Originals/Purge' || path.startsWith('Items/') || path.startsWith('Selection/') || path.endsWith('/Restore')) options.dataType = 'json';
         if (body) { options.contentType = 'application/json'; options.data = JSON.stringify(body); }
         return ApiClient.ajax(options);
     }
@@ -238,10 +268,26 @@
         el('jcSave').disabled = !dirtyState || saving || scanning || queueingMovie || !config;
         el('jcSaveState').textContent = !config ? 'Cargando configuración…' : saving ? 'Guardando cambios…' : dirtyState ? 'Cambios sin guardar' : 'Configuración guardada';
         el('jcAnalyze').disabled = el('jcCompress').disabled = dirtyState || saving || scanning || queueingMovie || !config;
-        el('jcCancelAnalysis').hidden = !(manualOperationId && manualKind === 'Analyze' && scanning);
+        el('jcCancelAnalysis').hidden = !(manualOperationId && (manualKind === 'Analyze' || manualKind === 'Review') && scanning);
         el('jcCancelAnalysis').disabled = cancelling;
+        el('jcCancelReview').hidden = !(manualOperationId && manualKind === 'Review' && scanning);
+        el('jcCancelReview').disabled = cancelling;
         el('jcPurge').disabled = scanning || queueingMovie;
-        page.querySelectorAll('button[data-movie-id]').forEach(function(control) { control.disabled = dirtyState || saving || scanning || queueingMovie || !config; });
+        page.querySelectorAll('input[data-movie-id]').forEach(function(control) { control.disabled = control.dataset.blocked === 'true' || dirtyState || saving || scanning || queueingMovie || !config; });
+        var busy = dirtyState || saving || scanning || queueingMovie || !config || catalogLoading;
+        ['jcCatalogRefresh', 'jcSelectVisible', 'jcClearSelection', 'jcReviewSelection', 'jcQueueSelection'].forEach(function(id) { el(id).disabled = busy; });
+        el('jcReviewSelection').disabled = busy || !selectedMovies.size;
+        el('jcQueueSelection').disabled = busy || !reviewedIds.length;
+        el('jcSelectionBar').hidden = !selectedMovies.size || dirtyState;
+        el('jcReviewSelection').hidden = reviewedIds.length > 0;
+        el('jcQueueSelection').hidden = !reviewedIds.length;
+        el('jcReviewSelection').textContent = 'Revisar ' + selectedMovies.size + (selectedMovies.size === 1 ? ' película' : ' películas');
+        el('jcQueueSelection').textContent = 'Añadir ' + reviewedIds.length + ' a la cola';
+        var chosen = movieEntries.filter(function(item) { return selectedMovies.has(item.Id); });
+        el('jcSelectionSummary').textContent = selectedMovies.size + ' seleccionada' + (selectedMovies.size === 1 ? '' : 's') + ' · ' + bytes(chosen.reduce(function(total, item) { return total + item.Size; }, 0));
+        el('jcSelectionHelp').textContent = reviewedIds.length ? reviewedIds.length + ' con revisión rápida superada. Se verificará el archivo completo antes de encolarlo.'
+            : selectedMovies.size > 1 ? 'Los lotes respetan el tamaño mínimo. HDR se prueba seleccionando una sola película.' : 'Puedes probar una película por debajo del tamaño mínimo. Se mantienen las protecciones de carpetas.';
+        el('jcSaveBar').hidden = !dirtyState && (currentTab === 0 || currentTab === 3);
         updateSelectionWarning();
     }
     function updateSelectionWarning() {
@@ -268,7 +314,7 @@
             folderCountsError = true; updateSelectionWarning();
         });
     }
-    function dirty(value) { if (value) revision++; dirtyState = value; updateControls(); }
+    function dirty(value) { if (value) { revision++; reviewedIds = []; movieResults = {}; } dirtyState = value; updateControls(); }
     function renderRules() {
         [['included', 'jcIncludes', 'jcIncludeCount'], ['excluded', 'jcExcludes', 'jcExcludeCount']].forEach(function(group) {
             var box = el(group[1]); box.replaceChildren(); el(group[2]).textContent = String(rules[group[0]].length);
@@ -325,13 +371,18 @@
             row.className = 'jc-folder'; row.append(icon('folder'));
             open.type = 'button'; open.className = 'jc-folder-main'; open.setAttribute('aria-label', 'Abrir ' + f.Name);
             name.className = 'jc-folder-name'; name.textContent = f.Name; path.className = 'jc-folder-path'; path.textContent = f.Path; open.append(name, path);
+            var excluded = rules.excluded.some(function(folder) { return insideFolder(folder, f.Path); });
+            var included = rules.included.some(function(folder) { return insideFolder(folder, f.Path); });
+            var state = document.createElement('span'); state.className = 'jc-folder-path';
+            state.textContent = excluded ? 'Excluida' : included ? 'Incluida' : 'Sin incluir'; open.append(state);
             open.onclick = function() { action(function() { return browse(f.Path, folderTrail.concat([{Name: f.Name, Path: f.Path}])); }); };
             actions.className = 'jc-folder-actions';
             [['included', 'check', 'Incluir '], ['excluded', 'block', 'Excluir ']].forEach(function(choice) {
-                var control = document.createElement('button'); control.type = 'button'; control.className = 'jc-icon-button' + (choice[0] === 'excluded' ? ' jc-exclude' : '');
+                var control = document.createElement('button'); control.type = 'button'; control.className = 'jc-button' + (choice[0] === 'excluded' ? ' jc-exclude' : '');
                 var selected = rules[choice[0]].includes(f.Path);
                 control.setAttribute('aria-label', selected ? 'Quitar ' + (choice[0] === 'included' ? 'inclusión de ' : 'exclusión de ') + f.Name : choice[2] + f.Name);
-                control.setAttribute('aria-pressed', selected ? 'true' : 'false'); control.title = control.getAttribute('aria-label') + ' · ' + f.Path; control.append(icon(choice[1]));
+                control.setAttribute('aria-pressed', selected ? 'true' : 'false'); control.title = control.getAttribute('aria-label') + ' · ' + f.Path;
+                control.textContent = selected ? (choice[0] === 'included' ? 'Incluida · Quitar' : 'Excluida · Quitar') : choice[2].trim();
                 control.dataset.ruleKind = choice[0]; control.dataset.path = f.Path;
                 control.onclick = function() { setRule(choice[0], f.Path); }; actions.append(control);
             });
@@ -344,41 +395,94 @@
             if (request !== folderRequest) return;
             folderEntries = path ? folders : folders.map(function(f) {
                 var leaf = f.Path.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
-                return {Path: f.Path, Name: f.Name === f.Path ? (leaf || f.Path) : f.Name};
+                var libraryFolder = catalogFolders.find(function(folder) { return folder.Path === f.Path; });
+                return {Path: f.Path, Name: libraryFolder ? libraryFolder.Name : f.Name === f.Path ? (leaf || f.Path) : f.Name};
             });
             folderTrail = trail || []; el('jcFolderSearch').value = ''; renderExplorer();
         });
     }
+    function insideFolder(folder, path) {
+        if (!folder) return true;
+        if (folder.includes('\\') || /^[a-z]:/i.test(folder)) { folder = folder.replace(/\\/g, '/').toLowerCase(); path = path.replace(/\\/g, '/').toLowerCase(); }
+        folder = folder.replace(/\/+$/, ''); return path === folder || path.startsWith(folder + '/');
+    }
+    function selectMovie(id, selected) {
+        if (dirtyState || saving || scanning || queueingMovie || !config) return;
+        var movie = movieEntries.find(function(item) { return item.Id === id; });
+        if (!movie || !movie.Selectable || selected && selectedMovies.size >= 100 && !selectedMovies.has(id)) { message('Puedes elegir hasta 100 películas por selección.', true); return; }
+        if (selected) selectedMovies.add(id); else selectedMovies.delete(id);
+        reviewedIds = []; movieResults = {};
+        renderMovies();
+        var checkbox = el('jcMovie-' + id); if (checkbox && checkbox.focus) checkbox.focus();
+    }
     function renderMovies() {
         var box = el('jcMovieResults'); box.replaceChildren();
-        if (!movieEntries.length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = 'No se encontraron películas.'; box.append(empty); return; }
-        movieEntries.forEach(function(item) {
-            var row = document.createElement('div'), name = document.createElement('div'), title = document.createElement('strong'), path = document.createElement('div');
-            row.className = 'jc-folder'; name.style.minWidth = '0'; name.style.flex = '1'; title.textContent = item.Name; path.className = 'jc-folder-path'; path.textContent = item.Path;
-            name.append(title, path);
-            var add = button('Añadir a la cola', function() {
-                if (dirtyState || saving || scanning || queueingMovie || !config) return;
-                queueingMovie = true; updateControls(); message('Comprobando ' + item.Name + '…');
-                return api('Items/' + encodeURIComponent(item.Id) + '/Compress', 'POST').then(function(operation) {
-                    beginManual(operation, item.Name);
-                }).catch(function(error) { queueingMovie = false; updateControls(); throw error; });
-            });
-            add.dataset.movieId = item.Id;
-            row.append(icon('movie'), name, add); box.append(row);
+        var tokens = el('jcMovieSearch').value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+        var library = el('jcMovieLibrary').value, folder = el('jcMovieFolder').value, format = el('jcMovieFormat').value;
+        var minimum = Math.max(0, Number(el('jcMovieMin').value) || 0) * 1073741824;
+        var filtered = movieEntries.filter(function(item) { return insideFolder(library, item.Path) && insideFolder(folder, item.Path) && item.Size >= minimum
+            && (!format || item.Format.split(' · ').includes(format)) && tokens.every(function(token) { return (item.Name + ' ' + item.Path).toLocaleLowerCase().includes(token); }); });
+        filtered.sort(el('jcMovieSort').value === 'name' ? function(a, b) { return a.Name.localeCompare(b.Name); } : function(a, b) { return b.Size - a.Size || a.Name.localeCompare(b.Name); });
+        var pages = Math.max(1, Math.ceil(filtered.length / 12)); moviePage = Math.min(moviePage, pages - 1);
+        visibleMovies = filtered.slice(moviePage * 12, moviePage * 12 + 12);
+        el('jcCatalogSummary').textContent = filtered.length + (filtered.length === 1 ? ' película' : ' películas') + (filtered.length !== movieEntries.length ? ' de ' + movieEntries.length : '') + ' · ' + selectedMovies.size + (selectedMovies.size === 1 ? ' seleccionada' : ' seleccionadas');
+        el('jcMoviePage').textContent = 'Página ' + (moviePage + 1) + ' de ' + pages;
+        el('jcMoviePrevious').disabled = moviePage === 0; el('jcMovieNext').disabled = moviePage + 1 >= pages;
+        if (!visibleMovies.length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = 'No hay películas con estos filtros. Prueba a quitar el tamaño mínimo o cambiar la biblioteca.'; box.append(empty); }
+        visibleMovies.forEach(function(item) {
+            var row = document.createElement('div'), choose = document.createElement('input'), name = document.createElement('div'), title = document.createElement('label');
+            row.className = 'jc-movie'; row.dataset.selected = selectedMovies.has(item.Id) ? 'true' : 'false';
+            choose.type = 'checkbox'; choose.id = 'jcMovie-' + item.Id; choose.dataset.movieId = item.Id; choose.dataset.blocked = item.Selectable ? 'false' : 'true';
+            choose.checked = selectedMovies.has(item.Id); choose.setAttribute('aria-label', 'Seleccionar ' + item.Name);
+            choose.onchange = function() { selectMovie(item.Id, choose.checked); };
+            var poster = document.createElement(item.HasImage ? 'img' : 'div'); poster.className = 'jc-poster';
+            if (item.HasImage) { poster.src = ApiClient.getImageUrl(item.Id, {type: 'Primary', maxHeight: 160, quality: 80}); poster.alt = ''; poster.loading = 'lazy'; }
+            else poster.append(icon('movie'));
+            title.className = 'jc-movie-title'; title.htmlFor = choose.id; title.textContent = item.Name;
+            var facts = document.createElement('div'); facts.className = 'jc-movie-facts';
+            [item.Year, item.Height ? item.Height + 'p' : 'Resolución sin datos', item.Format].filter(Boolean).forEach(function(fact) { var badge = document.createElement('span'); badge.className = 'jc-badge'; badge.textContent = String(fact); facts.append(badge); });
+            var result = movieResults[item.Id], status = document.createElement('div'); status.className = 'jc-movie-status';
+            status.textContent = result ? result.Reason : item.Reason || 'Pendiente de revisión';
+            status.dataset.kind = result && (result.Eligible || result.Reason === 'En cola') ? 'ready' : result || !item.Selectable ? 'blocked' : 'pending';
+            var path = document.createElement('details'), summary = document.createElement('summary'), location = document.createElement('div');
+            path.className = 'jc-movie-path'; summary.textContent = 'Ver archivo'; location.textContent = item.Path; path.append(summary, location);
+            var size = document.createElement('div'); size.className = 'jc-movie-size'; size.textContent = bytes(item.Size);
+            name.append(title, facts, status, path); row.append(choose, poster, name, size); box.append(row);
         });
         updateControls();
     }
-    function searchMovies() {
-        var query = el('jcMovieSearch').value.trim(), request = ++movieRequest;
-        clearTimeout(movieTimer);
-        if (query.length < 2) { movieEntries = []; el('jcMovieResults').innerHTML = '<div class="jc-empty">Escribe al menos dos caracteres.</div>'; return; }
-        el('jcMovieResults').innerHTML = '<div class="jc-empty">Buscando películas…</div>';
-        movieTimer = setTimeout(function() {
-            action(function() { return api('Movies?query=' + encodeURIComponent(query)).then(function(items) {
-                if (request !== movieRequest) return;
-                movieEntries = items; renderMovies();
-            }); });
-        }, 250);
+    function filterMovies() { moviePage = 0; renderMovies(); }
+    function loadCatalog() {
+        if (scanning || queueingMovie) return Promise.resolve();
+        var request = ++movieRequest; catalogLoading = true; updateControls();
+        el('jcCatalogSummary').textContent = 'Leyendo la biblioteca de Jellyfin…';
+        return api('Catalog').then(function(catalog) {
+            if (request !== movieRequest) return;
+            movieEntries = catalog.Items;
+            catalogFolders = catalog.Folders;
+            selectedMovies = new Set(Array.from(selectedMovies).filter(function(id) { return movieEntries.some(function(item) { return item.Id === id && item.Selectable; }); }));
+            reviewedIds = []; movieResults = {};
+            var libraries = el('jcMovieLibrary'), previous = libraries.value; libraries.replaceChildren();
+            [{Name: 'Todas las bibliotecas', Path: ''}].concat(catalog.Folders).forEach(function(folder) { var option = document.createElement('option'); option.value = folder.Path; option.textContent = folder.Name + (folder.Path ? ' · ' + folder.Path : ''); libraries.append(option); });
+            libraries.value = previous;
+            var folders = el('jcMovieFolder'), previousFolder = folders.value; folders.replaceChildren();
+            [''].concat(Array.from(new Set(rules.included.concat(rules.excluded)))).forEach(function(path) { var option = document.createElement('option'); option.value = path; option.textContent = path || 'Todas las carpetas'; folders.append(option); });
+            folders.value = previousFolder;
+            renderMovies();
+        }).catch(function(error) { el('jcCatalogSummary').textContent = 'No se pudo cargar la biblioteca. Pulsa Actualizar para reintentar.'; throw error; })
+            .finally(function() { if (request === movieRequest) { catalogLoading = false; updateControls(); } });
+    }
+    function reviewSelection() {
+        if (!selectedMovies.size || dirtyState || saving || scanning || queueingMovie || catalogLoading) return Promise.resolve();
+        reviewedIds = []; scanning = true; updateControls();
+        return action(function() { return api('Selection/Review', 'POST', Array.from(selectedMovies)).then(beginManual)
+            .catch(function(error) { scanning = false; updateControls(); throw error; }); });
+    }
+    function queueSelection() {
+        if (!reviewedIds.length || dirtyState || saving || scanning || queueingMovie || catalogLoading) return Promise.resolve();
+        scanning = true; updateControls();
+        return action(function() { return api('Selection/Queue' + (selectedMovies.size > 1 ? '?batch=true' : ''), 'POST', reviewedIds.slice()).then(beginManual)
+            .catch(function(error) { scanning = false; updateControls(); throw error; }); });
     }
     function chooseOriginal(path) {
         el('jcOriginalsPath').value = path; el('jcOriginalPicker').open = false; dirty(true); el('jcOriginalsPath').focus();
@@ -421,7 +525,7 @@
                 el('jcResolution').value = c.Profiles[0].ResolutionMode === 'CapHeight' || c.Profiles[0].ResolutionMode === 2 ? String(c.Profiles[0].MaxHeight) : '0'; }
             el('jcAutoState').textContent = c.AutomaticCompressionEnabled ? 'Activada' : 'Apagada'; dirty(false);
             message(c.AutomaticCompressionEnabled ? 'Compresión automática activada.' : 'Compresión automática desactivada. Puedes analizar y comprimir manualmente.');
-            return refreshFolderCounts();
+            return Promise.all([refreshFolderCounts(), loadCatalog()]);
         });
     }
     function candidates(list, kind) {
@@ -436,8 +540,9 @@
         el('jcCandidatesSummary').textContent = list.length + ' películas en las carpetas seleccionadas · ' + result + (list.length > 500 ? ' Se muestran hasta 500.' : '');
         message(list.length + ' películas revisadas. ' + result);
     }
-    function beginManual(operation, movieName) {
+    function beginManual(operation, movieName, recovering) {
         manualOperationId = operation.Id; manualKind = operation.Kind; manualMovieName = movieName || ''; manualStartedAt = Date.now();
+        manualRecovering = !!recovering;
         scanning = manualKind !== 'Movie'; queueingMovie = manualKind === 'Movie'; updateControls();
         return pollManual();
     }
@@ -447,6 +552,13 @@
         return api('Manual/' + encodeURIComponent(id)).then(function(operation) {
             if (id !== manualOperationId) return;
             if (operation.State === 'Running') {
+                el('jcSelectionProgress').hidden = manualKind !== 'Review' && manualKind !== 'Selection';
+                el('jcSelectionProgress').value = operation.Progress;
+                if (manualKind === 'Review' || manualKind === 'Selection') {
+                el('jcSelectionHelp').textContent = (manualKind === 'Review' ? 'Revisando compatibilidad' : 'Verificando archivos completos antes de encolar') + ' · ' + Math.round(operation.Progress) + ' % · '
+                        + Math.floor((Date.now() - manualStartedAt) / 1000) + ' s. Puedes consultar la cola mientras tanto.';
+                    message(manualKind === 'Review' ? 'Revisando tu selección. Todavía no se comprime nada.' : 'Preparando tu selección. Cada resultado aparecerá junto a su película.'); return;
+                }
                 if (manualKind === 'Restore') {
                     var p = Math.round(operation.Progress), stage = p < 30 ? 'Verificando el original' : p < 50 ? 'Verificando la película comprimida'
                         : p < 75 ? 'Copiando el original' : p < 90 ? 'Comprobando la copia' : p < 95 ? 'Original colocado; preparando la ficha' : 'Actualizando Jellyfin';
@@ -459,16 +571,36 @@
                 return;
             }
             manualOperationId = null; lastOperationId = id; scanning = false; queueingMovie = false; cancelling = false; updateControls();
+            el('jcSelectionProgress').hidden = true;
             if (operation.State !== 'Completed') { message(operation.Error || 'La comprobación se canceló.', operation.State !== 'Cancelled'); return; }
             if (manualKind === 'Restore') message('Original restaurado y ficha de Jellyfin actualizada.');
             else if (manualKind === 'Purge') message('Limpieza terminada: ' + operation.Result.Deleted + ' originales eliminados.');
+            else if (manualKind === 'Review' || manualKind === 'Selection') {
+                var results = operation.Result || [];
+                results.forEach(function(result) { movieResults[result.ItemId] = result; });
+                if (manualKind === 'Review') {
+                    if (manualRecovering && !selectedMovies.size) {
+                        results.forEach(function(result) { if (movieEntries.some(function(item) { return item.Id === result.ItemId && item.Selectable; })) selectedMovies.add(result.ItemId); });
+                        reviewedIds = [];
+                        message('Selección anterior recuperada. Vuelve a revisar con los ajustes actuales; los motivos anteriores aparecen junto a cada película.');
+                    } else {
+                        reviewedIds = results.filter(function(result) { return result.Eligible && selectedMovies.has(result.ItemId); }).map(function(result) { return result.ItemId; });
+                        message('Revisión terminada: ' + reviewedIds.length + ' de ' + results.length + ' pueden pasar a la comprobación final. Mira el motivo junto a las demás.');
+                    }
+                } else {
+                    var added = results.filter(function(result) { return result.Reason === 'En cola'; });
+                    added.forEach(function(result) { selectedMovies.delete(result.ItemId); var item = movieEntries.find(function(movie) { return movie.Id === result.ItemId; }); if (item) { item.Selectable = false; item.Reason = 'Ya está en la cola.'; } });
+                    reviewedIds = []; message(added.length + ' películas añadidas a la cola. ' + (results.length - added.length) + ' omitidas.');
+                }
+                renderMovies();
+            }
             else if (manualKind === 'Movie') message((manualMovieName || 'Película') + ': ' + operation.Result.Reason);
             else candidates(operation.Result || [], manualKind);
         }).catch(function(error) {
             if (id !== manualOperationId) return;
             if (error && error.status === 404) {
                 manualOperationId = null; lastOperationId = id; scanning = false; queueingMovie = false; cancelling = false; updateControls();
-                message('Jellyfin ya no conserva el seguimiento de esta operación, por ejemplo tras reiniciar. Revisa su estado en Actividad; no se puede confirmar el resultado desde este seguimiento.', true);
+                message('Jellyfin ya no conserva el seguimiento de esta operación, por ejemplo tras reiniciar. Revisa su estado en Cola; no se puede confirmar el resultado desde este seguimiento.', true);
             } else message('Se ha perdido la conexión con Jellyfin. El resultado aún no está confirmado; se reintentará el seguimiento automáticamente.', true);
         }).finally(function() { manualPolling = false; });
     }
@@ -482,6 +614,8 @@
             }), allJobs = state.Jobs || [];
             el('jcQueueState').textContent = (state.Paused ? 'Cola pausada. ' : 'Cola activa. ') + (state.Schedule && !state.Schedule.Open ? 'Fuera de horario. ' : '') + (state.Error || '');
             el('jcJobsCount').textContent = String(allJobs.filter(function(j) { var s = enumName(j.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']); return s === 'Pending' || s === 'Processing'; }).length);
+            var running = allJobs.find(function(job) { return enumName(job.Status, ['Pending', 'Processing', 'Completed', 'Failed', 'Cancelled', 'Skipped']) === 'Processing'; });
+            el('jcNowPlaying').textContent = running ? running.DisplayName + ' · ' + (running.StatusDetail || 'En curso') : el('jcJobsCount').textContent + ' películas en la cola';
             el('jcOriginalsCount').textContent = String(originals.filter(function(r) { return enumName(r.Phase, replacementPhases) === 'Completed'; }).length);
             var jobs = allJobs.slice().sort(function(a, b) { return b.CreatedUtc.localeCompare(a.CreatedUtc); }).slice(0, 100);
             table('jcJobs', ['Película', 'Estado', 'Progreso', 'Acciones'], jobs.map(function(j) {
@@ -517,15 +651,26 @@
         }).then(pollManual).finally(function() { loading = false; });
     }
     function setTab(index) {
+        currentTab = index; page.scrollTop = 0;
         var tabs = ['Overview', 'Folders', 'Settings', 'Activity'], panels = ['jcOverview', 'jcFolderPanel', 'jcSettings', 'jcActivity'];
         tabs.forEach(function(name, i) { var tab = el('jcTab' + name); tab.setAttribute('aria-selected', i === index ? 'true' : 'false'); tab.tabIndex = i === index ? 0 : -1; el(panels[i]).hidden = i !== index; });
+        updateControls();
     }
     ['Overview', 'Folders', 'Settings', 'Activity'].forEach(function(name, index) {
         var tab = el('jcTab' + name); tab.onclick = function() { setTab(index); };
         tab.onkeydown = function(e) { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault(); var next = (index + (e.key === 'ArrowRight' ? 1 : 3)) % 4; setTab(next); el('jcTab' + ['Overview', 'Folders', 'Settings', 'Activity'][next]).focus(); };
     });
     el('jcFolderSearch').oninput = renderExplorer;
-    el('jcMovieSearch').oninput = searchMovies;
+    el('jcMovieSearch').oninput = filterMovies;
+    ['jcMovieLibrary', 'jcMovieFolder', 'jcMovieFormat', 'jcMovieSort'].forEach(function(id) { el(id).onchange = filterMovies; });
+    el('jcMovieMin').oninput = filterMovies;
+    el('jcMoviePrevious').onclick = function() { if (moviePage > 0) { moviePage--; renderMovies(); } };
+    el('jcMovieNext').onclick = function() { if (!el('jcMovieNext').disabled) { moviePage++; renderMovies(); } };
+    el('jcCatalogRefresh').onclick = function() { action(loadCatalog); };
+    el('jcSelectVisible').onclick = function() { visibleMovies.filter(function(item) { return item.Selectable; }).forEach(function(item) { selectMovie(item.Id, true); }); };
+    el('jcClearSelection').onclick = function() { if (scanning || queueingMovie || saving) return; selectedMovies.clear(); reviewedIds = []; movieResults = {}; renderMovies(); };
+    el('jcReviewSelection').onclick = reviewSelection; el('jcQueueSelection').onclick = queueSelection;
+    el('jcConfigureFolders').onclick = function() { setTab(1); }; el('jcOpenQueue').onclick = function() { setTab(3); };
     el('jcOriginalPicker').ontoggle = function() { if (this.open) action(function() {
         var path = el('jcOriginalsPath').value.trim();
         return browseOriginals(path).catch(function() { return browseOriginals(''); });
@@ -557,12 +702,12 @@
                 el('jcCandidates').replaceChildren(); el('jcCandidatesSummary').textContent = 'Todavía no se ha analizado ninguna película con esta configuración.'; }
             el('jcAutoState').textContent = saved.AutomaticCompressionEnabled ? 'Activada' : 'Apagada';
             message(revision === submittedRevision ? 'Configuración guardada. Automatización ' + (saved.AutomaticCompressionEnabled ? 'activada.' : 'desactivada.') : 'Se guardaron los cambios anteriores. Quedan cambios nuevos sin guardar.');
-            return refreshFolderCounts();
+            return Promise.all([refreshFolderCounts(), loadCatalog()]);
         }).finally(function() { saving = false; updateControls(); });
         }); };
     function scan(route) { if (dirtyState || saving || scanning || queueingMovie || !config) return; scanning = true; updateControls(); message('Preparando análisis…'); action(function() { return api(route, 'POST').then(function(operation) { return beginManual(operation); }).catch(function(error) { if (!manualOperationId) { scanning = false; updateControls(); } throw error; }); }); }
     el('jcAnalyze').onclick = function() { scan('Analyze'); }; el('jcCompress').onclick = function() { scan('Compress'); };
-    el('jcCancelAnalysis').onclick = function() { if (!manualOperationId || manualKind !== 'Analyze' || cancelling) return;
+    el('jcCancelAnalysis').onclick = el('jcCancelReview').onclick = function() { if (!manualOperationId || (manualKind !== 'Analyze' && manualKind !== 'Review') || cancelling) return;
         cancelling = true; updateControls(); action(function() { return api('Manual/' + encodeURIComponent(manualOperationId) + '/Cancel', 'POST')
             .then(function() { message('Cancelando el análisis…'); }).catch(function(error) { cancelling = false; updateControls(); throw error; }); }); };
     [['jcPause', 'Pause'], ['jcResume', 'Resume']].forEach(function(pair) { el(pair[0]).onclick = function() { action(function() { return api(pair[1], 'POST').then(refresh); }); }; });
@@ -582,7 +727,7 @@
         el('jcEncoder').replaceChildren(); names.forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n === 'libx265' ? 'CPU · libx265' : n; el('jcEncoder').append(o); });
         el('jcFfmpeg').textContent = (c.FfmpegVersion || 'FFmpeg detectado') + '. Los codificadores GPU requieren hardware y controladores compatibles.';
     }).then(load).then(function() { return api('Manual'); }).then(function(state) {
-        if (state.Operation && state.Operation.Id !== lastOperationId) beginManual(state.Operation);
+        if (state.Operation && state.Operation.Id !== lastOperationId) beginManual(state.Operation, '', true);
         return Promise.all([browse('', []), refresh()]);
     }); }); clearInterval(timer); timer = setInterval(function() { action(refresh); }, 5000); });
     page.addEventListener('viewbeforehide', function() { active = false; clearInterval(timer); });

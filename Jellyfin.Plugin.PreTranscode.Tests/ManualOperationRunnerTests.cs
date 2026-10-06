@@ -57,11 +57,13 @@ public class ManualOperationRunnerTests
         Assert.True(runner.Cancel(started.Id));
     }
 
-    [Fact]
-    public async Task RunningAnalysisCanBeCancelledWithoutStoppingJellyfin()
+    [Theory]
+    [InlineData("Analyze")]
+    [InlineData("Review")]
+    public async Task RunningAnalysisCanBeCancelledWithoutStoppingJellyfin(string kind)
     {
         var runner = new ManualOperationRunner(CancellationToken.None, NullLogger<ManualOperationRunner>.Instance);
-        var started = runner.Start("Analyze", async (_, token) =>
+        var started = runner.Start(kind, async (_, token) =>
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, token);
             return null;
