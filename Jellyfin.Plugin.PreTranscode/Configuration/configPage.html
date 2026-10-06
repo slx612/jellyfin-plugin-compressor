@@ -684,8 +684,8 @@
         var transaction = jobTransaction(j), detail = status === 'Processing' && j.Phase ? j.Phase.Name : j.ErrorMessage || j.StatusDetail || badge.textContent;
         if (status === 'Completed' && transaction) {
             var phase = enumName(transaction.Phase, replacementPhases);
-            if (phase === 'Restored') detail = 'Original restaurado' + (transaction.LibraryRefreshPending ? '; actualización de Jellyfin pendiente' : '')
-                + (/aplazada/i.test(transaction.RetentionStatus || '') ? '; limpieza de cuarentena pendiente' : '');
+            if (phase === 'Restored') { badge.textContent = 'Original restaurado'; detail = 'Original restaurado' + (transaction.LibraryRefreshPending ? '; actualización de Jellyfin pendiente' : '')
+                + (/aplazada/i.test(transaction.RetentionStatus || '') ? '; limpieza de cuarentena pendiente' : ''); }
             else if (phase === 'Restoring') detail = 'Restaurando el original';
             else if (phase === 'Purged') detail = 'Comprimida; original eliminado por plazo o límite de tamaño';
         }
@@ -702,7 +702,8 @@
         } else if (status === 'Pending' && j.NotBeforeUtc) line('Próxima comprobación: ' + new Date(j.NotBeforeUtc).toLocaleString(), 'jc-subtle');
         if (status === 'Completed' && j.OutputSizeBytes > 0 && j.Snapshot && j.Snapshot.Source && j.Snapshot.Source.Length > 0) {
             var initial = j.Snapshot.Source.Length, savings = 100 * (initial - j.OutputSizeBytes) / initial;
-            line(bytes(initial) + ' → ' + bytes(j.OutputSizeBytes) + ' · ' + savings.toFixed(1) + ' % de ahorro', 'jc-job-result');
+            line((transaction && enumName(transaction.Phase, replacementPhases) === 'Restored' ? 'Compresión anterior: ' : '')
+                + bytes(initial) + ' → ' + bytes(j.OutputSizeBytes) + ' · ' + savings.toFixed(1) + ' % de ahorro', 'jc-job-result');
             if (j.OutputWidth && j.OutputHeight) line(j.OutputWidth + ' × ' + j.OutputHeight + (j.VerifiedFormat ? ' · ' + j.VerifiedFormat + ' · metadatos verificados' : ''), 'jc-subtle');
         }
         if (status !== 'Pending' && status !== 'Processing' && j.StartedUtc && j.FinishedUtc) line('Tiempo total: ' + elapsed(jobStart(j), j.FinishedUtc), 'jc-subtle');
@@ -729,7 +730,14 @@
             pending = jobs.filter(function(j) { return jobStatus(j) === 'Pending'; }).sort(function(a, b) { return String(a.CreatedUtc).localeCompare(String(b.CreatedUtc)); }),
             history = jobs.filter(function(j) { return jobStatus(j) !== 'Processing' && jobStatus(j) !== 'Pending'; })
                 .sort(function(a, b) { return String(b.FinishedUtc || b.CreatedUtc).localeCompare(String(a.FinishedUtc || a.CreatedUtc)); });
-        pendingCancels.forEach(function(id) { var j = jobs.find(function(job) { return job.Id === id; }); if (!j || (jobStatus(j) !== 'Processing' && jobStatus(j) !== 'Pending')) pendingCancels.delete(id); });
+        pendingCancels.forEach(function(id) { var j = jobs.find(function(job) { return job.Id === id; });
+            if (!j || (jobStatus(j) !== 'Processing' && jobStatus(j) !== 'Pending')) {
+                pendingCancels.delete(id);
+                if (!j) message('El trabajo ya no aparece en la cola. No se puede confirmar aquí el resultado de la cancelación.', true);
+                else message(jobStatus(j) === 'Cancelled' ? 'Cancelada: ' + j.DisplayName + '.'
+                    : 'La cancelación no detuvo el trabajo antes de que terminara: ' + j.DisplayName + '. Resultado: ' + (j.ErrorMessage || j.StatusDetail || jobStatus(j)), jobStatus(j) === 'Failed');
+            }
+        });
         el('jcRunningCount').textContent = String(current.length); el('jcPendingCount').textContent = String(pending.length); el('jcHistoryCount').textContent = String(history.length);
         function list(id, items, empty, numbered) { var box = el(id); box.replaceChildren(); if (!items.length) { var p = document.createElement('p'); p.className = 'jc-empty'; p.textContent = empty; box.append(p); }
             else items.forEach(function(j, i) { box.append(jobCard(j, numbered ? i + 1 : 0)); }); }

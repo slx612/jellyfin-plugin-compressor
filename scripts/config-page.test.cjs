@@ -279,6 +279,7 @@ test('cancel immediately shows pending feedback, survives polling, and does not 
     status = 'Cancelled'; await ui.refresh();
     assert.match(text(ui.element('jcHistory')), /Cancelada/);
     assert.doesNotMatch(text(ui.element('jcRunning')), /Cancelando/);
+    assert.match(ui.element('jcMessage').textContent, /Cancelada/);
 });
 
 test('pause displays its request immediately and a failed request makes controls usable again', async () => {
