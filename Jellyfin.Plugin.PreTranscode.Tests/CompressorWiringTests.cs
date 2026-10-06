@@ -84,6 +84,11 @@ public sealed class CompressorWiringTests : IDisposable
         var results = Assert.IsAssignableFrom<IEnumerable<Candidate>>(finished.Result).ToArray();
         Assert.Equal(count, results.Length);
         Assert.All(results, result => Assert.Equal(eligible, result.Eligible));
+        var batch = Assert.IsType<ManualOperationInfo>(Assert.IsType<AcceptedResult>(controller.QueueSelection([ids[0]], batch: true)).Value);
+        while (runner.Get(batch.Id)!.State == "Running") await Task.Delay(10, timeout.Token);
+        var refused = Assert.Single(Assert.IsAssignableFrom<IEnumerable<Candidate>>(runner.Get(batch.Id)!.Result));
+        Assert.False(refused.Eligible);
+        Assert.Contains("10 GB", refused.Reason);
         queue.Verify(q => q.Enqueue(It.IsAny<TranscodeJob>(), It.IsAny<Func<IReadOnlyList<TranscodeJob>, bool>>()), Times.Never);
     }
 
@@ -292,13 +297,18 @@ public sealed class CompressorWiringTests : IDisposable
         Directory.Delete(root, true);
     }
 
-    [Fact]
-    public void CatalogUsesLibraryMetadataWithoutProbingOrEnqueueing()
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public void CatalogUsesLibraryMetadataWithoutProbingOrEnqueueing(bool dolby, bool hdr10plus, bool selectable)
     {
         var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
         var source = Path.Combine(movieRoot, "movie.mkv");
         File.WriteAllBytes(source, new byte[1234]);
         plugin.Configuration.IncludedFolders.Add(movieRoot);
+        plugin.Configuration.EnableExperimentalDolbyVision = dolby;
+        plugin.Configuration.EnableExperimentalHdr10Plus = hdr10plus;
         var movie = new Movie { Id = Guid.NewGuid(), Name = "Wonka", Path = source, ProductionYear = 2023 };
         var library = new Mock<ILibraryManager>();
         library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Name = "Películas", Locations = [movieRoot] }]);
@@ -319,8 +329,8 @@ public sealed class CompressorWiringTests : IDisposable
         Assert.Equal(2160, entry.Height);
         Assert.Contains("Dolby Vision", entry.Format);
         Assert.Contains("HDR10+", entry.Format);
-        Assert.False(entry.Selectable);
-        Assert.Contains("HDR", entry.Reason);
+        Assert.Equal(selectable, entry.Selectable);
+        if (!selectable) Assert.Contains("HDR", entry.Reason);
         Assert.Equal("Películas", Assert.Single(catalog.Folders).Name);
         probe.VerifyNoOtherCalls();
         queue.Verify(q => q.GetJobs(), Times.Once);

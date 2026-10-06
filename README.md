@@ -40,6 +40,8 @@ limitada a películas elegidas individualmente; consulta
   completos y muestra el resultado junto a cada película. Filtrar conserva la selección;
   cambiarla obliga a revisarla otra vez. Se mantienen las reglas de carpeta, estabilidad,
   reproducción y prevención de recompresión. HDR solo admite selección individual.
+  Si reabres el panel tras una revisión, se recupera la selección y se pide revisarla
+  con los ajustes actuales. Un lote sigue siendo un lote aunque solo quede una apta.
   Los análisis y las comprobaciones manuales continúan en segundo plano aunque
   se cierre la petición del navegador; el panel consulta su progreso y resultado.
 - Una película cada vez, pausa y horario opcional según la hora del servidor.

@@ -105,8 +105,8 @@ public class PreTranscodeController : ControllerBase
     [HttpPost("Selection/Review")]
     public IActionResult ReviewSelection([FromBody] Guid[] ids) => Selection(ids, false);
     [HttpPost("Selection/Queue")]
-    public IActionResult QueueSelection([FromBody] Guid[] ids) => Selection(ids, true);
-    private IActionResult Selection(Guid[] ids, bool enqueue)
+    public IActionResult QueueSelection([FromBody] Guid[] ids, [FromQuery] bool batch = false) => Selection(ids, true, batch);
+    private IActionResult Selection(Guid[] ids, bool enqueue, bool batch = false)
     {
         if (ids.Length is < 1 or > 100 || ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length)
             return BadRequest(new { Message = "Elige entre 1 y 100 películas diferentes." });
@@ -122,7 +122,7 @@ public class PreTranscodeController : ControllerBase
                     if (item is null) results.Add(new(id.ToString("N"), "Película no disponible", "", false, "Jellyfin ya no encuentra esta película.", 0));
                     else
                     {
-                        try { results.Add(enqueue ? await coordinator.EnqueueAsync(item, false, token, ids.Length > 1).ConfigureAwait(false)
+                        try { results.Add(enqueue ? await coordinator.EnqueueAsync(item, false, token, ids.Length > 1 || batch).ConfigureAwait(false)
                             : (await coordinator.InspectAsync(item, false, token, ids.Length > 1, previewOnly: true).ConfigureAwait(false)).Candidate); }
                         catch (Exception ex) when (ex is not OperationCanceledException) { results.Add(new(id.ToString("N"), item.Name, item.Path ?? "", false, ex.Message, 0)); }
                     }

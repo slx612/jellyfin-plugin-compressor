@@ -87,8 +87,6 @@
 #CompressorPage .jc-folder-name {display:block;font-weight:600;overflow-wrap:anywhere}
 #CompressorPage .jc-folder-path {display:block;margin-top:.2rem;font-size:.75rem;opacity:.62;overflow-wrap:anywhere}
 #CompressorPage .jc-folder-actions {display:flex;gap:.35rem;flex:none}
-#CompressorPage .jc-icon-button {display:grid;place-items:center;width:34px;height:34px;border:1px solid var(--jc-line);border-radius:7px;background:var(--jc-surface);color:inherit;cursor:pointer}
-#CompressorPage .jc-icon-button .material-icons {font-size:1.1rem}
 #CompressorPage .jc-folder-actions .jc-button[aria-pressed="true"] {color:var(--jc-accent);border-color:var(--jc-accent)}
 #CompressorPage .jc-folder-actions .jc-exclude[aria-pressed="true"] {color:#e99a9a;border-color:#e99a9a}
 #CompressorPage .jc-rule-group {padding:1rem}
@@ -233,7 +231,7 @@
 (function () {
     'use strict';
     var page = document.querySelector('#CompressorPage'), config, timer, loading = false, active = false;
-    var dirtyState = false, revision = 0, saving = false, scanning = false, cancelling = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, manualStartedAt = 0, lastOperationId;
+    var dirtyState = false, revision = 0, saving = false, scanning = false, cancelling = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, manualRecovering = false, manualStartedAt = 0, lastOperationId;
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0, folderCounts = null, folderCountsError = false, folderCountsRequest = 0;
     var movieEntries = [], movieRequest = 0, queueingMovie = false, originalFolderState, originalRequest = 0;
     var selectedMovies = new Set(), movieResults = {}, reviewedIds = [], moviePage = 0, visibleMovies = [], catalogFolders = [], catalogLoading = false, currentTab = 0;
@@ -273,7 +271,6 @@
         el('jcCancelReview').hidden = !(manualOperationId && manualKind === 'Review' && scanning);
         el('jcCancelReview').disabled = cancelling;
         el('jcPurge').disabled = scanning || queueingMovie;
-        page.querySelectorAll('button[data-movie-id]').forEach(function(control) { control.disabled = dirtyState || saving || scanning || queueingMovie || !config; });
         page.querySelectorAll('input[data-movie-id]').forEach(function(control) { control.disabled = control.dataset.blocked === 'true' || dirtyState || saving || scanning || queueingMovie || !config; });
         var busy = dirtyState || saving || scanning || queueingMovie || !config || catalogLoading;
         ['jcCatalogRefresh', 'jcSelectVisible', 'jcClearSelection', 'jcReviewSelection', 'jcQueueSelection'].forEach(function(id) { el(id).disabled = busy; });
@@ -482,7 +479,7 @@
     function queueSelection() {
         if (!reviewedIds.length || dirtyState || saving || scanning || queueingMovie || catalogLoading) return Promise.resolve();
         scanning = true; updateControls();
-        return action(function() { return api('Selection/Queue', 'POST', reviewedIds.slice()).then(beginManual)
+        return action(function() { return api('Selection/Queue' + (selectedMovies.size > 1 ? '?batch=true' : ''), 'POST', reviewedIds.slice()).then(beginManual)
             .catch(function(error) { scanning = false; updateControls(); throw error; }); });
     }
     function chooseOriginal(path) {
@@ -541,8 +538,9 @@
         el('jcCandidatesSummary').textContent = list.length + ' películas en las carpetas seleccionadas · ' + result + (list.length > 500 ? ' Se muestran hasta 500.' : '');
         message(list.length + ' películas revisadas. ' + result);
     }
-    function beginManual(operation, movieName) {
+    function beginManual(operation, movieName, recovering) {
         manualOperationId = operation.Id; manualKind = operation.Kind; manualMovieName = movieName || ''; manualStartedAt = Date.now();
+        manualRecovering = !!recovering;
         scanning = manualKind !== 'Movie'; queueingMovie = manualKind === 'Movie'; updateControls();
         return pollManual();
     }
@@ -579,8 +577,14 @@
                 var results = operation.Result || [];
                 results.forEach(function(result) { movieResults[result.ItemId] = result; });
                 if (manualKind === 'Review') {
-                    reviewedIds = results.filter(function(result) { return result.Eligible && selectedMovies.has(result.ItemId); }).map(function(result) { return result.ItemId; });
-                    message('Revisión terminada: ' + reviewedIds.length + ' de ' + results.length + ' pueden pasar a la comprobación final. Mira el motivo junto a las demás.');
+                    if (manualRecovering && !selectedMovies.size) {
+                        results.forEach(function(result) { if (movieEntries.some(function(item) { return item.Id === result.ItemId && item.Selectable; })) selectedMovies.add(result.ItemId); });
+                        reviewedIds = [];
+                        message('Selección anterior recuperada. Vuelve a revisar con los ajustes actuales; los motivos anteriores aparecen junto a cada película.');
+                    } else {
+                        reviewedIds = results.filter(function(result) { return result.Eligible && selectedMovies.has(result.ItemId); }).map(function(result) { return result.ItemId; });
+                        message('Revisión terminada: ' + reviewedIds.length + ' de ' + results.length + ' pueden pasar a la comprobación final. Mira el motivo junto a las demás.');
+                    }
                 } else {
                     var added = results.filter(function(result) { return result.Reason === 'En cola'; });
                     added.forEach(function(result) { selectedMovies.delete(result.ItemId); var item = movieEntries.find(function(movie) { return movie.Id === result.ItemId; }); if (item) { item.Selectable = false; item.Reason = 'Ya está en la cola.'; } });
@@ -721,7 +725,7 @@
         el('jcEncoder').replaceChildren(); names.forEach(function(n) { var o = document.createElement('option'); o.value = n; o.textContent = n === 'libx265' ? 'CPU · libx265' : n; el('jcEncoder').append(o); });
         el('jcFfmpeg').textContent = (c.FfmpegVersion || 'FFmpeg detectado') + '. Los codificadores GPU requieren hardware y controladores compatibles.';
     }).then(load).then(function() { return api('Manual'); }).then(function(state) {
-        if (state.Operation && state.Operation.Id !== lastOperationId) beginManual(state.Operation);
+        if (state.Operation && state.Operation.Id !== lastOperationId) beginManual(state.Operation, '', true);
         return Promise.all([browse('', []), refresh()]);
     }); }); clearInterval(timer); timer = setInterval(function() { action(refresh); }, 5000); });
     page.addEventListener('viewbeforehide', function() { active = false; clearInterval(timer); });

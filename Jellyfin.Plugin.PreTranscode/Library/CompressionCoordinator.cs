@@ -81,7 +81,7 @@ public sealed class CompressionCoordinator
                     if (video.Hdr10PlusPresentFlag == true) tags.Add("HDR10+");
                     if (video.DvProfile is > 0) tags.Add("Dolby Vision");
                     format = tags.Count == 0 ? "SDR" : string.Join(" · ", tags);
-                    if (reason.Length == 0 && ((tags.Count > 0 && !config.EnableExperimentalHdr)
+                    if (reason.Length == 0 && ((video.DvProfile is not > 0 && tags.Count > 0 && !config.EnableExperimentalHdr)
                         || (video.DvProfile is > 0 && !config.EnableExperimentalDolbyVision)
                         || (video.Hdr10PlusPresentFlag == true && !config.EnableExperimentalHdr10Plus)))
                         reason = "Opciones HDR desactivadas. Actívalas en Ajustes para una prueba individual.";
