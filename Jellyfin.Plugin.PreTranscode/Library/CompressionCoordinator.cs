@@ -84,7 +84,7 @@ public sealed class CompressionCoordinator
                     if (reason.Length == 0 && ((video.DvProfile is not > 0 && tags.Count > 0 && !config.EnableExperimentalHdr)
                         || (video.DvProfile is > 0 && !config.EnableExperimentalDolbyVision)
                         || (video.Hdr10PlusPresentFlag == true && !config.EnableExperimentalHdr10Plus)))
-                        reason = "Opciones HDR desactivadas. Actívalas en Ajustes para una prueba individual.";
+                        reason = "Opciones HDR desactivadas. Actívalas en Ajustes para comprimir manualmente.";
                 }
                 if (jobs.Any(job => job.ItemId == movie.Id.ToString("N") && job.Status is JobStatus.Pending or JobStatus.Processing)) reason = "Ya está en la cola.";
             }

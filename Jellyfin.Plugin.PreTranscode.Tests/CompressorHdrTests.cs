@@ -30,7 +30,7 @@ public class CompressorHdrTests
         var config = new PluginConfiguration { EnableExperimentalDolbyVision = true, EnableExperimentalHdr10Plus = true };
         Assert.Null(CompressionPolicy.EligibilityError(source, profile, config));
         Assert.NotNull(CompressionPolicy.EligibilityError(source, profile, config, automatic: true));
-        Assert.NotNull(CompressionPolicy.EligibilityError(source, profile, config, manualSingle: false));
+        Assert.Null(CompressionPolicy.EligibilityError(source, profile, config, manualSingle: false));
         Assert.Throws<InvalidOperationException>(() => CompressionPolicy.BuildArguments(profile, source, "in.mkv", "out.mkv"));
         var args = CompressionPolicy.BuildArguments(profile, source, "in.mkv", "out.mkv", preserveHdr10Plus: true,
             preserveGpuHdr: true).ToArray();
@@ -115,7 +115,7 @@ public class CompressorHdrTests
         var config = new PluginConfiguration { EnableExperimentalDolbyVision = true };
         Assert.Null(CompressionPolicy.EligibilityError(source, CpuProfile, config));
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, automatic: true));
-        Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, manualSingle: false));
+        Assert.Null(CompressionPolicy.EligibilityError(source, CpuProfile, config, manualSingle: false));
         Assert.Null(CompressionPolicy.EligibilityError(source, new EncodingProfile { VideoEncoder = "hevc_nvenc" }, config));
         Assert.NotNull(CompressionPolicy.EligibilityError(source, new EncodingProfile { VideoEncoder = "hevc_qsv" }, config));
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, new PluginConfiguration()));
@@ -130,6 +130,7 @@ public class CompressorHdrTests
         var config = new PluginConfiguration { EnableExperimentalHdr = true };
         Assert.Null(CompressionPolicy.EligibilityError(source, CpuProfile, config));
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, automatic: true));
+        Assert.Null(CompressionPolicy.EligibilityError(source, CpuProfile, config, manualSingle: false));
         source.HasHdr10Plus = true;
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config));
         Assert.Throws<InvalidOperationException>(() => CompressionPolicy.BuildArguments(CpuProfile, source, "in.mkv", "out.mkv"));
@@ -147,7 +148,7 @@ public class CompressorHdrTests
         switchProperty.SetValue(config, true);
         Assert.Null(CompressionPolicy.EligibilityError(source, CpuProfile, config));
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, automatic: true));
-        Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config, manualSingle: false));
+        Assert.Null(CompressionPolicy.EligibilityError(source, CpuProfile, config, manualSingle: false));
         source.Path = "movie.mp4";
         Assert.NotNull(CompressionPolicy.EligibilityError(source, CpuProfile, config));
     }

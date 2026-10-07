@@ -8,9 +8,13 @@ de esta prueba se detallan abajo.
 
 ## Ruta NVENC integrada en 0.1.13
 
-Solo selección manual de una película HEVC MKV con 10 bits, BT.2020/PQ y Docker/Linux
+Compresión manual de películas HEVC MKV con 10 bits, BT.2020/PQ y Docker/Linux
 x86-64. HDR10, HDR10+ y Dolby Vision tienen opciones separadas, todas apagadas por
-defecto; el lote y la automatización siguen excluyendo HDR. Se usa NVENC p5 Main10
+defecto. Desde 0.1.17 se admiten lotes manuales de películas compatibles, procesadas
+una a una y respetando el tamaño mínimo de Ajustes; la automatización sigue
+excluyendo HDR. La revisión, la admisión en cola y la admisión del ejecutor se
+comprueban con lotes sintéticos; no equivalen a una prueba completa de varias
+películas reales desde el complemento. Se usa NVENC p5 Main10
 con la calidad y el límite de resolución elegidos, sin ampliar vídeos menores.
 No se cambia a libx265 si la GPU no funciona.
 

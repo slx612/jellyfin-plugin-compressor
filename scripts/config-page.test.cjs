@@ -86,6 +86,14 @@ test('selecting on different filtered views keeps only those movies and requires
     assert.equal(calls.some(([route]) => /Selection\/Queue/.test(route)), false);
 });
 
+test('multiple selected movies explain that manual HDR batches run one at a time', async () => {
+    const ui = panel(async route => route === 'Configuration' ? savedConfig : route === 'Catalog'
+        ? { Items: [catalogMovie, { ...catalogMovie, Id: 'movie-2', Name: 'Dune', Format: 'HDR10' }], Folders: [] } : []);
+    await ui.load(); ui.element('jcSelectVisible').onclick();
+    assert.match(ui.element('jcSelectionHelp').textContent, /HDR.*lotes manuales/);
+    assert.match(ui.element('jcSelectionHelp').textContent, /una película cada vez/);
+});
+
 test('a busy review cannot lose its selection through a catalog refresh', async () => {
     const ui = panel(async route => route === 'Configuration' ? savedConfig : route === 'Catalog' ? { Items: [catalogMovie], Folders: [] }
         : route === 'Selection/Review' ? { Id: 'review-2', Kind: 'Review', State: 'Running', Progress: 0 }
