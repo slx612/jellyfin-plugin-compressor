@@ -192,7 +192,7 @@ Requiere .NET SDK 9 y FFmpeg/ffprobe en `PATH` para las pruebas de integración.
 
 ```powershell
 dotnet test -c Release
-./build-plugin.ps1 -Version 0.1.12.0
+./build-plugin.ps1
 ```
 
 El ZIP y su SHA-256 quedan en `artifacts/`. Las dependencias de Jellyfin se

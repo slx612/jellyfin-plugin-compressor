@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.1.17.0",
+        "changelog": "Experimental manual batches now admit compatible HDR10, HDR10+ and Dolby Vision 8.1 movies, processed one at a time. Batch minimum size, format opt-ins, original protection and all full-file checks retained. Automatic HDR stays blocked; existing settings preserved and automatic compression/HDR options remain disabled by default.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.17-alpha.18/jellyfin-compressor-0.1.17.0.zip",
+        "checksum": "77dd02a2527533760504c8069dcda6f7",
+        "timestamp": "2026-10-07T16:15:14Z"
+      },
+      {
         "version": "0.1.16.0",
         "changelog": "Experimental queue rework: explicit phase progress and elapsed time, ordered pending movies, separate filtered/paged history, immediate pause/cancel feedback and verified output summaries. Full-file checks retained. Existing settings preserved; automatic compression and HDR options remain disabled by default.",
         "targetAbi": "10.11.6.0",
