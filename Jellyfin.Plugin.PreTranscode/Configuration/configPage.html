@@ -210,7 +210,7 @@
     <div class="jc-browser-pane"><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">check_circle</span> Incluidas</span><span id="jcIncludeCount" class="jc-badge">0</span></h3><div id="jcIncludes" tabindex="-1"></div></div><div class="jc-rule-group"><h3 class="jc-rule-title"><span><span class="material-icons" aria-hidden="true">block</span> Excluidas</span><span id="jcExcludeCount" class="jc-badge">0</span></h3><div id="jcExcludes" tabindex="-1"></div></div></div>
   </div>
   <p class="jc-subtle" style="margin-top:.8rem">Las exclusiones protegen las películas incluso si se eligen a mano. Guarda los cambios para aplicar estas reglas.</p>
-  <details class="jc-picker"><summary>Revisar todas las carpetas incluidas</summary><div class="jc-picker-body"><p>Este análisis usa el tamaño mínimo de Ajustes. HDR se revisa eligiendo una película individual en Películas.</p><div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze" disabled>Analizar carpetas</button><button class="jc-button jc-primary" type="button" id="jcCompress" disabled>Añadir películas de estas carpetas</button></div><p id="jcCandidatesSummary"></p><div id="jcCandidates" class="jc-scroll"></div></div></details>
+  <details class="jc-picker"><summary>Revisar todas las carpetas incluidas</summary><div class="jc-picker-body"><p>Este análisis usa el tamaño mínimo de Ajustes. Los lotes manuales admiten HDR compatible si activas sus opciones experimentales; se procesa una película cada vez.</p><div class="jc-actions"><button class="jc-button" type="button" id="jcAnalyze" disabled>Analizar carpetas</button><button class="jc-button jc-primary" type="button" id="jcCompress" disabled>Añadir películas de estas carpetas</button></div><p id="jcCandidatesSummary"></p><div id="jcCandidates" class="jc-scroll"></div></div></details>
 </section>
 
 <section id="jcSettings" class="jc-panel" role="tabpanel" aria-labelledby="jcTabSettings" hidden>
@@ -314,7 +314,7 @@
         var chosen = movieEntries.filter(function(item) { return selectedMovies.has(item.Id); });
         el('jcSelectionSummary').textContent = selectedMovies.size + ' seleccionada' + (selectedMovies.size === 1 ? '' : 's') + ' · ' + bytes(chosen.reduce(function(total, item) { return total + item.Size; }, 0));
         el('jcSelectionHelp').textContent = reviewedIds.length ? reviewedIds.length + ' con revisión rápida superada. Se verificará el archivo completo antes de encolarlo.'
-            : selectedMovies.size > 1 ? 'Los lotes respetan el tamaño mínimo. HDR se prueba seleccionando una sola película.' : 'Puedes probar una película por debajo del tamaño mínimo. Se mantienen las protecciones de carpetas.';
+            : selectedMovies.size > 1 ? 'Los lotes respetan el tamaño mínimo. HDR compatible admite lotes manuales; se procesa una película cada vez.' : 'Puedes probar una película por debajo del tamaño mínimo. Se mantienen las protecciones de carpetas.';
         el('jcSaveBar').hidden = !dirtyState && (currentTab === 0 || currentTab === 3);
         updateSelectionWarning();
     }

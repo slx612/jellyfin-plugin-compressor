@@ -92,6 +92,81 @@ public sealed class CompressorWiringTests : IDisposable
         queue.Verify(q => q.Enqueue(It.IsAny<TranscodeJob>(), It.IsAny<Func<IReadOnlyList<TranscodeJob>, bool>>()), Times.Never);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ManualHdrBatchIsReviewedAndQueuedWithoutLosingExecutorEligibility(bool dolby, bool hdr10Plus)
+    {
+        var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
+        plugin.Configuration.IncludedFolders.Add(movieRoot);
+        plugin.Configuration.QuarantineDirectory = Path.Combine(root, "originals");
+        plugin.Configuration.MinMovieSizeGb = 0;
+        plugin.Configuration.RetentionDays = 7;
+        plugin.Configuration.EnableExperimentalHdr = true;
+        plugin.Configuration.EnableExperimentalDolbyVision = true;
+        plugin.Configuration.EnableExperimentalHdr10Plus = true;
+        plugin.Configuration.Profiles[0].VideoEncoder = "hevc_nvenc";
+        var movies = Enumerable.Range(0, 2).Select(i => new Movie
+        { Id = Guid.NewGuid(), Name = $"Movie {i}", Path = Path.Combine(movieRoot, $"{i}.mkv") }).ToArray();
+        foreach (var movie in movies)
+        {
+            File.WriteAllText(movie.Path, movie.Name);
+            File.SetLastWriteTimeUtc(movie.Path, DateTime.UtcNow.AddMinutes(-2));
+        }
+        MediaProbeInfo Probe(string path) => new()
+        {
+            Path = path, VideoCodec = "hevc", VideoStreamCount = 1, Width = 1920, Height = 1080,
+            DurationSeconds = 60, PixelFormat = "yuv420p10le", BitDepth = 10, IsHdr = true,
+            ColorPrimaries = "bt2020", ColorTransfer = "smpte2084", ColorSpace = "bt2020nc",
+            IsDolbyVision = dolby, DolbyVisionProfile = dolby ? 8 : 0, DolbyVisionCompatibilityId = dolby ? 1 : 0,
+            DolbyVisionHasRpu = dolby, DolbyVisionHasBaseLayer = dolby, HasHdr10Plus = hdr10Plus
+        };
+        var library = new Mock<ILibraryManager>();
+        library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Locations = [movieRoot] }]);
+        library.Setup(l => l.GetItemById(It.IsAny<Guid>())).Returns((Guid id) => movies.Single(m => m.Id == id));
+        var prober = new Mock<IMediaProber>();
+        library.Setup(l => l.GetItemList(It.IsAny<InternalItemsQuery>())).Returns(movies);
+        prober.Setup(p => p.ProbeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string path, CancellationToken _) => Probe(path));
+        var mediaSources = new Mock<IMediaSourceManager>();
+        mediaSources.Setup(m => m.GetMediaStreams(It.IsAny<Guid>())).Returns(Array.Empty<MediaStream>());
+        using var queue = new JobQueue(paths.Object, NullLogger<JobQueue>.Instance);
+        var coordinator = new CompressionCoordinator(queue, prober.Object, library.Object, Mock.Of<ISessionManager>(),
+            new ContentRegistry(Path.Combine(root, "identities")), mediaSources.Object);
+        var runner = new ManualOperationRunner(default, NullLogger<ManualOperationRunner>.Instance);
+        var controller = new PreTranscodeController(coordinator, queue, null!, null!, library.Object, null!, null!, null!, runner);
+        var ids = movies.Select(m => m.Id).ToArray();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var review = Assert.IsType<ManualOperationInfo>(Assert.IsType<AcceptedResult>(controller.ReviewSelection(ids)).Value);
+        while (runner.Get(review.Id)!.State == "Running") await Task.Delay(10, timeout.Token);
+        Assert.Equal("Completed", runner.Get(review.Id)!.State);
+        var reviewed = Assert.IsAssignableFrom<IEnumerable<Candidate>>(runner.Get(review.Id)!.Result).ToArray();
+        Assert.Equal(2, reviewed.Length);
+        Assert.All(reviewed, c => Assert.True(c.Eligible, c.Reason));
+        var folderReview = await coordinator.ScanAsync(false, false, null, timeout.Token);
+        Assert.Equal(2, folderReview.Count);
+        Assert.All(folderReview, c => Assert.True(c.Eligible, c.Reason));
+        var enqueue = Assert.IsType<ManualOperationInfo>(Assert.IsType<AcceptedResult>(controller.QueueSelection(ids, batch: true)).Value);
+        while (runner.Get(enqueue.Id)!.State == "Running") await Task.Delay(10, timeout.Token);
+        Assert.Equal("Completed", runner.Get(enqueue.Id)!.State);
+        Assert.All(Assert.IsAssignableFrom<IEnumerable<Candidate>>(runner.Get(enqueue.Id)!.Result), c => Assert.Equal("En cola", c.Reason));
+        Assert.Equal(2, queue.GetJobs().Count);
+        Assert.All(queue.GetJobs(), job =>
+        {
+            Assert.Equal(JobStatus.Pending, job.Status);
+            Assert.False(job.Automatic);
+            Assert.False(job.Snapshot!.SingleMovieSelection);
+            Assert.Null(CompressionPolicy.EligibilityError(Probe(job.SourcePath), job.Snapshot.Profile,
+                plugin.Configuration, job.Automatic, job.Snapshot.SingleMovieSelection));
+            Assert.NotNull(CompressionPolicy.EligibilityError(Probe(job.SourcePath), job.Snapshot.Profile,
+                plugin.Configuration, automatic: true));
+        });
+        Assert.False(plugin.Configuration.AutomaticCompressionEnabled);
+        Assert.Equal(1, plugin.Configuration.MaxConcurrentJobs);
+    }
+
     [Fact]
     public async Task AutomaticInspectionSkipsSmallMovieBeforeHashingOrProbing()
     {

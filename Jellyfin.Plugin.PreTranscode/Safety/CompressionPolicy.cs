@@ -55,7 +55,7 @@ public static class CompressionPolicy
         if (info.HasHdr10Plus)
         {
             if (config?.EnableExperimentalHdr10Plus != true) return "HDR10+ experimental desactivado.";
-            if (automatic || !manualSingle) return "HDR10+: elige una sola película para la prueba experimental.";
+            if (automatic) return "HDR10+: solo se admite compresión manual experimental.";
             if (!Path.GetExtension(info.Path).Equals(".mkv", StringComparison.OrdinalIgnoreCase))
                 return "HDR10+ experimental solo admite películas MKV.";
             if (!info.IsHdr || profile is null || (profile.VideoEncoder != "hevc_nvenc"
@@ -69,7 +69,7 @@ public static class CompressionPolicy
             return "Metadatos HDR sin señal de color HDR verificable.";
         if (info.IsHdr || info.IsDolbyVision)
         {
-            if (automatic || !manualSingle) return "HDR / Dolby Vision: elige una sola película para la prueba experimental.";
+            if (automatic) return "HDR / Dolby Vision: solo se admite compresión manual experimental.";
             if (profile?.VideoEncoder is not ("libx265" or "hevc_nvenc")) return "HDR / Dolby Vision: elige libx265 o NVIDIA NVENC.";
             if (profile.VideoEncoder == "hevc_nvenc" && (info.VideoCodec != "hevc"
                 || !Path.GetExtension(info.Path).Equals(".mkv", StringComparison.OrdinalIgnoreCase)))

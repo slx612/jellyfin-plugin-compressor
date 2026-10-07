@@ -3,7 +3,7 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.16 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.17 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
@@ -15,7 +15,7 @@ la versión actual aún necesitan validación en ese servidor.
 
 Esta versión incorpora compresión experimental de HDR10, HDR10+ y Dolby Vision
 8.1 con NVIDIA NVENC Main10 en Docker/Linux x86-64. Está apagada por defecto y
-limitada a películas elegidas individualmente; consulta
+limitada a compresión manual, individual o por lotes; consulta
 [su alcance y las pruebas pendientes](docs/hdr-experimental.md).
 
 ## Funcionamiento
@@ -39,7 +39,8 @@ limitada a películas elegidas individualmente; consulta
   es cancelable y no comprime nada. Después **Añadir a la cola** comprueba los archivos
   completos y muestra el resultado junto a cada película. Filtrar conserva la selección;
   cambiarla obliga a revisarla otra vez. Se mantienen las reglas de carpeta, estabilidad,
-  reproducción y prevención de recompresión. HDR solo admite selección individual.
+  reproducción y prevención de recompresión. HDR compatible admite lotes manuales
+  con sus opciones experimentales activadas; se procesa una película cada vez.
   Si reabres el panel tras una revisión, se recupera la selección y se pide revisarla
   con los ajustes actuales. Un lote sigue siendo un lote aunque solo quede una apta.
   Los análisis y las comprobaciones manuales continúan en segundo plano aunque
@@ -48,8 +49,8 @@ limitada a películas elegidas individualmente; consulta
 - HEVC con resolución original o límite de 2160p, 1080p, 720p o 480p.
   El límite solo reduce: una película de 720p nunca se amplía a 1080p.
   Se conservan profundidad de color, audio, subtítulos y capítulos.
-  HDR y Dolby Vision requieren activar sus opciones experimentales y elegir una
-  sola película. NVENC admite reducir HEVC MKV compatibles; libx265 conserva la
+  HDR y Dolby Vision requieren activar sus opciones experimentales y encolar
+  manualmente las películas. NVENC admite reducir HEVC MKV compatibles; libx265 conserva la
   resolución para HDR10+ y Dolby Vision. Los formatos no compatibles se omiten.
 - MKV, MP4 y M4V conservan **ruta, nombre y extensión completos**. No se convierte
   MP4 a MKV ni se crea una segunda película. Se conservan las fechas del archivo
@@ -112,7 +113,8 @@ que otras aplicaciones hagan sobre los archivos.
 
 Para probar HDR con NVIDIA, selecciona **hevc_nvenc**, la calidad y resolución
 máximas que quieras, y activa únicamente los formatos experimentales presentes
-en la película. Busca, revisa y encola una sola película en Películas. La GPU debe admitir
+en las películas. Busca, marca una o varias, revisa y añade la selección a la cola
+en Películas. Los lotes respetan el tamaño mínimo de Ajustes. La GPU debe admitir
 HEVC de 10 bits y estar disponible dentro del contenedor. El panel muestra las
 fases de análisis, codificación, reinserción y verificación; su porcentaje se
 refiere a la fase actual. El análisis y las comprobaciones usan CPU y pueden
