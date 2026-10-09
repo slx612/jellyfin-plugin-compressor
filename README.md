@@ -3,7 +3,7 @@
 Complemento nativo para **Jellyfin 10.11.6**. Comprime películas en el propio servidor,
 con FFmpeg de Jellyfin, sin otro servicio ni contenedor obligatorio.
 
-**EXPERIMENTAL — v0.1.17 para Jellyfin 10.11.6.** La versión inicial se probó
+**EXPERIMENTAL — v0.1.18 para Jellyfin 10.11.6.** La versión inicial se probó
 en un servidor aislado con vídeos sintéticos y dos usuarios: compresión, escaneo,
 reinicio y restauración conservaron los estados de la biblioteca. El panel de
 v0.1.2 se probó con respuestas simuladas y se abrió en el Jellyfin 10.11.6 de
@@ -24,6 +24,10 @@ limitada a compresión manual, individual o por lotes; consulta
 - Inclusiones y exclusiones por carpetas; las exclusiones siempre prevalecen.
   El panel avisa si hay cambios sin guardar o si Jellyfin no encuentra películas
   en alguna carpeta incluida, antes de iniciar el análisis.
+  Si eliminas una biblioteca, sus reglas quedan inactivas y se señalan en **Carpetas**:
+  no bloquean las películas de las bibliotecas actuales ni permiten comprimir fuera
+  de ellas. Puedes quitar esas reglas; si conservas una y recuperas su biblioteca,
+  vuelve a aplicarse. Las exclusiones de bibliotecas actuales siguen prevaleciendo.
 - El análisis y los lotes solo seleccionan películas de **más de 10 GB** por defecto.
   El mínimo es configurable en Ajustes; 0 lo desactiva. Se mide el archivo original
   en GB de 1024³ bytes. Al elegir una película concreta a mano se puede probar

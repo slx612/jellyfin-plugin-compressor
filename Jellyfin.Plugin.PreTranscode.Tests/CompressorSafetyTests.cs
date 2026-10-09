@@ -29,6 +29,64 @@ public sealed class CompressorSafetyTests : IDisposable
     }
 
     [Fact]
+    public void RemovedLibraryRulesDoNotBlockCurrentMovies()
+    {
+        var movies = Folder("Movies");
+        var removed = Folder("RemovedLibrary");
+        var keep = Folder("Movies/Keep");
+        var config = new PluginConfiguration
+        {
+            IncludedFolders = new() { movies, removed },
+            ExcludedFolders = new() { keep, Path.Combine(root, "RemovedSeries") },
+            QuarantineDirectory = Folder("Originals"), RetentionDays = 7
+        };
+
+        FolderPolicy.ValidateConfiguration(config, new[] { movies });
+
+        Assert.True(FolderPolicy.Evaluate(Path.Combine(movies, "film.mkv"), config, new[] { movies }).Allowed);
+        Assert.False(FolderPolicy.Evaluate(Path.Combine(keep, "film.mkv"), config, new[] { movies }).Allowed);
+        Assert.False(FolderPolicy.Evaluate(Path.Combine(removed, "film.mkv"), config, new[] { movies }).Allowed);
+        Assert.Contains(removed, config.IncludedFolders);
+    }
+
+    [Fact]
+    public void RemovedParentRuleIsInactiveWhenOnlyChildLibraryRemains()
+    {
+        var movies = Folder("Movies");
+        var childLibrary = Folder("Movies/ChildLibrary");
+        var config = new PluginConfiguration
+        {
+            IncludedFolders = new() { childLibrary }, ExcludedFolders = new() { movies },
+            QuarantineDirectory = Folder("Originals"), RetentionDays = 7
+        };
+
+        Assert.True(FolderPolicy.Evaluate(Path.Combine(childLibrary, "film.mkv"), config, new[] { childLibrary }).Allowed);
+        FolderPolicy.ValidateConfiguration(config, new[] { childLibrary });
+    }
+
+    [Fact]
+    public void ActiveParentExclusionStillProtectsANestedLibrary()
+    {
+        var movies = Folder("Movies");
+        var childLibrary = Folder("Movies/ChildLibrary");
+        var config = new PluginConfiguration { IncludedFolders = new() { childLibrary }, ExcludedFolders = new() { movies } };
+
+        Assert.False(FolderPolicy.Evaluate(Path.Combine(childLibrary, "film.mkv"), config, new[] { movies, childLibrary }).Allowed);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void RelativeFolderRulesRemainInvalid(bool included)
+    {
+        var movies = Folder("Movies");
+        var config = new PluginConfiguration { QuarantineDirectory = Folder("Originals"), RetentionDays = 7 };
+        (included ? config.IncludedFolders : config.ExcludedFolders).Add("relative/path");
+
+        Assert.Throws<InvalidOperationException>(() => FolderPolicy.ValidateConfiguration(config, new[] { movies }));
+    }
+
+    [Fact]
     public void OriginalsBrowserMarksLibraryAncestorsAndDescendantsAsUnsafe()
     {
         var movies = Folder("Movies");

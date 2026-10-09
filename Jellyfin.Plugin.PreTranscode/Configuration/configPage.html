@@ -263,7 +263,7 @@
     var dirtyState = false, revision = 0, saving = false, scanning = false, cancelling = false, manualOperationId, manualKind, manualMovieName = '', manualPolling = false, manualRecovering = false, manualStartedAt = 0, lastOperationId;
     var rules = {included: [], excluded: []}, folderEntries = [], folderTrail = [], folderRequest = 0, folderCounts = null, folderCountsError = false, folderCountsRequest = 0;
     var movieEntries = [], movieRequest = 0, queueingMovie = false, originalFolderState, originalRequest = 0;
-    var selectedMovies = new Set(), movieResults = {}, reviewedIds = [], moviePage = 0, visibleMovies = [], catalogFolders = [], catalogLoading = false, currentTab = 0;
+    var selectedMovies = new Set(), movieResults = {}, reviewedIds = [], moviePage = 0, visibleMovies = [], catalogFolders = [], catalogLoading = false, catalogLoaded = false, currentTab = 0;
     var queueState = {Jobs: []}, queueRecords = [], queueAction = '', queueRevision = 0, pendingCancels = new Set(), expandedPhases = new Set(), historyPage = 0, serverNow = Date.now(), serverReadAt = Date.now();
     var replacementPhases = ['Prepared', 'BackupVerified', 'Publishing', 'Completed', 'Purging', 'Purged', 'Restoring', 'Restored', 'Aborted'];
     function el(id) { return page.querySelector('#' + id); }
@@ -319,14 +319,17 @@
         updateSelectionWarning();
     }
     function updateSelectionWarning() {
-        var warning = el('jcSelectionWarning'), text = '';
+        var warning = el('jcSelectionWarning'), text = '', inactive = rules.included.concat(rules.excluded).filter(inactiveRule);
         if (config && dirtyState) text = 'Hay cambios sin guardar. Pulsa «Guardar cambios» antes de analizar: Jellyfin usará las carpetas guardadas, no las que acabas de marcar.';
         else if (config && !rules.included.length) text = 'No hay carpetas incluidas. Abre «Carpetas», selecciona al menos una y guarda los cambios antes de analizar.';
         else if (config && folderCountsError) text = 'No se ha podido comprobar cuántas películas hay en las carpetas seleccionadas. Revisa el registro de Jellyfin.';
-        else if (config && folderCounts) {
-            var empty = folderCounts.filter(function(folder) { return folder.Movies === 0; });
-            if (empty.length) text = (empty.length === folderCounts.length ? 'Jellyfin no encuentra ninguna película en las carpetas incluidas: ' : 'Jellyfin no encuentra películas en: ')
-                + empty.map(function(folder) { return folder.Path; }).join(', ') + '. Revisa la ruta y el escaneo de la biblioteca; esas carpetas aportarán 0 resultados.';
+        else if (config) {
+            if (inactive.length) text = 'Carpetas sin biblioteca actual: ' + inactive.join(', ') + '. Estas reglas están inactivas; puedes quitarlas en «Carpetas».';
+            if (folderCounts) {
+                var empty = folderCounts.filter(function(folder) { return folder.Movies === 0; });
+                if (empty.length) text += (text ? ' ' : '') + (empty.length === folderCounts.length ? 'Jellyfin no encuentra ninguna película en las carpetas incluidas: ' : 'Jellyfin no encuentra películas en: ')
+                    + empty.map(function(folder) { return folder.Path; }).join(', ') + '. Revisa la ruta y el escaneo de la biblioteca; esas carpetas aportarán 0 resultados.';
+            }
         }
         el('jcSelectionWarningText').textContent = text;
         warning.hidden = !text;
@@ -343,13 +346,14 @@
         });
     }
     function dirty(value) { if (value) { revision++; reviewedIds = []; movieResults = {}; } dirtyState = value; updateControls(); }
+    function inactiveRule(path) { return catalogLoaded && !catalogFolders.some(function(folder) { return insideFolder(folder.Path, path); }); }
     function renderRules() {
         [['included', 'jcIncludes', 'jcIncludeCount'], ['excluded', 'jcExcludes', 'jcExcludeCount']].forEach(function(group) {
             var box = el(group[1]); box.replaceChildren(); el(group[2]).textContent = String(rules[group[0]].length);
             if (!rules[group[0]].length) { var empty = document.createElement('div'); empty.className = 'jc-empty'; empty.textContent = group[0] === 'included' ? 'Ninguna carpeta incluida' : 'Ninguna carpeta excluida'; box.append(empty); }
             rules[group[0]].forEach(function(path) {
                 var row = document.createElement('div'), name = document.createElement('span'), remove = document.createElement('button');
-                row.className = 'jc-rule'; name.textContent = path; remove.type = 'button'; remove.setAttribute('aria-label', 'Quitar ' + path); remove.append(icon('close'));
+                row.className = 'jc-rule'; name.textContent = path + (inactiveRule(path) ? ' · Sin biblioteca (inactiva)' : ''); remove.type = 'button'; remove.setAttribute('aria-label', 'Quitar ' + path); remove.append(icon('close'));
                 remove.onclick = function() {
                     var index = rules[group[0]].indexOf(path);
                     rules[group[0]] = rules[group[0]].filter(function(p) { return p !== path; }); renderRules(); renderExplorer(); dirty(true);
@@ -399,8 +403,8 @@
             row.className = 'jc-folder'; row.append(icon('folder'));
             open.type = 'button'; open.className = 'jc-folder-main'; open.setAttribute('aria-label', 'Abrir ' + f.Name);
             name.className = 'jc-folder-name'; name.textContent = f.Name; path.className = 'jc-folder-path'; path.textContent = f.Path; open.append(name, path);
-            var excluded = rules.excluded.some(function(folder) { return insideFolder(folder, f.Path); });
-            var included = rules.included.some(function(folder) { return insideFolder(folder, f.Path); });
+            var excluded = rules.excluded.some(function(folder) { return !inactiveRule(folder) && insideFolder(folder, f.Path); });
+            var included = rules.included.some(function(folder) { return !inactiveRule(folder) && insideFolder(folder, f.Path); });
             var state = document.createElement('span'); state.className = 'jc-folder-path';
             state.textContent = excluded ? 'Excluida' : included ? 'Incluida' : 'Sin incluir'; open.append(state);
             open.onclick = function() { action(function() { return browse(f.Path, folderTrail.concat([{Name: f.Name, Path: f.Path}])); }); };
@@ -488,6 +492,7 @@
             if (request !== movieRequest) return;
             movieEntries = catalog.Items;
             catalogFolders = catalog.Folders;
+            catalogLoaded = true; renderRules(); renderExplorer();
             selectedMovies = new Set(Array.from(selectedMovies).filter(function(id) { return movieEntries.some(function(item) { return item.Id === id && item.Selectable; }); }));
             reviewedIds = []; movieResults = {};
             var libraries = el('jcMovieLibrary'), previous = libraries.value; libraries.replaceChildren();

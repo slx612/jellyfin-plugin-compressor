@@ -9,7 +9,8 @@ class Element {
     constructor() { this.children = []; this.style = {}; this.dataset = {}; this.value = ''; this.textContent = ''; this.disabled = false; this.hidden = false; }
     append(...children) { this.children.push(...children); }
     replaceChildren(...children) { this.children = children; }
-    setAttribute() {}
+    setAttribute(name, value) { (this.attributes ||= {})[name] = value; }
+    getAttribute(name) { return this.attributes?.[name] ?? null; }
     addEventListener() {}
     querySelectorAll() { return []; }
     createTHead() { const head = new Element(); this.append(head); return head; }
@@ -31,7 +32,7 @@ function panel(request) {
     });
     vm.runInContext(script.replace(/\}\(\)\);\s*$/, `
         active = true; config = {};
-        globalThis.testPanel = { beginManual, pollManual, refresh, load, renderMovies, get id() { return manualOperationId; } };
+        globalThis.testPanel = { beginManual, pollManual, refresh, load, browse, renderMovies, get id() { return manualOperationId; } };
     }());`), context);
     return { ...context.testPanel, get id() { return context.testPanel.id; }, element };
 }
@@ -55,6 +56,48 @@ test('opening the page shows movies and their media facts without a search or an
     assert.match(rendered, /20\.70 GB/);
     assert.match(rendered, /Dolby Vision/);
     assert.match(rendered, /2160p/);
+});
+
+test('removed library rules are shown as inactive without blocking current movie selection', async () => {
+    const config = { ...savedConfig, IncludedFolders: ['/movies', '/retired-movies'], ExcludedFolders: ['/retired-series'] };
+    const ui = panel(async route => route === 'Configuration' ? config : route === 'Catalog' ? {
+        Items: [catalogMovie], Folders: [{ Name: 'Películas', Path: '/movies' }]
+    } : route === 'FolderStatus' ? [{ Path: '/movies', Movies: 1 }] : []);
+    await ui.load();
+
+    assert.match(ui.element('jcSelectionWarningText').textContent, /inactivas/i);
+    assert.match(ui.element('jcSelectionWarningText').textContent, /\/retired-series/);
+    assert.match(text(ui.element('jcIncludes')), /retired-movies.*inactiva/i);
+    assert.match(text(ui.element('jcExcludes')), /retired-series.*inactiva/i);
+    assert.doesNotMatch(text(ui.element('jcMovieResults')), /retired-series|retired-movies/);
+    ui.element('jcSelectVisible').onclick();
+    assert.equal(ui.element('jcReviewSelection').disabled, false);
+});
+
+test('an inactive parent rule cannot mark a current child library as included or excluded', async () => {
+    for (const [included, expected] of [[['/movies/child'], 'Incluida'], [[], 'Sin incluir']]) {
+        const config = { ...savedConfig, IncludedFolders: ['/movies', ...included], ExcludedFolders: ['/movies'] };
+        const folder = { Name: 'Child', Path: '/movies/child' };
+        const ui = panel(async route => route === 'Configuration' ? config : route === 'Catalog' ? {
+            Items: [], Folders: [folder]
+        } : route === 'Folders' ? [folder] : []);
+        await ui.browse('', []);
+        await ui.load();
+
+        assert.match(text(ui.element('jcExcludes')), /inactiva/);
+        assert.equal(ui.element('jcFolders').children[0].children[1].children[2].textContent, expected);
+    }
+});
+
+test('inactive rules do not hide the warning for an empty current movie folder', async () => {
+    const config = { ...savedConfig, IncludedFolders: ['/movies', '/retired-movies'] };
+    const ui = panel(async route => route === 'Configuration' ? config : route === 'Catalog' ? {
+        Items: [], Folders: [{ Name: 'Películas', Path: '/movies' }]
+    } : route === 'FolderStatus' ? [{ Path: '/movies', Movies: 0 }] : []);
+    await ui.load();
+
+    assert.match(ui.element('jcSelectionWarningText').textContent, /retired-movies.*inactivas/i);
+    assert.match(ui.element('jcSelectionWarningText').textContent, /ninguna película.*\/movies.*0 resultados/i);
 });
 
 test('selecting on different filtered views keeps only those movies and requires a fresh review after a change', async () => {
