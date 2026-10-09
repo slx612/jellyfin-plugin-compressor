@@ -8,6 +8,14 @@
     "category": "General",
     "versions": [
       {
+        "version": "0.1.18.0",
+        "changelog": "Experimental fix: removed-library folder rules remain inactive instead of blocking unrelated movie reviews and counts. Inactive rules are labelled in the folder panel; badges and empty-folder warnings reflect current libraries. Active exclusions, all movie safety checks and existing settings are preserved.",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://github.com/slx612/jellyfin-plugin-compressor/releases/download/v0.1.18-alpha.19/jellyfin-compressor-0.1.18.0.zip",
+        "checksum": "620908477676f04e1ee1a6b27aadcd0a",
+        "timestamp": "2026-10-09T12:46:57Z"
+      },
+      {
         "version": "0.1.17.0",
         "changelog": "Experimental manual batches now admit compatible HDR10, HDR10+ and Dolby Vision 8.1 movies, processed one at a time. Batch minimum size, format opt-ins, original protection and all full-file checks retained. Automatic HDR stays blocked; existing settings preserved and automatic compression/HDR options remain disabled by default.",
         "targetAbi": "10.11.6.0",
