@@ -45,7 +45,7 @@ public static class FolderPolicy
         var root = roots.Where(r => Contains(r, path)).OrderByDescending(r => r.Length).FirstOrDefault();
         if (root is null) return new(false, "Fuera de las bibliotecas de películas.");
         if (!config.IncludedFolders.Any(f => Contains(root, f) && Contains(f, path))) return new(false, "Carpeta no seleccionada.");
-        if (config.ExcludedFolders.Any(f => Contains(f, path))) return new(false, "Carpeta excluida.");
+        if (config.ExcludedFolders.Any(f => roots.Any(r => Contains(r, f)) && Contains(f, path))) return new(false, "Carpeta excluida.");
         return new(true, "Seleccionada", root);
     }
 
@@ -64,8 +64,10 @@ public static class FolderPolicy
             throw new InvalidOperationException("El tamaño mínimo de película debe estar entre 0 y 1048576 GB.");
         foreach (var folder in config.IncludedFolders.Concat(config.ExcludedFolders))
         {
-            if (!Path.IsPathFullyQualified(folder) || !roots.Any(r => Contains(r, folder)))
-                throw new InvalidOperationException("Carpeta ajena a las bibliotecas: " + folder);
+            if (!Path.IsPathFullyQualified(folder))
+                throw new InvalidOperationException("La ruta de carpeta debe ser absoluta: " + folder);
+            // Retired library rules are inactive; every movie still requires a current library root.
+            if (!roots.Any(r => Contains(r, folder))) continue;
             RejectLinks(folder);
         }
     }

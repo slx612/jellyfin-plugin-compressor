@@ -270,6 +270,40 @@ public sealed class CompressorWiringTests : IDisposable
     }
 
     [Fact]
+    public async Task CountsAndReviewContinueAfterAnUnrelatedLibraryIsRemoved()
+    {
+        var movies = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;
+        var retired = Directory.CreateDirectory(Path.Combine(root, "retired")).FullName;
+        var source = Path.Combine(movies, "selected.mkv");
+        File.WriteAllBytes(source, new byte[1024]);
+        File.SetLastWriteTimeUtc(source, DateTime.UtcNow.AddMinutes(-2));
+        plugin.Configuration.IncludedFolders.AddRange([movies, retired]);
+        plugin.Configuration.ExcludedFolders.Add(Path.Combine(root, "retired-series"));
+        plugin.Configuration.QuarantineDirectory = Path.Combine(root, "originals");
+        plugin.Configuration.RetentionDays = 7;
+        plugin.Configuration.MinMovieSizeGb = 0;
+        var library = new Mock<ILibraryManager>();
+        library.Setup(l => l.GetVirtualFolders()).Returns([new VirtualFolderInfo { Locations = [movies] }]);
+        library.Setup(l => l.GetItemList(It.IsAny<InternalItemsQuery>())).Returns([
+            new Movie { Name = "Current", Path = source },
+            new Movie { Name = "Retired", Path = Path.Combine(retired, "outside.mkv") }]);
+        var probe = new Mock<IMediaProber>();
+        probe.Setup(p => p.ProbeAsync(source, It.IsAny<CancellationToken>())).ReturnsAsync(new MediaProbeInfo
+        { VideoStreamCount = 1, Width = 1920, Height = 1080, DurationSeconds = 60, PixelFormat = "yuv420p" });
+        var queue = new Mock<IJobQueue>();
+        queue.Setup(q => q.GetJobs()).Returns(Array.Empty<TranscodeJob>());
+        var coordinator = new CompressionCoordinator(queue.Object, probe.Object, library.Object, Mock.Of<ISessionManager>(),
+            new ContentRegistry(Path.Combine(root, "identities")), Mock.Of<IMediaSourceManager>());
+
+        var count = Assert.Single(coordinator.FolderMovieCounts());
+        Assert.Equal(movies, count.Path);
+        Assert.Equal(1, count.Movies);
+        var reviewed = Assert.Single(await coordinator.ScanAsync(false, false, null, default));
+        Assert.Equal(source, reviewed.Path);
+        Assert.True(reviewed.Eligible, reviewed.Reason);
+    }
+
+    [Fact]
     public async Task RestartedAutomaticJobRecognizesAlreadyPublishedMovieBelowCurrentThreshold()
     {
         var movieRoot = Directory.CreateDirectory(Path.Combine(root, "movies")).FullName;

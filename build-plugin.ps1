@@ -1,5 +1,5 @@
 <# Build an experimental package; does not install the plugin or modify any media. #>
-param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.17.0")
+param([ValidatePattern('^\d+\.\d+\.\d+\.\d+$')][string]$Version = "0.1.18.0")
 $ErrorActionPreference = "Stop"
 $taskRoot = $PSScriptRoot
 $taskProject = Join-Path $taskRoot "Jellyfin.Plugin.PreTranscode/Jellyfin.Plugin.PreTranscode.csproj"
@@ -45,7 +45,7 @@ New-Item -ItemType Directory -Path $taskLicenses -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $taskRoot "licenses/hdr10plus_tool-MIT.txt"), (Join-Path $taskRoot "licenses/MKVToolNix-GPL-2.0.txt"), (Join-Path $taskRoot "licenses/dovi_tool-MIT.txt") -Destination $taskLicenses
 $taskMeta = [ordered]@{
     category = "General"
-    changelog = "Manual batches now admit compatible HDR10, HDR10+ and Dolby Vision 8.1 movies, processed one at a time. Minimum size, format opt-ins and all full-file checks retained. Automatic HDR stays blocked; automatic compression and experimental HDR remain disabled by default."
+    changelog = "Rules for removed libraries are inactive instead of blocking all movie reviews. The folder panel identifies inactive rules; current-library exclusions and per-movie library checks remain enforced. No settings migration or compression changes."
     description = "Compress movies while retaining originals temporarily and preserving Jellyfin item identity."
     guid = "274af2b7-724c-41e9-82e7-56c3e80139c1"
     name = "Jellyfin Compressor"

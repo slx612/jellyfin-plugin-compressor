@@ -57,6 +57,22 @@ test('opening the page shows movies and their media facts without a search or an
     assert.match(rendered, /2160p/);
 });
 
+test('removed library rules are shown as inactive without blocking current movie selection', async () => {
+    const config = { ...savedConfig, IncludedFolders: ['/movies', '/retired-movies'], ExcludedFolders: ['/retired-series'] };
+    const ui = panel(async route => route === 'Configuration' ? config : route === 'Catalog' ? {
+        Items: [catalogMovie], Folders: [{ Name: 'Películas', Path: '/movies' }]
+    } : route === 'FolderStatus' ? [{ Path: '/movies', Movies: 1 }] : []);
+    await ui.load();
+
+    assert.match(ui.element('jcSelectionWarningText').textContent, /inactivas/i);
+    assert.match(ui.element('jcSelectionWarningText').textContent, /\/retired-series/);
+    assert.match(text(ui.element('jcIncludes')), /retired-movies.*inactiva/i);
+    assert.match(text(ui.element('jcExcludes')), /retired-series.*inactiva/i);
+    assert.doesNotMatch(text(ui.element('jcMovieResults')), /retired-series|retired-movies/);
+    ui.element('jcSelectVisible').onclick();
+    assert.equal(ui.element('jcReviewSelection').disabled, false);
+});
+
 test('selecting on different filtered views keeps only those movies and requires a fresh review after a change', async () => {
     const other = { ...catalogMovie, Id: 'movie-2', Name: 'Dune', Path: '/movies/Dune.mkv', Format: 'SDR' };
     const calls = [];
